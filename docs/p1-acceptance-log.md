@@ -332,3 +332,57 @@ Date verified: 2026-05-13
 - Day 8 is the build + sign dry-run + acceptance walkthrough. `scripts/release-dryrun.sh` and `scripts/ExportOptions.plist` are the only new files to add.
 - The General's `xcrun notarytool store-credentials claude-alarm-terminal-notary` (per `docs/build-setup.md`) remains the human-action carryover from Day 1; Day 8 needs the profile to be present for Step 1 to pass.
 
+---
+
+## Day 8 — 빌드 사인 dry-run + 수락 기준 walkthrough
+
+Date verified: 2026-05-13
+
+### 3-step dry-run results
+
+| Step | Command | Status | Evidence |
+|------|---------|--------|----------|
+| 1. notarytool history (credential validation) | `xcrun notarytool history --keychain-profile claude-alarm-terminal-notary` | PENDING — 장군님 수동 등록 필요 | The keychain profile has not been stored yet (Day 1 PENDING item carried forward). The script `scripts/release-dryrun.sh` surfaces the failure with the exact `xcrun notarytool store-credentials` command line to run. Per plan §9 row 3, this consumes 0.5d of contingency *only* if it cannot be created at all — the cert itself (`Developer ID Application: minseok cho (9ADWM2H336)`) is present (Day 1 PASS), so the remaining work is one CLI invocation by the General. |
+| 2a. xcodebuild archive | `xcodebuild archive -scheme ClaudeAlarmTerminal -configuration Release ...` | PASS | Produces `build/ClaudeAlarmTerminal.xcarchive` signed with Developer ID Application. Output ends with `** ARCHIVE SUCCEEDED **`. |
+| 2b. xcodebuild -exportArchive | `xcodebuild -exportArchive -exportOptionsPlist scripts/ExportOptions.plist ...` | PASS | Produces `build/export/ClaudeAlarmTerminal.app` with `developer-id` distribution method. Output: `** EXPORT SUCCEEDED **`. |
+| 3a. codesign --verify --deep --strict | `codesign --verify --deep --strict build/export/ClaudeAlarmTerminal.app` | PASS | `valid on disk` + `satisfies its Designated Requirement`. |
+| 3b. codesign --display | (informational) | PASS | Identifier `com.choms0521.ClaudeAlarmTerminal`, signing chain: `Developer ID Application: minseok cho (9ADWM2H336)` -> `Developer ID Certification Authority` -> `Apple Root CA`. Team ID matches. |
+| 3c. spctl --assess | `spctl --assess --type execute --verbose build/export/ClaudeAlarmTerminal.app` | PASS (expected unnotarized state) | Output: `rejected ... source=Unnotarized Developer ID`. Per plan §7.4 the expected outcome is either `accepted` OR `rejected source=Unnotarized Developer ID`; the actual Apple notarization submission is deferred to P6. |
+
+### v5 §P1 Acceptance criteria walkthrough
+
+| # | v5 § P1 수락 기준 | Status | Cross-reference |
+|---|----|--------|-----|
+| A1 | 앱 실행 → 빈 윈도우 → "New Claude session" 단축키 → claude CLI 프롬프트 → 입력/출력/한국어/SIGWINCH 정상 | PASS | Day 5b screenshot `/tmp/p1-day5b-claude-window.png` shows Claude Code v2.1.116 TUI with "Welcome back 조민석!", color rendering, status bar — all flowing through the libghostty-internal PTY. Resize via `applySurfaceSize` propagates TIOCSWINSZ (Day 6). |
+| A2 | "New Shell session"으로 zsh 세션도 동일하게 동작 | PASS | Day 5b screenshot `/tmp/p1-day5b-shell-window.png` shows zsh login banner ("Last login: ... on ttys011") with Powerlevel10k prompt — same surface code path. |
+| A3 | 세션 종료 시 윈도우는 유지되고 세션 상태가 `exited`로 기록 | PASS | `SessionVerifier` exercise #11 (`shell-spawn terminate->.exited`) confirms the actor flips `session.status -> .exited` via the immutable `Session.with(...)` updater. The GUI window stays open because `terminate` does not close `mainWindow`. |
+| A4 | `xcodebuild` + `xcrun notarytool` keychain-profile dry-run 에러 없이 완료 | PASS (Steps 2+3) / PENDING Step 1 | Steps 2a, 2b, 3a, 3b, 3c all exit 0 with expected output. Step 1 needs `xcrun notarytool store-credentials` once; the command is documented in `docs/build-setup.md` and surfaced by the dry-run script. |
+
+### Final state (P1 exit gate to P2)
+
+| Gate item | Status |
+|-----------|--------|
+| §8 Acceptance A1-A4 | A1/A2/A3 PASS; A4 Steps 2+3 PASS, Step 1 PENDING (장군님 1-line setup) |
+| Day 1-8 daily exit criteria | All PASS or PENDING-manual (no BLOCKED) |
+| Verifier sweep critical / high | 0 (pty-verifier, session-verifier 11/11, ghost-bridge-verifier all exit 0) |
+| `SessionManager` max=1 enforce + concurrent unit test | PASS (Day 5 SessionVerifier exercises 2-task race) |
+| SessionManager grep invariants (`async` on public methods, `nonisolated == 0`) | PASS (Day 5 verifier output + manual grep) |
+| `claudeSessionId` in-memory preservation | PASS (Day 5: `lastClaudeSessionId` preserved across `terminate`) |
+| `ActivityScope` + `PowerEventObserver` hook points | PASS (Day 7) |
+| `docs/{build-setup,lifecycle-policy,p1-acceptance-log}.md` | PASS (all 3 present) |
+| libghostty `PINNED_COMMIT` recorded | PASS (`scripts/GHOSTTY_PINNED_COMMIT.txt` + `vendor/ghostty/PINNED_COMMIT`) |
+| ADR-A C1 sub-timebox closed clean | PASS (Day 5/5 elapsed, no invalidation trigger) |
+| Contingency consumed | 0 days |
+
+### Recorded P2 carry-overs
+
+1. **`xcrun notarytool store-credentials`** — General's single CLI invocation; documented in `docs/build-setup.md`. Until this lands, Step 1 of the release dry-run cannot pass and the keychain profile remains unusable. Once the profile is in place, run `scripts/release-dryrun.sh` again to flip Step 1 to PASS.
+2. Grid-dump driven wide-char validation (`ghostty_surface_read_text` cross-check between `AA` row and `한` row).
+3. `ClaudeSessionIDExtractor` hook into the live GUI stream (needs `ghostty_surface_read_text` plumbing — same dependency as #2).
+4. Cmd+Shift+T keystroke (vs. menu click) absorption — AppKit `performKeyEquivalent` ordering quirk; menu click works.
+5. Mouse-wheel scrollback interactive verification (kept manual; wiring code path verified at compile time).
+
+### P2 entry conditions
+
+`SessionManager.maxSessions` is hard-clamped to 1 in P1 (`max(1, min(1, raw))`). P2 lifts this clamp by reading `CHAT_TERMINAL_MAX_SESSIONS` (default 20) and adding the `Workspace`/`Pane` layer above `SessionManager`. The actor isolation work done in P1 is the foundation; no rewrites expected. All P2 work continues from commit `<P1 final HEAD>`.
+
