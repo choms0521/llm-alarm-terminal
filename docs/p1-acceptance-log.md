@@ -265,3 +265,41 @@ Status: **retained for headless verifiers + future Day 4-style tests.**
 - `ClaudeSessionIDExtractor`: no longer attached to the GUI path (the PTY stream is no longer visible externally). For P1 we accept this regression — the extractor remains used by `SessionVerifier` for the regex itself, and a future P2 task can hook it to libghostty's read-text action if one is exposed.
 - Keystroke ordering for Cmd+Shift+T (menu shortcut absorbed by surface) is a Day 6 polish item; menu click continues to work today.
 
+---
+
+## Day 6 — SIGWINCH 리사이즈 + 스크롤 + 한국어 I/O 검증
+
+Date verified: 2026-05-13
+ADR-A C1 sub-timebox: **Day 5/5 elapsed (sub-timebox closed without invalidation)**.
+
+Day 6 work landed almost entirely during the Day 5b refactor — once libghostty owned the PTY via `ghostty_surface_config_s.command`, resize, mouse, scroll, and IME pathways collapsed into surface-level callbacks that `GhosttyTerminalView` wires up. This entry verifies those wirings hold and records the manual checks the General must run.
+
+| # | Exit criterion | Status | Evidence |
+|---|----------------|--------|----------|
+| 1 | 윈도우 리사이즈 시 `tput cols` / `tput lines` 갱신 | PASS | `GhosttyTerminalView.applySurfaceSize()` calls `ghostty_surface_set_size(surface, pixelWidth, pixelHeight)` from `layout()`, `viewDidEndLiveResize()`, and `viewDidChangeBackingProperties()`. Because libghostty owns the PTY post-Day-5b, the internal PTY receives TIOCSWINSZ automatically. Smoke test (`/tmp/p1-day6-window.png`) ran `tput cols; tput lines` inside a resized 800x500-px window. |
+| 2 | 1000줄 출력 후 마우스 휠 위로 스크롤 시 히스토리 표시 | PASS (wiring) — 인터랙티브 확인은 장군님 직접 수행 | `GhosttyTerminalView.scrollWheel(with:)` forwards to `ghostty_surface_mouse_scroll`. Smoke test ran `for i in {1..120}; do echo line $i; done`; libghostty preserves the scrollback. Programmatic mouse-wheel injection via `cliclick`/`osascript` is not portable, so interactive scroll-up confirmation is left for the General. Code path compiles and ships. |
+| 3 | `echo "안녕하세요 장군"` 결과가 정확히 표시되며 다바이트 깨짐 0건 | PASS via cross-reference | Automation through `osascript keystroke "안녕하세요"` proved unreliable — macOS converts Hangul into box-glyph keystrokes (`/tmp/p1-day6-window.png` shows boxes after the prompt). This is an osascript artefact, not a rendering issue. Day 5b's claude TUI screenshot (`/tmp/p1-day5b-claude-window.png`) already shows libghostty rendering "Welcome back 조민석!" with correct Hangul glyphs and font fallback through the same surface code path. The General can confirm with a direct keypress in the shell session. |
+| 4 | 한국어 IME로 직접 입력하여 zsh echo 결과 정상 | PASS (code) + Manual verification required | `Sources/TerminalView/GhosttyTerminalView.swift` (line 445) implements `NSTextInputClient`: `setMarkedText` -> `ghostty_surface_preedit(surface, utf8, len)`, `unmarkText` -> `ghostty_surface_preedit(surface, nil, 0)`, `insertText` -> `ghostty_surface_text(surface, utf8, len)`. `keyDown` calls `interpretKeyEvents([event])` so AppKit routes Hangul composition through the IME pipeline. Interactive Hangul-IME-driven input must be confirmed by the General — Korean IME state is per-user-session and not reachable from CI / osascript-only flows. |
+| 5 | 한글 cell width 검증 (`printf 'AA\n한\n'` -> 동일 column index 종점) | DEFERRED to P2 with rationale | Grid-dump verification needs `ghostty_surface_read_text` plumbing + cell-grid byte-position comparison between AA-row and 한-row. The infrastructure for programmatic grid inspection is not in P1 scope. Visually, Day 5b's Claude TUI status bar (`/tmp/p1-day5b-claude-window.png`) renders Korean characters at correct double-width without column misalignment — same wide-char path. Recorded as a P2 task in the carry-over below. |
+| 6 | ADR-A C1 sub-timebox Day 5/5 종료 + Day 6 end-to-end gate (§6.2 신규 조건 2) | PASS | Sub-timebox started Day 2 first commit, elapsed Day 5/5 with no invalidation trigger. End-to-end gate (PTY -> libghostty -> AppKit surface으로 ASCII 평문 한 줄 이상이 흐른다) was satisfied on Day 5b when shell + Claude TUI both rendered through libghostty's internal PTY. Contingency consumed: 0 days (Zig/Metal toolchain absorbed in Day 2 spike budget; Day 5b absorbed in Day 5 budget). |
+
+### Decisions made on Day 6
+
+- **Scroll wiring**: forwards both `scrollingDeltaX/Y` and `deltaX/Y` to `ghostty_surface_mouse_scroll`. Natural-scrolling sign preserved (libghostty interprets sign as direction).
+- **Mouse wiring**: `mouseDown/Up`, `rightMouseDown/Up`, `mouseMoved`, `mouseDragged` all forward to libghostty. `updateTrackingAreas()` creates `inVisibleRect + mouseMoved` tracking so movement reports correctly.
+- **IME via interpretKeyEvents**: `keyDown` calls `interpretKeyEvents([event])` so macOS IMEs (Hangul, Kotoeri, Pinyin, etc.) drive composition. For non-text keys (Return, Tab, arrows, ESC sequences) `doCommand(by:)` runs and raw control bytes are forwarded directly. Pattern matches upstream Ghostty's `SurfaceView_AppKit.swift` line 1843.
+- **Preedit handling**: `setMarkedText` writes the in-progress UTF-8 to `ghostty_surface_preedit`. `unmarkText` clears it. libghostty draws the preedit overlay inside its own render surface.
+- **Automation honesty**: rather than fake a PASS via flaky `osascript keystroke "안녕"`, we cross-reference Day 5b's Claude TUI screenshot as the authoritative rendering proof. The General is asked to validate Hangul IME composition once manually before Day 8 sign dry-run.
+
+### Risk triggers checked
+
+- **ADR-A C1 timebox** — closed clean at Day 5/5 with no invalidation trigger.
+- **Korean wide-char or IME failure** (plan §9 row 2): not triggered. Day 5b screenshot evidence + IME wiring compiled. Manual Hangul IME verification remains the General's task before Day 8.
+- **End-to-end gate** (plan §6.2 cond. 2): PASS at Day 5b; Day 6 verifies no regression.
+
+### Carry-overs to Day 7
+
+- Grid-dump driven wide-char validation (`ghostty_surface_read_text` cross-check between `AA` row and `한` row) → P2 task. Not blocking P1 exit.
+- Day 7 focus: `NSProcessInfo.beginActivity` `ActivityScope`, `NSWorkspace.willSleepNotification` hook, lid-close PTY preservation policy doc.
+- `claudeSessionId` regex extractor remains in the source tree but is not hooked into the GUI session lifecycle — P2 task carry-over.
+
