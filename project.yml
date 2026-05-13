@@ -52,6 +52,19 @@ targets:
       path: Resources/ClaudeAlarmTerminal.entitlements
       properties:
         com.apple.security.app-sandbox: false
+        com.apple.security.cs.disable-library-validation: true
+    dependencies:
+      - framework: Frameworks/GhosttyKit.xcframework
+        embed: false
+      - sdk: Carbon.framework
+      - sdk: IOSurface.framework
+      - sdk: Metal.framework
+      - sdk: MetalKit.framework
+      - sdk: CoreText.framework
+      - sdk: CoreGraphics.framework
+      - sdk: QuartzCore.framework
+      - sdk: AVFoundation.framework
+      - sdk: UserNotifications.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.choms0521.ClaudeAlarmTerminal
@@ -60,12 +73,48 @@ targets:
         GENERATE_INFOPLIST_FILE: "NO"
         INFOPLIST_FILE: Resources/Info.plist
         CODE_SIGN_ENTITLEMENTS: Resources/ClaudeAlarmTerminal.entitlements
+        FRAMEWORK_SEARCH_PATHS:
+          - "$(PROJECT_DIR)/Frameworks"
+        OTHER_LDFLAGS: "-lc++"
+        CLANG_CXX_LIBRARY: libc++
       configs:
         Debug:
           CODE_SIGN_IDENTITY: "-"
           OTHER_SWIFT_FLAGS: "-D DEBUG"
         Release:
           CODE_SIGN_IDENTITY: "Developer ID Application"
+
+  GhostBridgeVerifier:
+    type: tool
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Sources/GhostBridgeVerifier
+    dependencies:
+      - framework: Frameworks/GhosttyKit.xcframework
+        embed: false
+      - sdk: Carbon.framework
+      - sdk: IOSurface.framework
+      - sdk: Metal.framework
+      - sdk: MetalKit.framework
+      - sdk: CoreText.framework
+      - sdk: CoreGraphics.framework
+      - sdk: QuartzCore.framework
+      - sdk: AVFoundation.framework
+      - sdk: UserNotifications.framework
+    settings:
+      base:
+        PRODUCT_NAME: ghost-bridge-verifier
+        CODE_SIGN_STYLE: Manual
+        FRAMEWORK_SEARCH_PATHS:
+          - "$(PROJECT_DIR)/Frameworks"
+        OTHER_LDFLAGS: "-lc++"
+        CLANG_CXX_LIBRARY: libc++
+      configs:
+        Debug:
+          CODE_SIGN_IDENTITY: "-"
+        Release:
+          CODE_SIGN_IDENTITY: "-"
 
 schemes:
   ClaudeAlarmTerminal:
@@ -76,3 +125,9 @@ schemes:
       config: Debug
     archive:
       config: Release
+  GhostBridgeVerifier:
+    build:
+      targets:
+        GhostBridgeVerifier: all
+    run:
+      config: Debug
