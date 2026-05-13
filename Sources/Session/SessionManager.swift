@@ -32,6 +32,11 @@ public actor SessionManager {
     public private(set) var lastClaudeSessionId: String?
     private let maxSessions: Int
 
+    /// Held while at least one session exists. Released once every session
+    /// reaches `.exited`. Day 7 wiring: keeps the PTY reader resilient to
+    /// App Nap throttling. See `Sources/Lifecycle/ActivityScope.swift`.
+    private var activityScope: ActivityScope?
+
     /// Override knob for tests. Pass `nil` to read `CHAT_TERMINAL_MAX_SESSIONS`
     /// from the process environment (default behavior in production).
     public init(maxSessionsOverride: Int? = nil) {
@@ -102,6 +107,7 @@ public actor SessionManager {
             cwd: cwd
         )
         sessions[session.id] = session
+        ensureActivityScope()
         return session
     }
 
@@ -128,7 +134,24 @@ public actor SessionManager {
             cwd: cwd
         )
         sessions[session.id] = session
+        ensureActivityScope()
         return session
+    }
+
+    /// Acquire an `ActivityScope` if none is currently held. Called from both
+    /// `create` paths so the App Nap protection wakes up alongside the first
+    /// session and releases when `terminate` drops the last running session.
+    private func ensureActivityScope() {
+        if activityScope == nil {
+            activityScope = ActivityScope(reason: "PTY session active")
+        }
+    }
+
+    /// Drop the scope once every tracked session has exited.
+    private func releaseActivityScopeIfIdle() {
+        if sessions.values.allSatisfy({ $0.status == .exited }) {
+            activityScope = nil
+        }
     }
 
     /// Tears down a session: SIGTERM, 1-second grace, SIGKILL, then close the
@@ -165,6 +188,7 @@ public actor SessionManager {
             lastClaudeSessionId = claudeId
         }
         sessions[id] = existing.with(status: .exited)
+        releaseActivityScopeIfIdle()
     }
 
     /// Drops a session record entirely (after `terminate`, typically).

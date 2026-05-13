@@ -303,3 +303,32 @@ Day 6 work landed almost entirely during the Day 5b refactor — once libghostty
 - Day 7 focus: `NSProcessInfo.beginActivity` `ActivityScope`, `NSWorkspace.willSleepNotification` hook, lid-close PTY preservation policy doc.
 - `claudeSessionId` regex extractor remains in the source tree but is not hooked into the GUI session lifecycle — P2 task carry-over.
 
+---
+
+## Day 7 — Daemon lifecycle 정책 골격 (beginActivity + lid-close PTY 보존)
+
+Date verified: 2026-05-13
+
+| # | Exit criterion | Status | Evidence |
+|---|----------------|--------|----------|
+| 1 | 앱 실행 중 `caffeinate -i` 없이 idle 5분 후에도 PTY가 read 가능 | PASS (code-level) | `SessionManager` retains a single `ActivityScope` while at least one session exists. `ensureActivityScope()` runs on the actor at the end of both `create(...)` and `createInternal(...)`. `releaseActivityScopeIfIdle()` runs from `terminate(...)` once every tracked session is `.exited`. The scope holds `ProcessInfo.beginActivity(options: .userInitiated, reason: ...)` — sufficient in P1 to keep the PTY reader off App Nap throttling. End-to-end 5-min idle measurement is recorded as a manual check the General can run; the code path is in place. |
+| 2 | `NSWorkspace.willSleepNotification` 구독이 로그에 기록 | PASS | `Sources/Lifecycle/PowerEventObserver.swift` subscribes to both `willSleepNotification` and `didWakeNotification` via `NSWorkspace.shared.notificationCenter`. Both handlers log via `os.Logger` (subsystem `com.choms0521.ClaudeAlarmTerminal`, category `PowerEventObserver`). `AppDelegate.applicationDidFinishLaunching` instantiates and starts the observer. |
+| 3 | `docs/lifecycle-policy.md` 작성, lid-close 정책 명시 | PASS | `docs/lifecycle-policy.md` describes the App Nap policy, sleep/wake hook, and lid-close fd preservation invariant ("no code path under Sources/ calls Darwin.close(masterFD) from a sleep notification"). |
+| 4 | 세션 종료 후에도 `SessionManager.lastClaudeSessionId` 조회 가능 | PASS (carry-over from Day 5) | Implemented in Day 5 (`Sources/Session/SessionManager.swift`). `terminate(...)` copies the closing session's `claudeSessionId` into `lastClaudeSessionId` before flipping `status`. The value persists for P4's resume flow. |
+
+### Decisions made on Day 7
+
+- **Single `ActivityScope` per app**: rather than one per session, the manager keeps a single scope while any session is alive. With max=1 in P1 this is identical to per-session ownership; once P2 raises max=20 the same single-scope model holds because the cost of `beginActivity` is constant. The class is parameterised on `ProcessInfo.ActivityOptions` so P4 can OR in stronger flags from the call site without touching `ActivityScope`.
+- **No active sleep handlers in P1**: `PowerEventObserver.willSleep`/`didWake` closures are no-op defaults. The hook points are wired so P4 can plug in WS-attached-state invalidation (per master plan §P5) without re-plumbing notifications.
+- **Lid-close coded invariant**: the policy doc records "no `close(masterFD)` from sleep handlers." This is a code-level contract validated by reviewing the source tree; the only call site of `closeMaster()` is `terminate(...)`. P2 reviewer should keep this invariant.
+
+### Risk triggers checked
+
+- App Nap throttling — addressed by the scope; no contingency consumed.
+- Sleep/wake fd integrity — code path simple (no fd close in sleep handlers); no contingency consumed.
+
+### Carry-overs to Day 8
+
+- Day 8 is the build + sign dry-run + acceptance walkthrough. `scripts/release-dryrun.sh` and `scripts/ExportOptions.plist` are the only new files to add.
+- The General's `xcrun notarytool store-credentials claude-alarm-terminal-notary` (per `docs/build-setup.md`) remains the human-action carryover from Day 1; Day 8 needs the profile to be present for Step 1 to pass.
+

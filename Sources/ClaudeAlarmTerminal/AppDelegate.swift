@@ -15,6 +15,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let sessionManager = SessionManager()
     private var currentSessionID: UUID?
 
+    /// Day 7 lifecycle hook. P1 keeps the body of the will-sleep / did-wake
+    /// handlers empty (logs only) — P4 will invalidate WS-attached state and
+    /// arm push fallback here. See `docs/lifecycle-policy.md`.
+    private let powerObserver = PowerEventObserver()
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         let contentRect = NSRect(x: 0, y: 0, width: 960, height: 600)
         let styleMask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
@@ -45,6 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.mainWindow = window
 
         configureMainMenu()
+        powerObserver.start()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

@@ -31,6 +31,7 @@ targets:
       - path: Sources/TerminalView
       - path: Sources/PTY
       - path: Sources/Session
+      - path: Sources/Lifecycle
     resources:
       - path: Resources
         excludes:
