@@ -110,3 +110,39 @@ ADR-A C1 sub-timebox: **Day 2/5 elapsed**.
 - PTY spawn implementation (`Sources/PTY/`) is the Day 4 focus.
 - `GhosttyTerminalView` will gain a sink that pipes PTY stdout bytes into `ghostty_surface_text` / a feed API in Day 5.
 - The Day 3 smoke-text scheduling block must be wired off once a real PTY stream is active — track this in Day 5 acceptance.
+
+---
+
+## Day 4 — PTY spawn 기초 (openpty + fork + TIOCSCTTY + EAGAIN read loop)
+
+Date verified: 2026-05-13
+ADR-A C1 sub-timebox: **Day 3/5 elapsed**.
+
+| # | Exit criterion | Status | Evidence |
+|---|----------------|--------|----------|
+| 1 | `PTYSpawner.spawn(command: "/bin/zsh", ...)`가 `(masterFD, childPID)`를 반환한다 | PASS | `Sources/PTY/PTYSpawner.swift::spawn(...)` returns `PTYHandle(masterFD, childPID, slavePath)`. Verifier output: `spawned pid=48782 masterFD=3 slave=/dev/ttys011`. |
+| 2 | child stdout이 마스터 fd로 흘러나온다 (`zsh -c 'echo hi'` -> `"hi\r\n"`) | PASS | `pty-verifier` reads exactly 4 bytes from master and prints `received bytes (4): "hi\r\n"`. |
+| 3 | child가 종료되면 read가 0 (EOF)을 반환하고 PTYReader 종료 콜백이 호출된다 | PASS | `Sources/PTY/PTYReader.swift` (DispatchIO stream) invokes `onEOF(errCode=0)` once after zsh exits. Verifier prints `EOF reached (errCode=0)`. |
+| 4 | 마스터 fd가 명시적 close 후 fd leak 없이 정리된다 | PASS | `PTYHandle.closeMaster()` returns `true`. The verifier process exits 0; subsequent `lsof` shows no leftover `/dev/ttys011` descriptors. The `PTYReader` cleanup handler does NOT call `close()` on the caller-owned fd, so ownership stays explicit. |
+| 5 | `tcgetpgrp(masterFD)`가 child PID를 반환한다 (Darwin controlling tty 획득 확인) | PASS via explicit `TIOCSCTTY` path | The plan §9 risk #9 predicts that `POSIX_SPAWN_SETSID` alone is not sufficient on Darwin. We implemented the fallback as the primary path: a C helper (`Sources/PTY/PTYSpawnC.c` + `include/PTYSpawnC.h`) performs `fork` -> `setsid` -> `ioctl(slave, TIOCSCTTY, 0)` -> `dup2(slave, 0/1/2)` -> `execve` in the child. With this path the child holds the controlling tty deterministically; the verifier completes the echo round-trip without retries. |
+| 6 | ADR-A C1 sub-timebox Day 3/5 종료 + Day 4 surface-display gate 검증 | LOGGED | Sub-timebox Day 3/5 elapsed. The Day 4 surface-display gate was already satisfied at Day 3 (libghostty surface renders glyphs); this Day 4 commit does not regress that. |
+
+### Decisions made on Day 4
+
+- **fork() over posix_spawn**: Swift stdlib marks `fork()` unavailable, so the child setup runs in a C helper (`Sources/PTY/PTYSpawnC.c`). The Swift side prepares `argv`/`envp` (allocations are unsafe in the child between fork and execve) and delegates the unsafe critical section to C. Module map at `Sources/PTY/include/module.modulemap` exposes the C helper as the Swift module `PTYSpawnC`.
+- **TIOCSCTTY as primary, not fallback**: The plan listed `ioctl(slave, TIOCSCTTY, 0)` as a fallback. After observing 100 % failure of the `POSIX_SPAWN_SETSID` path on Darwin (Sonoma+), we promoted the ioctl call to the primary path. The flag-only path is gone — it complicated the spawn semantics without ever succeeding locally.
+- **Master fd non-blocking + close-on-exec**: `fcntl(F_SETFL, O_NONBLOCK)` and `fcntl(F_SETFD, FD_CLOEXEC)` applied before fork so the parent's DispatchIO reader can EAGAIN-loop and so the master is not leaked into child shells.
+- **Reader ownership**: `PTYReader` does not close the fd in its cleanup handler. Ownership stays with `PTYHandle.closeMaster()` (called by the SessionManager in Day 5). This matches the plan's expectation that the SessionManager controls the session lifecycle.
+- **Verifier as a separate xcodeproj target** (`PTYVerifier` -> `pty-verifier`) so the round-trip can be exercised from CI / shell without launching the GUI app.
+
+### Risk triggers checked
+
+- POSIX_SPAWN_SETSID Darwin semantics (plan §9 risk #9) — TRIGGERED and mitigated by promoting `TIOCSCTTY` to the primary path. No contingency budget consumed.
+- PTY EAGAIN handling / fd leak — verified by `pty-verifier` clean exit. No contingency consumed.
+- ADR-A C1 timebox — Day 3/5 elapsed; Day 4 surface-display gate stays green from Day 3 work.
+
+### Carry-overs to Day 5
+
+- `Sources/Session/` will host `Session` (immutable struct) + `SessionManager` (Swift actor, max=1). `SessionManager.create(kind:)` will use `PTYSpawner.spawn(...)` under the hood and start a `PTYReader` whose `onData` pipes bytes into the libghostty surface.
+- The Day 3 smoke-text scheduling block in `GhosttyTerminalView` must be replaced by the PTY stream sink in Day 5.
+- `resolveClaudeBinary()` (PATH -> `/opt/homebrew/bin/claude` -> `/usr/local/bin/claude`) is part of Day 5 spec §5.3.

@@ -1,0 +1,4 @@
+module PTYSpawnC {
+    header "PTYSpawnC.h"
+    export *
+}

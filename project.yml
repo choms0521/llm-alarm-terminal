@@ -29,6 +29,7 @@ targets:
     sources:
       - path: Sources/ClaudeAlarmTerminal
       - path: Sources/TerminalView
+      - path: Sources/PTY
     resources:
       - path: Resources
         excludes:
@@ -78,12 +79,37 @@ targets:
           - "$(PROJECT_DIR)/Frameworks"
         OTHER_LDFLAGS: "-lc++"
         CLANG_CXX_LIBRARY: libc++
+        HEADER_SEARCH_PATHS:
+          - "$(SRCROOT)/Sources/PTY/include"
+        SWIFT_INCLUDE_PATHS:
+          - "$(SRCROOT)/Sources/PTY/include"
       configs:
         Debug:
           CODE_SIGN_IDENTITY: "-"
           OTHER_SWIFT_FLAGS: "-D DEBUG"
         Release:
           CODE_SIGN_IDENTITY: "Developer ID Application"
+
+  PTYVerifier:
+    type: tool
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Sources/PTY
+      - path: Sources/PTYVerifier
+    settings:
+      base:
+        PRODUCT_NAME: pty-verifier
+        CODE_SIGN_STYLE: Manual
+        HEADER_SEARCH_PATHS:
+          - "$(SRCROOT)/Sources/PTY/include"
+        SWIFT_INCLUDE_PATHS:
+          - "$(SRCROOT)/Sources/PTY/include"
+      configs:
+        Debug:
+          CODE_SIGN_IDENTITY: "-"
+        Release:
+          CODE_SIGN_IDENTITY: "-"
 
   GhostBridgeVerifier:
     type: tool
@@ -118,6 +144,12 @@ targets:
           CODE_SIGN_IDENTITY: "-"
 
 schemes:
+  PTYVerifier:
+    build:
+      targets:
+        PTYVerifier: all
+    run:
+      config: Debug
   ClaudeAlarmTerminal:
     build:
       targets:
