@@ -2,6 +2,8 @@ import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var mainWindow: NSWindow?
+    private var ghosttyApp: GhosttyApp?
+    private var terminalView: GhosttyTerminalView?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let contentRect = NSRect(x: 0, y: 0, width: 960, height: 600)
@@ -15,6 +17,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.title = "Claude Alarm Terminal"
         window.minSize = NSSize(width: 480, height: 320)
         window.center()
+
+        // Day 3: instantiate libghostty app + surface and attach as the
+        // window content view. If the app fails to construct we leave the
+        // empty window in place so the launch still produces something
+        // visible for debugging.
+        if let app = GhosttyApp() {
+            let view = GhosttyTerminalView(app: app, frame: contentRect)
+            window.contentView = view
+            window.makeFirstResponder(view)
+            self.ghosttyApp = app
+            self.terminalView = view
+        }
+
         window.makeKeyAndOrderFront(nil)
         self.mainWindow = window
 

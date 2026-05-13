@@ -28,6 +28,7 @@ targets:
     deploymentTarget: "14.0"
     sources:
       - path: Sources/ClaudeAlarmTerminal
+      - path: Sources/TerminalView
     resources:
       - path: Resources
         excludes:

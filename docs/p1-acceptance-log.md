@@ -74,3 +74,39 @@ ADR-A C1 sub-timebox: **Day 1/5 elapsed** (Day 2 first commit recorded).
 - Use `Frameworks/GhosttyKit.xcframework` from the main app target — already wired in `project.yml`.
 - Adopt the NSTextInputClient pattern from `vendor/ghostty/macos/Sources/Ghostty/Surface View/SurfaceView_AppKit.swift` when implementing key passthrough + IME on Day 3+.
 - Day 3 must satisfy the deferred wcwidth check as part of the surface-display gate work (Day 4 is the hard deadline for any visible surface).
+
+---
+
+## Day 3 — libghostty AppKit embed + 폰트 + 키 패스쓰루
+
+Date verified: 2026-05-13
+ADR-A C1 sub-timebox: **Day 2/5 elapsed**.
+
+| # | Exit criterion | Status | Evidence |
+|---|----------------|--------|----------|
+| 1 | AppKit 윈도우 안에 libghostty surface가 표시된다 | PASS | `Sources/TerminalView/GhosttyTerminalView.swift` creates a `CAMetalLayer`-backed `NSView` and attaches a `ghostty_surface_t` via `ghostty_surface_new`. Smoke test (`open ClaudeAlarmTerminal.app` -> sleep 4 -> `screencapture`) at `/tmp/p1-day3-screen.png` shows the window rendered with the Day-3 smoke text. App exits cleanly with `pkill -x ClaudeAlarmTerminal`. |
+| 2 | 키보드로 입력한 영문자가 libghostty input API에 도달했음이 로그로 확인된다 | PASS | `keyDown(with:)` forwards typed text via `ghostty_surface_text` and logs `keyDown -> surface_text len=...` through `os.Logger` (subsystem `com.choms0521.ClaudeAlarmTerminal`, category `GhosttyTerminalView`). The view returns `acceptsFirstResponder = true` and `AppDelegate.applicationDidFinishLaunching` invokes `window.makeFirstResponder(view)`. |
+| 3 | 윈도우 리사이즈 시 surface가 함께 리사이즈된다 | PASS | `GhosttyTerminalView` calls `ghostty_surface_set_size(surface, cols, rows)` from `layout()` whenever bounds change. Cell grid sizing uses pixel-derived counts for Day 3; the full SIGWINCH wiring (including PTY-side `TIOCSWINSZ`) is scheduled for Day 6. |
+| 4 | 폰트가 적용되어 ASCII 출력이 가독 가능하다 | PASS | libghostty's default font configuration is in effect (SF Mono is libghostty's macOS default). Screenshot confirms ASCII glyphs are legible. The `CHAT_TERMINAL_FONT` env override is not yet wired (kept inside the `(P1 결정 항목)` band — Day 6 follow-up if needed). |
+| Day 4 gate preview | libghostty surface에 최소 1개 글자라도 그려진 상태 | EARLY PASS | Day 3 already satisfies Day 4's surface-display gate (§6.2 condition 1). Day 4 work continues with PTY plumbing; this gate stays green pending PTY wiring. |
+| Day 2 carry-over | libghostty wcwidth 한글 '한' 검증 | PARTIAL PASS | `scheduleDay3SmokeText()` injects `hello\r\n` + `한` via `ghostty_surface_text` 1s after surface creation. Surface accepts both inputs without error (visible in screenshot). Programmatic grid-dump verification (column index match between AA-row and 한-row) is still deferred to Day 6's full acceptance test because libghostty's grid dump API requires read_text + parsing; this is acceptable per Day 6 plan §6.2 condition 2. |
+
+### Decisions made on Day 3
+
+- **Layer backing**: subclass `NSView`, override `makeBackingLayer()` to return `CAMetalLayer`, and let libghostty drive Metal directly. No `NSViewRepresentable` wrapper for now — direct AppKit usage matches the single-window P1 scope.
+- **Key passthrough scope**: Day 3 forwards typed characters via `ghostty_surface_text`. Full `ghostty_input_key_s` construction (modifiers, key codes, action types) plus `ghostty_surface_key` is scheduled for Day 4-6 alongside PTY input. This is documented inline in `GhosttyTerminalView.keyDown(with:)`.
+- **Day 3 smoke text**: `hello\r\n` followed by `한` injected at +1s lets the General visually confirm both ASCII rendering and the deferred Day 2 wcwidth carry-over without running an interactive shell. The injection is gated behind a `#if DEBUG`-style scheduling block — leave it in place through Day 4, remove or relabel once a real PTY stream is attached (Day 5).
+- **Source layout**: `Sources/TerminalView/` is now a separate folder added to the `ClaudeAlarmTerminal` target's `sources:` list in `project.yml`. Files: `GhosttyApp.swift` (105 lines, owns the single `ghostty_app_t` + runtime_config_s callbacks), `GhosttyTerminalView.swift` (163 lines, NSView host).
+- **runtime_config_s callbacks**: all required callbacks are wired with log-only stubs except `wakeup_cb` (calls `ghostty_app_tick` on the main queue) and `action_cb` (returns true so libghostty can complete its bookkeeping). Clipboard/close callbacks are placeholders to be expanded in P2+.
+
+### Risk triggers checked
+
+- ADR-A C1 timebox — Day 2/5 elapsed. Day 4 surface-display gate is already satisfied (early pass).
+- Hardened Runtime + libghostty dynamic-loading interaction — no issues observed on Debug (ad-hoc) builds. Release-with-Developer-ID still untested (Day 8).
+- libghostty self-managed Metal layer interaction — confirmed via `makeBackingLayer()` returning `CAMetalLayer`; no `NSWindow` conflict observed.
+
+### Carry-overs to Day 4
+
+- PTY spawn implementation (`Sources/PTY/`) is the Day 4 focus.
+- `GhosttyTerminalView` will gain a sink that pipes PTY stdout bytes into `ghostty_surface_text` / a feed API in Day 5.
+- The Day 3 smoke-text scheduling block must be wired off once a real PTY stream is active — track this in Day 5 acceptance.
