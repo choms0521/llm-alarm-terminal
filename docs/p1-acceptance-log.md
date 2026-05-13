@@ -146,3 +146,122 @@ ADR-A C1 sub-timebox: **Day 3/5 elapsed**.
 - `Sources/Session/` will host `Session` (immutable struct) + `SessionManager` (Swift actor, max=1). `SessionManager.create(kind:)` will use `PTYSpawner.spawn(...)` under the hood and start a `PTYReader` whose `onData` pipes bytes into the libghostty surface.
 - The Day 3 smoke-text scheduling block in `GhosttyTerminalView` must be replaced by the PTY stream sink in Day 5.
 - `resolveClaudeBinary()` (PATH -> `/opt/homebrew/bin/claude` -> `/usr/local/bin/claude`) is part of Day 5 spec §5.3.
+
+---
+
+## Day 5 — SessionManager actor + Session 모델 + end-to-end 연결
+
+Date verified: 2026-05-13
+ADR-A C1 sub-timebox: **Day 4/5 elapsed** (final day of the sub-timebox lands at Day 6).
+
+| # | Exit criterion | Status | Evidence |
+|---|----------------|--------|----------|
+| 1 | `Session` 모델(immutable struct, `with(...)` helper)이 정의됨 | PASS | `Sources/Session/Session.swift` defines `enum SessionKind`, `enum SessionStatus`, `struct Session: Identifiable, Sendable, Equatable` with `id/kind/ptyHandle/cwd/createdAt/status/claudeSessionId` fields and a `with(status:claudeSessionId:)` immutable copier. |
+| 2 | `SessionManager` Swift `actor`(max=1, env `CHAT_TERMINAL_MAX_SESSIONS`로 클램프)가 정의됨 | PASS | `Sources/Session/SessionManager.swift` declares `public actor SessionManager`. `maxSessions = max(1, min(1, raw))` where `raw` reads `CHAT_TERMINAL_MAX_SESSIONS` env var (default 1). `ManagerError.maxSessionsReached` carries the Korean copy `"이번 단계에서는 세션 1개만 허용됩니다."`. |
+| 3 | `create / terminate / get / updateClaudeSessionId` 공개 메서드가 모두 `async` | PASS | `grep -E 'func (create\|terminate\|get\|updateClaudeSessionId)' Sources/Session/SessionManager.swift` returns 4 lines, all annotated `async` (create/terminate/get) or as actor-isolated `func` (updateClaudeSessionId — actor-isolated functions are implicitly async from outside the actor). `grep -c nonisolated Sources/Session/SessionManager.swift` returns 0. |
+| 4 | `resolveClaudeBinary()`가 PATH -> `/opt/homebrew/bin/claude` -> `/usr/local/bin/claude` 순서로 탐색 | PASS | `Sources/Session/BinaryResolver.swift::enumerateClaudeCandidates` walks `$PATH` then the two fallbacks; each candidate is verified by running `--version` with a 2-second hard timeout. `BinaryResolveError.claudeNotFound(searched: [String])` surfaces the search trail for the Korean alert. |
+| 5 | `ClaudeSessionIDExtractor` regex `Session ID: ([0-9a-f-]{36})` 단위 테스트(positive/negative) | PASS | `session-verifier` runs `extractor.match-positive`, `extractor.hasMatched after positive`, `extractor.idempotent`, `extractor.match-negative`, `extractor.no-match-flag` — all 5 OK. UTF-8 buffered scan; once matched the callback fires exactly once and the rolling buffer is dropped. |
+| 6 | 동시 `create()` 호출 시 정확히 1개 성공 + 1개 `maxSessionsReached` | PASS | `session-verifier` runs two `async let` tasks racing `SessionManager.create(kind: .shell, ...)`. Output: `concurrency.exactly-one-success (got: 1)`, `concurrency.exactly-one-rejection (got: 1)`, `concurrency.no-other-errors (got: 0)`. Exit code 0. |
+| 7 | 메뉴 단축키(Cmd+T = New Shell, Cmd+Shift+T = New Claude) 결선 | PASS | `Sources/ClaudeAlarmTerminal/AppDelegate.swift::configureMainMenu` adds a `Session` submenu with `keyEquivalent: "t"` + `[.command]` for shell, `keyEquivalent: "t"` + `[.command, .shift]` for Claude. AppleScript enumeration confirms both items present and enabled. Triggered via `click menu item "New Claude Session"` successfully invoked `newClaudeSession(_:)`. |
+| 8 | Day 3 `scheduleDay3SmokeText` 제거 | PASS | `Sources/TerminalView/GhosttyTerminalView.swift` no longer contains `scheduleDay3SmokeText`. The view now exposes `bindPTY(_:onClaudeSessionID:)` / `unbindPTY()` for PTY attachment. |
+| 9 | Cmd+T로 shell 세션이 띄워지고 zsh 프롬프트가 surface에 표시 | PASS (with caveat — see exit criterion #10) | Screenshot `/tmp/p1-day5-shell.png` shows the libghostty surface rendering `Last login: Wed May 13 16:18:41 on ttys010` followed by the user's interactive zsh prompt (Apple emoji + `~ )` + emoji status bar `system 16:25:49`). The PTY stream IS being delivered into the surface. |
+| 10 | PTY stdout이 libghostty 터미널로 정확히 흘러들어가 ANSI escape sequence가 해석된다 | **BLOCKED — architectural mismatch** | The exit-criteria of the day asked for "stdout bytes piped into `ghostty_surface_text`". Implementation confirms this routes the bytes — but `ghostty_surface_text` treats input as **typed text** (the macOS apprt's `insertText:` analog), so terminal escape sequences are rendered as literal characters rather than parsed. Visual proof: screenshot `/tmp/p1-day5-claude.png` shows raw `[38;2;215;119;87m`, `[1C`, `[39m` ANSI sequences for a real `claude` process instead of the rendered TUI. **Root cause**: libghostty owns its own PTY internally — `ghostty_surface_config_s` exposes a `command: const char*` field (header line 474) and the Ghostty AppKit reference in `vendor/ghostty/macos/Sources/Ghostty/Surface View/SurfaceView.swift:701` sets `config.command = cCommand` before `ghostty_surface_new`. There is no public C ABI to feed PTY bytes externally. **Resolution path (deferred to Day 6 or a Day-5b commit)**: pass `command` into `ghostty_surface_config_s` per-kind and let libghostty manage the PTY; `SessionManager` retains the model but tracks surfaces (or the libghostty-internal PID via `ghostty_surface_foreground_pid`) instead of an externally-owned `PTYHandle`. Day 4's `PTYSpawner` / `PTYReader` remain useful for headless verification (PTYVerifier) but stop being the GUI surface's data source. |
+| 11 | `SessionVerifier` CLI가 SessionManager 동시성 + 셸 스폰 + 익스트랙터 인바리언트 통과 | PASS | Exit code 0. Output enumerated below. Build: `xcodebuild -scheme SessionVerifier ... build` → `** BUILD SUCCEEDED **`. |
+
+### Decisions made on Day 5
+
+- **Immutable `Session.with(...)`**: rather than mutating the struct in the actor's dictionary, we replace the entry. This keeps the model `Sendable` and side-steps any future Swift Concurrency tightening around in-place mutation of stored Sendable values.
+- **Korean `ManagerError` messages**: the description strings are user-facing alert copy. The English wrapping in `CustomStringConvertible.description` makes them logging-friendly while still presenting the Korean text. The plan §5.3 specifies the exact wording for `maxSessionsReached`.
+- **`maxSessions` clamp to 1**: P1 phase is single-session by spec. The clamp `max(1, min(1, raw))` is intentionally aggressive — even `CHAT_TERMINAL_MAX_SESSIONS=4` reduces to 1. P2 will relax this once the multi-surface UI is ready.
+- **PTY ownership boundary discovery (BLOCKER)**: Day 5 verification proved the Day 4 `PTYHandle` cannot be bound externally to a libghostty surface. The Day 4 `PTYSpawner`/`PTYReader` remain the correct primitives for headless verification (`PTYVerifier`, `SessionVerifier`), but the GUI path must pivot to letting libghostty own the PTY via `ghostty_surface_config_s.command`. This is a real architectural deviation from the Day 5 spec — `Session` will likely lose `ptyHandle: PTYHandle` and gain `surface: ghostty_surface_t?` / `foregroundPID: pid_t` in a Day-5b refactor. Recording the contingency draw now so Day 6 budget reflects it.
+- **Menu shortcut keys**: `keyEquivalent: "t"` with `[.command]` / `[.command, .shift]` modifier masks rather than `"T"` (uppercase) for the shifted variant — empirically the uppercase form is not absorbed by AppKit in the same dispatch pass.
+
+### `session-verifier` full output (exit 0)
+
+```
+OK: extractor.match-positive (got: 12345678-1234-1234-1234-1234567890ab)
+OK: extractor.hasMatched after positive
+OK: extractor.idempotent (got: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee)
+OK: extractor.match-negative (got: nil)
+OK: extractor.no-match-flag
+OK: concurrency.exactly-one-success (got: 1)
+OK: concurrency.exactly-one-rejection (got: 1)
+OK: concurrency.no-other-errors (got: 0)
+OK: shell-spawn created pid=72521 masterFD=3
+OK: shell-spawn EOF observed within 3s
+OK: shell-spawn terminate->.exited (got: Optional(session_verifier.SessionStatus.exited))
+ALL OK
+```
+
+### Risk triggers checked
+
+- ADR-A C1 timebox — Day 4/5 elapsed. Day 6 end-to-end gate is now active; the surface-display gate continues to hold.
+- **Architectural deviation from §5.3 spec** — TRIGGERED. The "PTYReader → ghostty_surface_text" pipeline does not produce a parsed terminal. Mitigation pivots to libghostty-managed PTY (Day 6 or Day-5b). Per the plan's contingency policy this consumes a portion of the +1 day reserved for IME work on Day 6; that buffer must be re-evaluated before Day 6 begins.
+- Concurrency invariant (max=1) — verified under direct race.
+
+### Carry-overs to Day 6
+
+- **(Day-5b refactor candidate)**: re-spawn the libghostty surface with `surface_config.command = "/bin/zsh -l"` or the resolved claude path; remove `bindPTY`/`PTYReader` from the GUI path; rewire `Session` to wrap the surface + foreground PID instead of an external `PTYHandle`. Keep `PTYSpawner`/`PTYReader` for verifiers.
+- Plumb `ghostty_surface_foreground_pid` into `Session.foregroundPID` so the lifecycle terminate path can SIGTERM/SIGKILL the in-libghostty child.
+- Move the `ClaudeSessionIDExtractor` callback to a surface read-text hook (or have libghostty surface text streamed via the `action_cb` route, if such a route exists) instead of the PTY reader.
+- Day 6 plan §6.2 conditions (SIGWINCH + scroll + Korean I/O) should drive the surface-internal PTY model — the resize callback already exists on the surface side.
+
+---
+
+## Day 5b — libghostty-internal PTY pivot
+
+Date verified: 2026-05-13
+ADR-A C1 sub-timebox: **Day 4/5 elapsed (no additional day consumed — Day 5b runs inside the Day 5 budget extension)**.
+
+### Discovery summary
+
+Day 5 closed with exit criterion #10 BLOCKED because feeding raw PTY bytes through `ghostty_surface_text(surface, ptr, len)` causes libghostty to interpret them as **typed text** (the macOS apprt's `insertText:` analog), not as a terminal byte stream. The screenshot `/tmp/p1-day5-claude.png` showed literal `[38;2;215;119;87m`, `[1C`, `[39m` ANSI sequences for a real `claude` process instead of the rendered TUI.
+
+Root cause: the C ABI `ghostty_surface_config_s` (header lines 467-480) carries `const char* command`, `const char* working_directory`, `ghostty_env_var_s* env_vars`, `size_t env_var_count`, `const char* initial_input`, `bool wait_after_command`. When `command` is non-NULL, **libghostty spawns the process inside its own internally-managed PTY** and renders the output natively (ANSI codes interpreted by the terminal emulator core). There is no public C ABI to feed PTY bytes externally into a parsed-terminal pipeline.
+
+Day 5b is the architectural correction: the GUI session pipeline pivots to the libghostty-internal PTY. `PTYSpawner`/`PTYReader`/`PTYHandle` remain in `Sources/PTY/*` for headless verifiers + future Day 4-style tests, but stop being the GUI surface's data source.
+
+### Updated exit-criteria mapping for the Day 5 plan (especially #1, #2)
+
+The Day-5-spec items in `docs/plans/p1/p1-detailed.html` Day 5 section map onto the Day 5b model as follows:
+
+| # | Day 5 plan item | Day 5b status | Evidence |
+|---|-----------------|---------------|----------|
+| 1 | `Session` 모델(immutable struct, `with(...)` helper) | PASS — extended | `Sources/Session/Session.swift` adds `enum SessionOrigin { case external, internal }` and makes `ptyHandle: PTYHandle?` optional. `with(...)` helper unchanged. External origin = `PTYSpawner` owns the master fd; internal origin = libghostty owns the PTY. |
+| 2 | `SessionManager` Swift `actor` (max=1, env clamp) + `create / terminate / get / updateClaudeSessionId` | PASS — extended | `create(kind:cwd:rows:cols:)` retained verbatim for headless verifiers. New `createInternal(kind:cwd:)` registers a libghostty-owned session (ptyHandle nil) and goes through the same `maxSessions` invariant. `terminate(id:)` branches on `ptyHandle` presence: external path does SIGTERM/SIGKILL on `handle.childPID`; internal path just flips status since `ghostty_surface_free` will reap libghostty's child. |
+| 7 | 메뉴 단축키 (Cmd+T / Cmd+Shift+T) | PASS — re-verified | Both menu items still wired in `AppDelegate.configureMainMenu`. Day 5b smoke test triggered them via the AppleScript `click menu item` path (the keystroke path is absorbed by libghostty's surface when the surface is first responder — an ergonomic issue for users typing fast enter, deferred to Day 6 follow-up for AppKit `performKeyEquivalent` ordering). |
+| 9 | Cmd+T로 shell 세션이 띄워지고 zsh 프롬프트가 surface에 표시 | PASS | `/tmp/p1-day5b-shell-window.png` shows `Last login: Wed May 13 16:40:44 on ttys011` + the user's interactive zsh prompt + the right-aligned `system 16:40:50` status bar with the correct green colour. |
+| 10 | PTY stdout이 libghostty 터미널로 정확히 흘러들어가 ANSI escape sequence가 해석된다 | PASS (Day 5b resolution) | `/tmp/p1-day5b-claude-window.png` shows the Claude Code v2.1.116 TUI fully rendered: box-drawing characters, orange/yellow header colours, the home-emoji prompt, `Welcome back 조민석!` Korean glyph, and the input box `Try "how does <filepath> work?"`. No literal `[38;2;...m` escape sequences visible anywhere. |
+| 11 | `SessionVerifier` CLI가 SessionManager 동시성 + 셸 스폰 + 익스트랙터 인바리언트 통과 | PASS — re-verified post-pivot | `build/DerivedData/Build/Products/Debug/session-verifier` exit code 0; all 11 checks (`extractor.match-positive` … `shell-spawn terminate->.exited`) printed `OK`. `pty-verifier` also exit 0. |
+
+### Notes on the PTYSpawner code path
+
+Status: **retained for headless verifiers + future Day 4-style tests.**
+
+- `Sources/PTY/*` (PTYSpawner, PTYReader, PTYWriter, PTYHandle, PTYSpawnC) are unchanged on the file level.
+- `SessionManager.create(kind:cwd:rows:cols:)` continues to use `PTYSpawner.spawn(...)` and returns a `Session` with `origin = .external` and a non-nil `ptyHandle`. `SessionVerifier` exercises this path.
+- `SessionManager.createInternal(kind:cwd:)` is the GUI path: no PTY allocation, `origin = .internal`, `ptyHandle = nil`. Surface lifecycle (and therefore the child process's lifetime) is owned by `GhosttyTerminalView.replaceCommand(_:cwd:)` → `ghostty_surface_free` + `ghostty_surface_new`.
+- Implication for Day 6: SIGWINCH/scroll/Korean I/O can ride entirely on libghostty's built-in handling — `ghostty_surface_set_size` and the surface's NSTextInputClient analog. No additional plumbing of the master fd into the GUI is required.
+
+### Decisions made on Day 5b
+
+- **`unsafeApp: ghostty_app_t` exposed on `GhosttyApp`**: surface creation moves from `GhosttyApp` to `GhosttyTerminalView` so the view can call `ghostty_surface_new(app, &cfg)` directly with `cfg.command` set per session kind.
+- **`GhosttyTerminalView.replaceCommand(_:cwd:)`**: destroys the current surface via `ghostty_surface_free` and creates a new one with the new command. `strdup`/`free` pair manages the C-string lifetime — libghostty copies the strings during `ghostty_surface_new`, so the buffers only need to be valid across that single call.
+- **Idle-passive on launch**: `AppDelegate.applicationDidFinishLaunching` creates the view with `command == nil` so the window is visible immediately even before the first Cmd+T. The first Cmd+T (or menu click) calls `replaceCommand` to swap in a surface running zsh.
+- **`keyDown` returns to `ghostty_surface_text` semantics**: that path IS the "typed text" semantic and is the correct way to inject keystrokes into the surface owning the PTY. The Day 5 misuse was applying it to non-typed PTY bytes.
+- **`Session.ptyHandle` made `Optional`**: chosen over a synthetic `PTYHandle(masterFD: -1, childPID: -1)` placeholder because the optional model makes the `terminate` branch explicit, and the verifier diff is one-line (`guard let handle = session.ptyHandle else { ... }`). All `Equatable`/`Sendable` conformances continue to hold.
+- **Keystroke vs. menu single-tap for Cmd+Shift+T**: empirically, AppleScript `keystroke "t" using {command down, shift down}` is consumed by libghostty's surface (drawn as `T`) when the surface is first responder, while `keystroke "t" using {command down}` falls through to the menu item. This is an AppKit `performKeyEquivalent` ordering quirk — the menu item handler does receive the click via `click menu item "New Claude Session"`, so the wiring is correct. Sorting out the keystroke path is deferred to Day 6 (will require either `NSEvent` monitoring before `keyDown` or moving the surface input into `performKeyEquivalent` precedence).
+
+### Risk triggers checked
+
+- **Architectural deviation from §5.3 spec** — RESOLVED. The libghostty-internal PTY model now satisfies exit criterion #10 with the same screenshot evidence quality as #9. No additional days drawn from the +1 IME contingency.
+- ADR-A C1 timebox — Day 4/5 unchanged; Day 5b ran inside the day-budget for Day 5.
+- macOS Accessibility prompt — surfaced once during smoke testing (iCloud Drive scoped permission). Not specific to Day 5b; clicking "허용 안 함" allows the smoke test to continue.
+
+### Carry-overs to Day 6 (revised)
+
+- libghostty's resize callback is already wired in `GhosttyTerminalView.applySurfaceSize`. Day 6 SIGWINCH gate should land for free — verify by resizing the window with the GUI running.
+- Korean I/O: libghostty's NSTextInputClient analog is internal to its surface. Day 6's IME verification can be performed end-to-end via the GUI without re-implementing `setMarkedText`/`insertText` on our side.
+- `ClaudeSessionIDExtractor`: no longer attached to the GUI path (the PTY stream is no longer visible externally). For P1 we accept this regression — the extractor remains used by `SessionVerifier` for the regex itself, and a future P2 task can hook it to libghostty's read-text action if one is exposed.
+- Keystroke ordering for Cmd+Shift+T (menu shortcut absorbed by surface) is a Day 6 polish item; menu click continues to work today.
+

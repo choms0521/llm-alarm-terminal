@@ -5,9 +5,11 @@ import os
 
 /// Owns the single process-wide `ghostty_app_t` instance.
 ///
-/// Day 3 scope: minimal app construction with log-only stubs for the runtime
-/// callbacks that libghostty requires. Clipboard, action routing, surface
-/// lifecycle wiring will be expanded in later days as needed.
+/// Day 5b scope: identical to Day 3 construction, but the underlying
+/// `ghostty_app_t` handle is now exposed via `unsafeApp` so views can call
+/// `ghostty_surface_new(app, &cfg)` directly. This is required for the
+/// libghostty-internal PTY pivot where the surface owns its own PTY via the
+/// `ghostty_surface_config_s.command` field.
 final class GhosttyApp {
     static let logger = Logger(subsystem: "com.choms0521.ClaudeAlarmTerminal", category: "GhosttyApp")
 
@@ -15,6 +17,13 @@ final class GhosttyApp {
     /// Force-unwrapped optional so we can construct it after the `super.init`
     /// equivalent point — `init?` returns nil before assigning it on failure.
     private(set) var cValue: ghostty_app_t!
+
+    /// Public accessor for the underlying `ghostty_app_t`. Views use this to
+    /// create surfaces via `ghostty_surface_new`. Marked `unsafe` in its name
+    /// because callers must respect libghostty's lifecycle rules — they must
+    /// not free the handle and must not retain it past this `GhosttyApp`
+    /// instance's lifetime.
+    var unsafeApp: ghostty_app_t { cValue }
 
     /// The libghostty config used to create the app. Kept alive until deinit.
     private let config: ghostty_config_t

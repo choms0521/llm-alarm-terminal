@@ -30,6 +30,7 @@ targets:
       - path: Sources/ClaudeAlarmTerminal
       - path: Sources/TerminalView
       - path: Sources/PTY
+      - path: Sources/Session
     resources:
       - path: Resources
         excludes:
@@ -111,6 +112,28 @@ targets:
         Release:
           CODE_SIGN_IDENTITY: "-"
 
+  SessionVerifier:
+    type: tool
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Sources/PTY
+      - path: Sources/Session
+      - path: Sources/SessionVerifier
+    settings:
+      base:
+        PRODUCT_NAME: session-verifier
+        CODE_SIGN_STYLE: Manual
+        HEADER_SEARCH_PATHS:
+          - "$(SRCROOT)/Sources/PTY/include"
+        SWIFT_INCLUDE_PATHS:
+          - "$(SRCROOT)/Sources/PTY/include"
+      configs:
+        Debug:
+          CODE_SIGN_IDENTITY: "-"
+        Release:
+          CODE_SIGN_IDENTITY: "-"
+
   GhostBridgeVerifier:
     type: tool
     platform: macOS
@@ -148,6 +171,12 @@ schemes:
     build:
       targets:
         PTYVerifier: all
+    run:
+      config: Debug
+  SessionVerifier:
+    build:
+      targets:
+        SessionVerifier: all
     run:
       config: Debug
   ClaudeAlarmTerminal:

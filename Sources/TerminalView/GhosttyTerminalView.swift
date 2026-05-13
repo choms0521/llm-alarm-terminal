@@ -5,33 +5,42 @@ import os
 
 /// AppKit view that hosts a single libghostty surface.
 ///
-/// Day 3 scope:
+/// Day 5b scope (libghostty-internal PTY pivot):
 /// - Backed by a CAMetalLayer so libghostty can render via Metal.
 /// - Owns one `ghostty_surface_t` whose userdata points back to this view.
-/// - Forwards keystrokes to `ghostty_surface_text` (and surface keys for
-///   special keys). Full keyboard translation + IME comes Day 4+.
+/// - When `command` is non-nil, libghostty spawns the process inside its own
+///   PTY using `ghostty_surface_config_s.command` + `working_directory`. The
+///   surface then receives PTY bytes natively (ANSI codes interpreted).
+/// - When `command` is nil, the view starts in idle-passive mode — a surface
+///   exists but no PTY is attached. `replaceCommand(...)` swaps the surface
+///   for a new one with a command attached.
+/// - Forwards keystrokes via `ghostty_surface_text` (the "typed text" path).
 /// - Resizes the surface in pixels on layout.
-/// - Injects "hello\r\n" and "한" 1 second after creation so Day 3 exit
-///   criteria can be verified visually.
 final class GhosttyTerminalView: NSView {
     private static let logger = Logger(subsystem: "com.choms0521.ClaudeAlarmTerminal", category: "GhosttyTerminalView")
 
     private let ghosttyApp: GhosttyApp
     private var surface: ghostty_surface_t?
 
-    init(app: GhosttyApp, frame: NSRect) {
+    /// Initialize the view. When `command` is non-nil libghostty spawns the
+    /// process internally inside its own PTY. When nil the view starts with a
+    /// surface that has no attached process (idle-passive).
+    ///
+    /// - Parameters:
+    ///   - app: the shared `GhosttyApp` providing `ghostty_app_t`.
+    ///   - command: optional executable path (e.g. `/bin/zsh -l` or the
+    ///     resolved `claude` path). When non-nil the surface owns the PTY.
+    ///   - cwd: optional working directory for the spawned command.
+    ///   - frame: initial frame for the view.
+    init(app: GhosttyApp, command: String?, cwd: String?, frame: NSRect) {
         self.ghosttyApp = app
         super.init(frame: frame)
 
-        // Configure layer backing: libghostty draws via Metal so we need a
-        // CAMetalLayer. AppKit will create the layer when we set wantsLayer +
-        // a custom makeBackingLayer implementation.
         self.wantsLayer = true
         self.layerContentsRedrawPolicy = .duringViewResize
         self.translatesAutoresizingMaskIntoConstraints = false
 
-        createSurface()
-        scheduleDay3SmokeText()
+        createSurface(command: command, cwd: cwd)
     }
 
     required init?(coder: NSCoder) {
@@ -56,7 +65,14 @@ final class GhosttyTerminalView: NSView {
 
     // MARK: - Surface lifecycle
 
-    private func createSurface() {
+    /// Create a fresh libghostty surface. When `command` is non-nil libghostty
+    /// spawns the process inside its own PTY and renders the output natively.
+    ///
+    /// `command` and `cwd` C-string lifetimes: `strdup`-allocated locally and
+    /// freed immediately after `ghostty_surface_new` returns. libghostty copies
+    /// the strings into its internal config before returning, so they only need
+    /// to be valid across the call.
+    private func createSurface(command: String?, cwd: String?) {
         guard surface == nil else { return }
 
         var cfg = ghostty_surface_config_new()
@@ -72,31 +88,41 @@ final class GhosttyTerminalView: NSView {
         cfg.font_size = 0
         cfg.context = GHOSTTY_SURFACE_CONTEXT_WINDOW
 
+        // `strdup` returns memory we own; we free it after the call. libghostty
+        // copies the strings before returning per the C ABI contract.
+        let commandDup: UnsafeMutablePointer<CChar>? = command.flatMap { strdup($0) }
+        let cwdDup: UnsafeMutablePointer<CChar>? = cwd.flatMap { strdup($0) }
+        cfg.command = UnsafePointer(commandDup)
+        cfg.working_directory = UnsafePointer(cwdDup)
+
+        defer {
+            if let p = commandDup { free(p) }
+            if let p = cwdDup { free(p) }
+        }
+
         guard let s = ghostty_surface_new(ghosttyApp.cValue, &cfg) else {
             Self.logger.error("ghostty_surface_new returned NULL")
             return
         }
         self.surface = s
-        Self.logger.debug("ghostty_surface_new succeeded")
+        Self.logger.debug("ghostty_surface_new succeeded command=\(command ?? "<nil>", privacy: .public)")
     }
 
-    /// Day 3 smoke: 1s after surface creation, inject "hello\r\n" and the
-    /// Hangul character '한' so the renderer (1) draws ASCII glyphs and
-    /// (2) records a 2-cell wide CJK glyph per the wcwidth check deferred
-    /// from Day 2.
-    private func scheduleDay3SmokeText() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            guard let self = self, let surface = self.surface else { return }
-            let hello = "hello\r\n"
-            hello.withCString { ptr in
-                ghostty_surface_text(surface, ptr, UInt(hello.utf8.count))
-            }
-            let han = "한"
-            han.withCString { ptr in
-                ghostty_surface_text(surface, ptr, UInt(han.utf8.count))
-            }
-            Self.logger.debug("Day 3 smoke text injected: hello + 한")
+    /// Replace the active surface with one running the new command. Used by
+    /// Cmd+T / Cmd+Shift+T to swap libghostty's owned PTY to the new process.
+    ///
+    /// Implementation: free the current surface then create a new one. The
+    /// view's `nsview` userdata pointer stays the same so AppKit hosting is
+    /// uninterrupted.
+    func replaceCommand(_ command: String?, cwd: String?) {
+        if let s = surface {
+            ghostty_surface_free(s)
+            surface = nil
         }
+        createSurface(command: command, cwd: cwd)
+        // Re-apply the current bounds so the new surface receives a correct
+        // initial size (libghostty surfaces default to 80x24 cells otherwise).
+        applySurfaceSize()
     }
 
     // MARK: - Resize
@@ -139,16 +165,15 @@ final class GhosttyTerminalView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
-        guard let surface = surface else {
+        // Forward typed characters to the libghostty surface. When the surface
+        // owns its own PTY (Day 5b model) libghostty routes these keystrokes
+        // into the child process automatically; this is the correct usage of
+        // `ghostty_surface_text` — the "typed text" semantic.
+        guard let chars = event.characters, !chars.isEmpty else {
             super.keyDown(with: event)
             return
         }
-
-        // Forward typed text via ghostty_surface_text. This is the minimum
-        // viable wiring for Day 3; full ghostty_surface_key translation with
-        // physical keycode + modifiers will come with the NSTextInputClient
-        // adoption in Day 6.
-        if let chars = event.characters, !chars.isEmpty {
+        if let surface = surface {
             chars.withCString { ptr in
                 ghostty_surface_text(surface, ptr, UInt(chars.utf8.count))
             }
