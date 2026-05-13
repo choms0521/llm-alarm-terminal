@@ -1,0 +1,78 @@
+name: ClaudeAlarmTerminal
+options:
+  bundleIdPrefix: com.choms0521
+  deploymentTarget:
+    macOS: "14.0"
+  developmentLanguage: ko
+  xcodeVersion: "15.0"
+  generateEmptyDirectories: true
+  createIntermediateGroups: true
+
+configs:
+  Debug: debug
+  Release: release
+
+settings:
+  base:
+    SWIFT_VERSION: "5.10"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    ARCHS: arm64
+    ONLY_ACTIVE_ARCH: "YES"
+    ENABLE_HARDENED_RUNTIME: "YES"
+    DEAD_CODE_STRIPPING: "YES"
+
+targets:
+  ClaudeAlarmTerminal:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Sources/ClaudeAlarmTerminal
+    resources:
+      - path: Resources
+        excludes:
+          - Info.plist
+          - ClaudeAlarmTerminal.entitlements
+    info:
+      path: Resources/Info.plist
+      properties:
+        CFBundleDisplayName: Claude Alarm Terminal
+        CFBundleName: ClaudeAlarmTerminal
+        CFBundleIdentifier: com.choms0521.ClaudeAlarmTerminal
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        CFBundlePackageType: APPL
+        LSMinimumSystemVersion: "14.0"
+        NSPrincipalClass: NSApplication
+        NSHighResolutionCapable: true
+        NSSupportsAutomaticTermination: false
+        NSSupportsSuddenTermination: false
+        LSApplicationCategoryType: public.app-category.developer-tools
+    entitlements:
+      path: Resources/ClaudeAlarmTerminal.entitlements
+      properties:
+        com.apple.security.app-sandbox: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.choms0521.ClaudeAlarmTerminal
+        PRODUCT_NAME: ClaudeAlarmTerminal
+        CODE_SIGN_STYLE: Manual
+        GENERATE_INFOPLIST_FILE: "NO"
+        INFOPLIST_FILE: Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Resources/ClaudeAlarmTerminal.entitlements
+      configs:
+        Debug:
+          CODE_SIGN_IDENTITY: "-"
+          OTHER_SWIFT_FLAGS: "-D DEBUG"
+        Release:
+          CODE_SIGN_IDENTITY: "Developer ID Application"
+
+schemes:
+  ClaudeAlarmTerminal:
+    build:
+      targets:
+        ClaudeAlarmTerminal: all
+    run:
+      config: Debug
+    archive:
+      config: Release
