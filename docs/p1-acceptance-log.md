@@ -15,7 +15,7 @@ Date verified: 2026-05-13
 | 1 | Xcode Cmd+R로 앱 실행 시 빈 `NSWindow`가 표시된다 | PASS | CLI smoke test: `open <app>` launched PID 39473; AppKit window initialized via `AppDelegate.applicationDidFinishLaunching`; process exited cleanly on `SIGTERM`. |
 | 2 | `xcodebuild -scheme ClaudeAlarmTerminal build`가 CLI에서 성공한다 | PASS | `scripts/build.sh debug` reports `** BUILD SUCCEEDED **`; arm64 Mach-O produced at `build/DerivedData/Build/Products/Debug/ClaudeAlarmTerminal.app/Contents/MacOS/ClaudeAlarmTerminal`. |
 | 3 | `security find-identity -v -p codesigning`이 Developer ID Application 인증서를 1개 이상 반환한다 | PASS | Identity `9664AC2F8CA4159E0BE405D1047A185D04BF549E "Developer ID Application: minseok cho (9ADWM2H336)"` present; Team ID `9ADWM2H336` recorded in `docs/build-setup.md`. |
-| 4 | `xcrun notarytool history --keychain-profile <profile>`이 인증 오류 없이 실행된다 | PENDING (manual) | `claude-alarm-terminal-notary` profile not yet stored. The General must run `xcrun notarytool store-credentials` per `docs/build-setup.md` step 3, after which the criterion is expected to pass. Contingency budget (0.5d) reserved if the profile cannot be created. |
+| 4 | `xcrun notarytool history --keychain-profile <profile>`이 인증 오류 없이 실행된다 | PASS (verified 2026-05-13 17:24 KST) | `claude-alarm-terminal-notary` keychain profile stored via App Store Connect API Key. `xcrun notarytool history` returns `Successfully received submission history` with 4 prior unrelated submissions (LLMTokenBar.dmg etc., proving the same Apple Developer account works). Contingency budget not consumed. |
 
 ### Decisions made on Day 1
 
@@ -342,7 +342,7 @@ Date verified: 2026-05-13
 
 | Step | Command | Status | Evidence |
 |------|---------|--------|----------|
-| 1. notarytool history (credential validation) | `xcrun notarytool history --keychain-profile claude-alarm-terminal-notary` | PENDING — 장군님 수동 등록 필요 | The keychain profile has not been stored yet (Day 1 PENDING item carried forward). The script `scripts/release-dryrun.sh` surfaces the failure with the exact `xcrun notarytool store-credentials` command line to run. Per plan §9 row 3, this consumes 0.5d of contingency *only* if it cannot be created at all — the cert itself (`Developer ID Application: minseok cho (9ADWM2H336)`) is present (Day 1 PASS), so the remaining work is one CLI invocation by the General. |
+| 1. notarytool history (credential validation) | `xcrun notarytool history --keychain-profile claude-alarm-terminal-notary` | PASS (verified 2026-05-13 17:24 KST) | Profile stored via App Store Connect API Key (Team Key path, .p8 + Key ID + Issuer ID). `scripts/release-dryrun.sh` reports `Step 1 PASSED` and the command lists 4 prior submissions. No contingency consumed. |
 | 2a. xcodebuild archive | `xcodebuild archive -scheme ClaudeAlarmTerminal -configuration Release ...` | PASS | Produces `build/ClaudeAlarmTerminal.xcarchive` signed with Developer ID Application. Output ends with `** ARCHIVE SUCCEEDED **`. |
 | 2b. xcodebuild -exportArchive | `xcodebuild -exportArchive -exportOptionsPlist scripts/ExportOptions.plist ...` | PASS | Produces `build/export/ClaudeAlarmTerminal.app` with `developer-id` distribution method. Output: `** EXPORT SUCCEEDED **`. |
 | 3a. codesign --verify --deep --strict | `codesign --verify --deep --strict build/export/ClaudeAlarmTerminal.app` | PASS | `valid on disk` + `satisfies its Designated Requirement`. |
@@ -356,14 +356,14 @@ Date verified: 2026-05-13
 | A1 | 앱 실행 → 빈 윈도우 → "New Claude session" 단축키 → claude CLI 프롬프트 → 입력/출력/한국어/SIGWINCH 정상 | PASS | Day 5b screenshot `/tmp/p1-day5b-claude-window.png` shows Claude Code v2.1.116 TUI with "Welcome back 조민석!", color rendering, status bar — all flowing through the libghostty-internal PTY. Resize via `applySurfaceSize` propagates TIOCSWINSZ (Day 6). |
 | A2 | "New Shell session"으로 zsh 세션도 동일하게 동작 | PASS | Day 5b screenshot `/tmp/p1-day5b-shell-window.png` shows zsh login banner ("Last login: ... on ttys011") with Powerlevel10k prompt — same surface code path. |
 | A3 | 세션 종료 시 윈도우는 유지되고 세션 상태가 `exited`로 기록 | PASS | `SessionVerifier` exercise #11 (`shell-spawn terminate->.exited`) confirms the actor flips `session.status -> .exited` via the immutable `Session.with(...)` updater. The GUI window stays open because `terminate` does not close `mainWindow`. |
-| A4 | `xcodebuild` + `xcrun notarytool` keychain-profile dry-run 에러 없이 완료 | PASS (Steps 2+3) / PENDING Step 1 | Steps 2a, 2b, 3a, 3b, 3c all exit 0 with expected output. Step 1 needs `xcrun notarytool store-credentials` once; the command is documented in `docs/build-setup.md` and surfaced by the dry-run script. |
+| A4 | `xcodebuild` + `xcrun notarytool` keychain-profile dry-run 에러 없이 완료 | PASS (all 3 steps) | `scripts/release-dryrun.sh` reports `ALL 3 STEPS PASSED`. Step 1 (notarytool history) verified after the General registered the keychain profile via App Store Connect API Key. Steps 2a/2b/3a/3b/3c continue to pass per Day 8 evidence above. |
 
 ### Final state (P1 exit gate to P2)
 
 | Gate item | Status |
 |-----------|--------|
-| §8 Acceptance A1-A4 | A1/A2/A3 PASS; A4 Steps 2+3 PASS, Step 1 PENDING (장군님 1-line setup) |
-| Day 1-8 daily exit criteria | All PASS or PENDING-manual (no BLOCKED) |
+| §8 Acceptance A1-A4 | A1/A2/A3/A4 all PASS |
+| Day 1-8 daily exit criteria | All PASS (no PENDING or BLOCKED remaining) |
 | Verifier sweep critical / high | 0 (pty-verifier, session-verifier 11/11, ghost-bridge-verifier all exit 0) |
 | `SessionManager` max=1 enforce + concurrent unit test | PASS (Day 5 SessionVerifier exercises 2-task race) |
 | SessionManager grep invariants (`async` on public methods, `nonisolated == 0`) | PASS (Day 5 verifier output + manual grep) |
@@ -376,11 +376,10 @@ Date verified: 2026-05-13
 
 ### Recorded P2 carry-overs
 
-1. **`xcrun notarytool store-credentials`** — General's single CLI invocation; documented in `docs/build-setup.md`. Until this lands, Step 1 of the release dry-run cannot pass and the keychain profile remains unusable. Once the profile is in place, run `scripts/release-dryrun.sh` again to flip Step 1 to PASS.
-2. Grid-dump driven wide-char validation (`ghostty_surface_read_text` cross-check between `AA` row and `한` row).
-3. `ClaudeSessionIDExtractor` hook into the live GUI stream (needs `ghostty_surface_read_text` plumbing — same dependency as #2).
-4. Cmd+Shift+T keystroke (vs. menu click) absorption — AppKit `performKeyEquivalent` ordering quirk; menu click works.
-5. Mouse-wheel scrollback interactive verification (kept manual; wiring code path verified at compile time).
+1. Grid-dump driven wide-char validation (`ghostty_surface_read_text` cross-check between `AA` row and `한` row).
+2. `ClaudeSessionIDExtractor` hook into the live GUI stream (needs `ghostty_surface_read_text` plumbing — same dependency as #1).
+3. Cmd+Shift+T keystroke (vs. menu click) absorption — AppKit `performKeyEquivalent` ordering quirk; menu click works.
+4. Mouse-wheel scrollback interactive verification (kept manual; wiring code path verified at compile time).
 
 ### P2 entry conditions
 
