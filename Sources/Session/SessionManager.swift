@@ -11,7 +11,8 @@ public enum ManagerError: Error, CustomStringConvertible, Equatable {
     public var description: String {
         switch self {
         case .maxSessionsReached(let currentMax):
-            return "최대 \(currentMax)개 세션까지 동시에 실행할 수 있습니다."
+            // P2 Day 8 spec: master § 4.2 MAX_SESSIONS_REACHED 에러 메시지.
+            return "최대 세션 개수에 도달했습니다 (N=\(currentMax)). 기존 세션을 종료하세요."
         case .notFound(let id):
             return "세션을 찾을 수 없습니다 (id=\(id.uuidString))."
         case .spawnFailed(let underlying):

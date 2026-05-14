@@ -1,0 +1,19 @@
+/*
+ * P2 에러 i18n 카탈로그.
+ * 본 파일은 사용자 visible 한국어 메시지의 i18n 형식 보존용이며,
+ * 실제 코드에서는 Sources/UI/Errors/KoreanErrorDialog.swift 의 KoreanErrorCatalog 가
+ * source-of-truth 로 사용된다 (test 격리 시 fallback 보장).
+ *
+ * i18n 키 컨벤션: lower.snake.
+ * master § 4.2 UPPER_SNAKE 코드와 1:1 매핑.
+ */
+
+"error.max_sessions_reached" = "최대 세션 개수에 도달했습니다 (N=20). 기존 세션을 종료하세요.";
+
+"error.workspace_decode_failed" = "워크스페이스 파일을 읽을 수 없습니다. 백업 파일(workspaces.json.bak)에서 복구를 시도합니다.";
+
+"error.atomic_write_failed" = "워크스페이스 저장에 실패했습니다. 디스크 용량 또는 권한을 확인하세요.";
+
+"error.claude_binary_not_found" = "claude 바이너리를 찾을 수 없습니다. PATH, /opt/homebrew/bin, /usr/local/bin을 확인하세요.";
+
+"error.cwd_inaccessible" = "워크스페이스 디렉터리에 접근할 수 없습니다: %@";
