@@ -51,7 +51,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.minSize = NSSize(width: 720, height: 480)
         window.center()
 
-        let hosting = NSHostingView(rootView: RootView(manager: manager))
+        let app = self.ghosttyApp
+        let rootView = RootView(manager: manager) { workspace in
+            // app 이 nil 이면 GhosttyApp 초기화 실패 — content 는 빈 placeholder.
+            if let app = app {
+                WorkspacePaneContentView(
+                    workspace: workspace,
+                    ghosttyApp: app,
+                    manager: manager
+                )
+            } else {
+                Text("libghostty 가 초기화되지 않았습니다.")
+            }
+        }
+        let hosting = NSHostingView(rootView: rootView)
         window.contentView = hosting
 
         window.makeKeyAndOrderFront(nil)

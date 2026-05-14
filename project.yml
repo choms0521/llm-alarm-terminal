@@ -189,6 +189,8 @@ targets:
       - path: Sources/Lifecycle
       - path: Sources/Workspace
       - path: Sources/UI
+        excludes:
+          - "Pane/**"
       - path: Tests/WorkspaceTests
     dependencies:
       - package: AnyCodable

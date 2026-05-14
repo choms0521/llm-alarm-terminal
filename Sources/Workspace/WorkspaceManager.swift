@@ -63,11 +63,14 @@ public final class WorkspaceManager: ObservableObject {
     }
 
     /// 새 normal workspace 를 추가하고 선택. envSnapshot 은 호출 시점 user env 를 캡처 (H6).
+    /// 기본으로 shell pane 1개(`position: .top`)를 같이 생성한다(Day 4 acceptance: 선택 시 단일 pane 표시).
     @discardableResult
     public func addWorkspace(cwd: String, name: String) -> Workspace {
+        let defaultPane = Pane(kind: .shell, position: .top)
         let ws = Workspace(
             name: name,
             cwd: cwd,
+            panes: [defaultPane],
             kind: .normal,
             envSnapshot: SessionSpawnEnv.captureUserEnv()
         )
@@ -75,6 +78,65 @@ public final class WorkspaceManager: ObservableObject {
         selectedID = ws.id
         persistCurrent()
         return ws
+    }
+
+    /// workspace 에 새 pane 추가. panes.count >= 2 면 무시(invariant: pane 최대 2개).
+    /// position 미지정 시 첫 pane 은 `.top`, 두 번째는 `.bottom` 으로 자동 할당.
+    public func addPane(workspaceId: UUID, kind: PaneKind, position: PanePosition? = nil) {
+        guard let idx = workspaces.firstIndex(where: { $0.id == workspaceId }) else { return }
+        let current = workspaces[idx]
+        guard current.kind == .normal else {
+            KoreanLogger.warn("agent-view 워크스페이스에는 pane 을 추가할 수 없습니다.")
+            return
+        }
+        guard current.panes.count < 2 else {
+            KoreanLogger.warn("pane 은 최대 2개까지 허용됩니다.")
+            return
+        }
+        let pos: PanePosition
+        if let position = position {
+            pos = position
+        } else {
+            pos = current.panes.isEmpty ? .top : .bottom
+        }
+        guard !current.panes.contains(where: { $0.position == pos }) else {
+            KoreanLogger.warn("이미 \(pos.rawValue) 위치에 pane 이 존재합니다.")
+            return
+        }
+        let pane = Pane(kind: kind, position: pos)
+        workspaces[idx] = current.with(panes: current.panes + [pane])
+        persistCurrent()
+    }
+
+    /// pane 제거. 첫 번째 pane(.top) 제거 시 두 번째 pane(.bottom) 이 `.top` 으로 승격.
+    public func removePane(workspaceId: UUID, paneId: UUID) {
+        guard let idx = workspaces.firstIndex(where: { $0.id == workspaceId }) else { return }
+        let current = workspaces[idx]
+        var newPanes = current.panes
+        guard let paneIdx = newPanes.firstIndex(where: { $0.id == paneId }) else { return }
+        let removed = newPanes.remove(at: paneIdx)
+        // 첫 pane(.top) 이 제거되었고 .bottom 이 남아있으면 .top 으로 승격.
+        if removed.position == .top,
+           let bottomIdx = newPanes.firstIndex(where: { $0.position == .bottom }) {
+            let bottom = newPanes[bottomIdx]
+            newPanes[bottomIdx] = Pane(
+                id: bottom.id,
+                sessionId: bottom.sessionId,
+                kind: bottom.kind,
+                position: .top,
+                chatRoomId: bottom.chatRoomId,
+                extraFields: bottom.extraFields
+            )
+        }
+        workspaces[idx] = current.with(panes: newPanes)
+        persistCurrent()
+    }
+
+    /// 추가 pane 을 생성할 수 있는지(panes.count < 2). agent-view 워크스페이스는 항상 false.
+    public func canSplit(workspaceId: UUID) -> Bool {
+        guard let ws = workspaces.first(where: { $0.id == workspaceId }) else { return false }
+        guard ws.kind == .normal else { return false }
+        return ws.panes.count < 2
     }
 
     /// workspace 제거. `canClose == false` 인(즉, agent-view 인) 워크스페이스는 무시.
