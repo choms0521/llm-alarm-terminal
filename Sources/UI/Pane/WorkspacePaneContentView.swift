@@ -7,15 +7,21 @@ import SwiftUI
 struct WorkspacePaneContentView: View {
     let workspace: Workspace
     let ghosttyApp: GhosttyApp
+    let coordinator: WorkspaceCoordinator
     @ObservedObject var manager: WorkspaceManager
 
     @State private var chooserPresented = false
     @State private var addingFirstPane = false
 
-    init(workspace: Workspace, ghosttyApp: GhosttyApp, manager: WorkspaceManager) {
+    init(
+        workspace: Workspace,
+        ghosttyApp: GhosttyApp,
+        coordinator: WorkspaceCoordinator
+    ) {
         self.workspace = workspace
         self.ghosttyApp = ghosttyApp
-        self.manager = manager
+        self.coordinator = coordinator
+        self.manager = coordinator.manager
     }
 
     var body: some View {
@@ -29,11 +35,14 @@ struct WorkspacePaneContentView: View {
             PaneTypeChooser(
                 onSelect: { kind in
                     chooserPresented = false
-                    if addingFirstPane {
-                        manager.addPane(workspaceId: workspace.id, kind: kind, position: .top)
-                        addingFirstPane = false
-                    } else {
-                        manager.addPane(workspaceId: workspace.id, kind: kind, position: .bottom)
+                    let wantFirst = addingFirstPane
+                    addingFirstPane = false
+                    Task { @MainActor in
+                        await coordinator.addPane(
+                            workspaceId: workspace.id,
+                            kind: kind,
+                            position: wantFirst ? .top : .bottom
+                        )
                     }
                 },
                 onCancel: {
@@ -54,19 +63,33 @@ struct WorkspacePaneContentView: View {
         } else {
             VStack(spacing: 0) {
                 if let top = top {
-                    PaneTerminalView(workspace: workspace, pane: top, ghosttyApp: ghosttyApp)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .id(top.id)
+                    paneSlot(pane: top)
                 }
                 if let bottom = bottom {
                     Divider()
-                    PaneTerminalView(workspace: workspace, pane: bottom, ghosttyApp: ghosttyApp)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .id(bottom.id)
+                    paneSlot(pane: bottom)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+
+    @ViewBuilder
+    private func paneSlot(pane: Pane) -> some View {
+        PaneTerminalView(workspace: workspace, pane: pane, ghosttyApp: ghosttyApp)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay(alignment: .topTrailing) {
+                PaneCloseButton(onClose: {
+                    Task { @MainActor in
+                        await coordinator.closePane(
+                            workspaceId: workspace.id,
+                            paneId: pane.id
+                        )
+                    }
+                })
+                .padding(6)
+            }
+            .id(pane.id)
     }
 
     @ViewBuilder

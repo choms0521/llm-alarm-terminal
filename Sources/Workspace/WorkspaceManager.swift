@@ -82,16 +82,18 @@ public final class WorkspaceManager: ObservableObject {
 
     /// workspace 에 새 pane 추가. panes.count >= 2 면 무시(invariant: pane 최대 2개).
     /// position 미지정 시 첫 pane 은 `.top`, 두 번째는 `.bottom` 으로 자동 할당.
-    public func addPane(workspaceId: UUID, kind: PaneKind, position: PanePosition? = nil) {
-        guard let idx = workspaces.firstIndex(where: { $0.id == workspaceId }) else { return }
+    /// 추가된 Pane 을 반환하거나, 거부 시 nil 반환 (호출부가 후속 작업 분기 가능).
+    @discardableResult
+    public func addPane(workspaceId: UUID, kind: PaneKind, position: PanePosition? = nil) -> Pane? {
+        guard let idx = workspaces.firstIndex(where: { $0.id == workspaceId }) else { return nil }
         let current = workspaces[idx]
         guard current.kind == .normal else {
             KoreanLogger.warn("agent-view 워크스페이스에는 pane 을 추가할 수 없습니다.")
-            return
+            return nil
         }
         guard current.panes.count < 2 else {
             KoreanLogger.warn("pane 은 최대 2개까지 허용됩니다.")
-            return
+            return nil
         }
         let pos: PanePosition
         if let position = position {
@@ -101,10 +103,23 @@ public final class WorkspaceManager: ObservableObject {
         }
         guard !current.panes.contains(where: { $0.position == pos }) else {
             KoreanLogger.warn("이미 \(pos.rawValue) 위치에 pane 이 존재합니다.")
-            return
+            return nil
         }
         let pane = Pane(kind: kind, position: pos)
         workspaces[idx] = current.with(panes: current.panes + [pane])
+        persistCurrent()
+        return pane
+    }
+
+    /// 특정 pane 에 session id 를 부착(또는 clear). lifecycle coordinator 가 호출한다.
+    public func assignSession(workspaceId: UUID, paneId: UUID, sessionId: UUID?) {
+        guard let wsIdx = workspaces.firstIndex(where: { $0.id == workspaceId }) else { return }
+        let ws = workspaces[wsIdx]
+        guard let paneIdx = ws.panes.firstIndex(where: { $0.id == paneId }) else { return }
+        let updated = ws.panes[paneIdx].with(sessionId: .some(sessionId))
+        var newPanes = ws.panes
+        newPanes[paneIdx] = updated
+        workspaces[wsIdx] = ws.with(panes: newPanes)
         persistCurrent()
     }
 

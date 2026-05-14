@@ -208,6 +208,37 @@ public actor SessionManager {
         return session
     }
 
+    /// P2 lifecycle wiring 용 createInternal — workspace + pane 컨텍스트 부착.
+    /// libghostty 가 PTY 를 소유하므로 ptyHandle = nil. `terminateAll(inWorkspace:)`
+    /// 는 internal 세션을 skip 하지만, sessions 레지스트리에는 등록되어 카운트 / hook 발행 / claudeSessionId 보존이 정상 동작한다.
+    public func createInternal(
+        workspace: Workspace,
+        paneId: UUID,
+        kind: PaneKind
+    ) async throws -> Session {
+        guard sessions.count < maxSessions else {
+            throw ManagerError.maxSessionsReached(currentMax: maxSessions)
+        }
+        let session = Session(
+            kind: SessionSpawnEnv.sessionKind(from: kind),
+            origin: .internal,
+            ptyHandle: nil,
+            cwd: workspace.cwd,
+            workspaceId: workspace.id,
+            paneId: paneId,
+            env: workspace.envSnapshot
+        )
+        sessions[session.id] = session
+        ensureActivityScope()
+        hooks.onSessionCreated.send(session)
+        return session
+    }
+
+    /// 주어진 workspace 에 속한 모든 session id 목록 (lifecycle 정리에 사용).
+    public func sessionIds(inWorkspace workspaceId: UUID) -> [UUID] {
+        sessions.compactMap { $0.value.workspaceId == workspaceId ? $0.key : nil }
+    }
+
     // MARK: - Terminate
 
     /// 단일 세션 종료: SIGTERM → 1s grace → (필요 시) SIGKILL → polling WNOHANG → close master fd → status=.exited.

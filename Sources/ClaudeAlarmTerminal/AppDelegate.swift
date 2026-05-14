@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var mainWindow: NSWindow?
     private var ghosttyApp: GhosttyApp?
     private var workspaceManager: WorkspaceManager?
+    private var coordinator: WorkspaceCoordinator?
     private let sessionManager = SessionManager()
 
     /// Day 7 lifecycle hook. P1 keeps the body of the will-sleep / did-wake
@@ -38,6 +39,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let manager = WorkspaceManager(store: store)
         self.workspaceManager = manager
+        let coordinator = WorkspaceCoordinator(manager: manager, sessionManager: sessionManager)
+        self.coordinator = coordinator
+        // 영속화 복원된 panes 에 새 session 부착 (P2 결정: 부팅 후 첫 진입 시 session 시작).
+        Task { @MainActor in
+            await coordinator.attachSessionsForPersistedWorkspaces()
+        }
 
         let contentRect = NSRect(x: 0, y: 0, width: 1024, height: 640)
         let styleMask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
@@ -52,13 +59,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.center()
 
         let app = self.ghosttyApp
-        let rootView = RootView(manager: manager) { workspace in
-            // app 이 nil 이면 GhosttyApp 초기화 실패 — content 는 빈 placeholder.
+        let rootView = RootView(
+            manager: manager,
+            onCloseWorkspace: { id in
+                Task { @MainActor in
+                    await coordinator.closeWorkspace(id: id)
+                }
+            },
+            onAddWorkspace: { cwd, name in
+                Task { @MainActor in
+                    await coordinator.addWorkspace(cwd: cwd, name: name)
+                }
+            }
+        ) { workspace in
             if let app = app {
                 WorkspacePaneContentView(
                     workspace: workspace,
                     ghosttyApp: app,
-                    manager: manager
+                    coordinator: coordinator
                 )
             } else {
                 Text("libghostty 가 초기화되지 않았습니다.")
@@ -133,10 +151,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func newWorkspaceFromMenu(_ sender: Any?) {
         // Day 3 메뉴는 UI 트리거 placeholder. Day 8 에서 정식 단축키 + cwd picker 통합 후 동작.
         Task { @MainActor [weak self] in
-            guard let self, let manager = self.workspaceManager else { return }
-            manager.addWorkspace(
+            guard let self, let coordinator = self.coordinator else { return }
+            let count = coordinator.manager.workspaces.count
+            await coordinator.addWorkspace(
                 cwd: WorkspaceManager.defaultWorkspaceRoot(),
-                name: "새 워크스페이스 \(manager.workspaces.count)"
+                name: "새 워크스페이스 \(count)"
             )
         }
     }

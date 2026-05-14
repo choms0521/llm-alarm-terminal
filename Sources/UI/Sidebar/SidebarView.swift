@@ -4,13 +4,23 @@ import UniformTypeIdentifiers
 /// 왼쪽 vertical sidebar — workspace 탭 목록 + 새 workspace 추가 버튼.
 ///
 /// Day 3 범위: 클릭으로 탭 전환, `+` 클릭으로 cwd picker(폴더 선택) → 새 normal workspace.
+/// Day 5 추가: close 버튼은 `coordinator.closeWorkspace(id:)` 를 호출하여 session lifecycle 동시 정리.
 /// 키보드 단축키는 Day 8 에서 wiring.
 public struct SidebarView: View {
     @ObservedObject public var manager: WorkspaceManager
+    /// closeWorkspace 트리거. Day 3 단독 빌드에서는 nil 허용; Day 5 coordinator 가 wiring.
+    public var onCloseWorkspace: ((UUID) -> Void)?
+    public var onAddWorkspace: ((String, String) -> Void)?
     @State private var pickerPresented = false
 
-    public init(manager: WorkspaceManager) {
+    public init(
+        manager: WorkspaceManager,
+        onCloseWorkspace: ((UUID) -> Void)? = nil,
+        onAddWorkspace: ((String, String) -> Void)? = nil
+    ) {
         self.manager = manager
+        self.onCloseWorkspace = onCloseWorkspace
+        self.onAddWorkspace = onAddWorkspace
     }
 
     public var body: some View {
@@ -24,7 +34,13 @@ public struct SidebarView: View {
                 ForEach(manager.workspaces) { ws in
                     WorkspaceTabRow(
                         workspace: ws,
-                        onClose: { manager.removeWorkspace(id: ws.id) }
+                        onClose: {
+                            if let close = onCloseWorkspace {
+                                close(ws.id)
+                            } else {
+                                manager.removeWorkspace(id: ws.id)
+                            }
+                        }
                     )
                     .tag(ws.id)
                 }
@@ -54,7 +70,11 @@ public struct SidebarView: View {
                 guard let url = urls.first else { return }
                 let needsScope = url.startAccessingSecurityScopedResource()
                 defer { if needsScope { url.stopAccessingSecurityScopedResource() } }
-                manager.addWorkspace(cwd: url.path, name: url.lastPathComponent)
+                if let add = onAddWorkspace {
+                    add(url.path, url.lastPathComponent)
+                } else {
+                    manager.addWorkspace(cwd: url.path, name: url.lastPathComponent)
+                }
             case .failure(let err):
                 KoreanLogger.error("폴더 선택 실패: \(err.localizedDescription)")
             }
