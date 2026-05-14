@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P3 상세 계획서 — agent-view 대시보드(Pinned First Tab) (2026-05-14)</title>
+<style>
+  :root {
+    --bg: #fbfaf7;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d8dee4;
+    --accent: #0550ae;
+    --accent-soft: #ddf4ff;
+    --warn: #9a6700;
+    --warn-soft: #fff8c5;
+    --danger: #cf222e;
+    --danger-soft: #ffebe9;
+    --ok: #1a7f37;
+    --ok-soft: #dafbe1;
+    --code-bg: #f3f0ea;
+    --code-fg: #24292f;
+    --table-stripe: #f6f3ec;
+    --table-head: #eceae3;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Helvetica, Arial, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 32px;
+    padding: 32px 24px;
+  }
+
+  aside.toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    border-right: 1px solid var(--border);
+    padding-right: 16px;
+    font-size: 13.5px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+  }
+
+  aside.toc h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin: 0 0 12px 0;
+  }
+
+  aside.toc ol {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+  }
+
+  aside.toc ol li {
+    margin: 4px 0;
+  }
+
+  aside.toc ol ol {
+    padding-left: 14px;
+    margin-top: 4px;
+  }
+
+  aside.toc a {
+    color: var(--fg);
+    text-decoration: none;
+  }
+
+  aside.toc a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+
+  main {
+    max-width: 900px;
+    min-width: 0;
+  }
+
+  h1 {
+    font-size: 28px;
+    margin: 0 0 8px 0;
+    line-height: 1.3;
+  }
+
+  h2 {
+    font-size: 22px;
+    margin-top: 40px;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h3 {
+    font-size: 18px;
+    margin-top: 28px;
+    margin-bottom: 8px;
+  }
+
+  h4 {
+    font-size: 15px;
+    margin-top: 20px;
+    margin-bottom: 6px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  p { margin: 8px 0; }
+
+  .meta {
+    color: var(--muted);
+    font-size: 13.5px;
+    margin-bottom: 24px;
+  }
+
+  .meta strong { color: var(--fg); }
+
+  code {
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+
+  pre {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 14px 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    border: 1px solid var(--border);
+  }
+
+  pre code {
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+  }
+
+  .kw { color: #cf222e; font-weight: 600; }
+  .str { color: #0a3069; }
+  .com { color: #6e7781; font-style: italic; }
+  .num { color: #0550ae; }
+  .typ { color: #953800; }
+  .fn { color: #8250df; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13.5px;
+  }
+
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    background: var(--table-head);
+    font-weight: 600;
+  }
+
+  tbody tr:nth-child(even) {
+    background: var(--table-stripe);
+  }
+
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin: 16px 0;
+  }
+
+  .callout.warn {
+    border-left-color: var(--warn);
+    background: var(--warn-soft);
+  }
+
+  .callout.danger {
+    border-left-color: var(--danger);
+    background: var(--danger-soft);
+  }
+
+  .callout.ok {
+    border-left-color: var(--ok);
+    background: var(--ok-soft);
+  }
+
+  .callout .label {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    margin-bottom: 4px;
+  }
+
+  .day-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin: 18px 0;
+    background: #fff;
+  }
+
+  .day-card h3 {
+    margin-top: 0;
+  }
+
+  .day-card dl {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 6px 16px;
+    margin: 8px 0 12px 0;
+    font-size: 14px;
+  }
+
+  .day-card dt {
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .day-card dd {
+    margin: 0;
+  }
+
+  ul.exit-criteria {
+    list-style: none;
+    padding-left: 0;
+    margin: 8px 0 0 0;
+  }
+
+  ul.exit-criteria li {
+    margin: 4px 0;
+    font-size: 14px;
+  }
+
+  ul.exit-criteria input[type="checkbox"] {
+    margin-right: 8px;
+  }
+
+  .ascii {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.45;
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    background: var(--accent-soft);
+    color: var(--accent);
+    margin-right: 4px;
+  }
+
+  .tag.warn { background: var(--warn-soft); color: var(--warn); }
+  .tag.danger { background: var(--danger-soft); color: var(--danger); }
+  .tag.ok { background: var(--ok-soft); color: var(--ok); }
+
+  .pending {
+    color: var(--warn);
+    font-style: italic;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 28px 0;
+  }
+
+  @media print {
+    aside.toc { display: none; }
+    .layout { display: block; max-width: 100%; padding: 0; }
+    main { max-width: 100%; }
+    .day-card { page-break-inside: avoid; }
+    pre, .ascii { page-break-inside: avoid; }
+    body { font-size: 11pt; }
+    h2 { page-break-after: avoid; }
+  }
+
+  @media (max-width: 900px) {
+    .layout {
+      grid-template-columns: 1fr;
+    }
+    aside.toc {
+      position: static;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      padding-right: 0;
+      padding-bottom: 16px;
+      max-height: none;
+    }
+    .day-card dl {
+      grid-template-columns: 1fr;
+    }
+    .day-card dt {
+      margin-top: 4px;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <h2>목차</h2>
+  <ol>
+    <li><a href="#sec-1">1. 개요</a></li>
+    <li><a href="#sec-2">2. RALPLAN-DR Summary</a></li>
+    <li><a href="#sec-3">3. 핵심 설계 결정 8건</a>
+      <ol>
+        <li><a href="#d3-1">D3-1. Session 모델 확장 전략</a></li>
+        <li><a href="#d3-2">D3-2. needsInput 감지 휴리스틱</a></li>
+        <li><a href="#d3-3">D3-3. PTY output 구독 메커니즘</a></li>
+        <li><a href="#d3-4">D3-4. SessionStatusCoordinator 3-publisher</a></li>
+        <li><a href="#d3-5">D3-5. ANSI SGR 파서</a></li>
+        <li><a href="#d3-6">D3-6. AgentJumpAction + FocusedPaneStore</a></li>
+        <li><a href="#d3-7">D3-7. 셸 preview OSC 133</a></li>
+        <li><a href="#d3-8">D3-8. sort/filter 영속화</a></li>
+      </ol>
+    </li>
+    <li><a href="#sec-4">4. Day-by-Day Work Package</a>
+      <ol>
+        <li><a href="#day-1">Day 1 — 도메인 모델 + 인덱스</a></li>
+        <li><a href="#day-2">Day 2 — SessionStatusObserver + NeedsInputPolicy</a></li>
+        <li><a href="#day-3">Day 3 — SGR 파서 + Utf8 truncator + ShellPreviewExtractor</a></li>
+        <li><a href="#day-4">Day 4 — action_cb main thread hop + ViewportPollingTimer + SessionStatusCoordinator</a></li>
+        <li><a href="#day-5">Day 5 — AgentDashboardView + AgentJumpAction</a></li>
+        <li><a href="#day-6">Day 6 — 정렬/필터 + ADR-E + verifier 4축</a></li>
+      </ol>
+    </li>
+    <li><a href="#sec-5">5. Architecture Diagram (ASCII art)</a></li>
+    <li><a href="#sec-6">6. Critical Code Specs</a>
+      <ol>
+        <li><a href="#sec-6-5">6.5 Pre-mortem (3 시나리오)</a></li>
+        <li><a href="#sec-6-7">6.7 확장 테스트 4영역 매트릭스</a></li>
+      </ol>
+    </li>
+    <li><a href="#sec-7">7. ADR-E Operationalization</a></li>
+    <li><a href="#sec-8">8. Acceptance Criteria</a></li>
+    <li><a href="#sec-9">9. Risks &amp; Mitigations</a></li>
+    <li><a href="#sec-10">10. Exit Gate to P4</a></li>
+    <li><a href="#app-a">부록 A — 신규 환경 변수</a></li>
+    <li><a href="#app-b">부록 B — 참고 문헌</a></li>
+  </ol>
+</aside>
+
+<main>
+
+<h1>P3 상세 계획서 — agent-view 대시보드 (Pinned First Tab)</h1>
+<p class="meta">
+  <strong>대상 단계</strong>: v4 마스터 계획 § P3 (line 124~155)<br>
+  <strong>문서 버전</strong>: P3-detail v3 (Critic ITERATE 대응: v2 17건 + v3 18건 적용, ralplan APPROVE 통과)<br>
+  <strong>문서 작성일</strong>: 2026-05-14<br>
+  <strong>예상 작업 일수</strong>: 6일 (1.0+1.0+1.0+1.2+1.0+1.0)<br>
+  <strong>승인 경로</strong>: ralplan 합의 (Planner v1 → Architect REQUEST-REVISION → Planner v2 → Architect APPROVE-FOR-CRITIC → Critic ITERATE → Planner v3 → Architect APPROVE-FOR-CRITIC → Critic APPROVE)
+</p>
+
+<!-- =================================================================== -->
+<h2 id="sec-1">1. 개요</h2>
+
+<h4>Goal</h4>
+<p>첫 번째 탭이 모든 workspace의 모든 세션을 카드로 보여 주는 unified Claude Code Agent View. 카드 클릭 시 해당 workspace 탭 + pane으로 점프.</p>
+
+<h4>Side</h4>
+<p>desktop (macOS, Apple Silicon)</p>
+
+<h4>Scope (in) — 이번 단계에서 반드시 끝낸다</h4>
+<ul>
+  <li><code>SessionStatusSnapshot</code> 도메인 모델 (별도 struct, Session 모델 무변경)</li>
+  <li><code>SessionStatusObserver</code> — PTY output(viewport text) + action callback → snapshot 파생</li>
+  <li><code>SessionStatusStore</code> / <code>SessionStatusCoordinator</code> — <code>@MainActor</code> publisher, throttle + fast-lane 분리</li>
+  <li>agent-view 카드 그리드 SwiftUI (LazyVGrid + AgentCardView + AgentStatusBadge)</li>
+  <li>카드 클릭 → workspace/pane 점프 (<code>becomeFirstResponder</code> 까지 전파)</li>
+  <li>정렬(default <code>lastActivityAt</code> desc) + status 필터</li>
+  <li>키보드 네비게이션 (4 방향 + Return key)</li>
+  <li>needsInput 시각 큐 (pulse animation)</li>
+  <li>ADR-E 작성 (SGR 부분집합 / read_text-free_text 1:1 / NeedsInput versioning / OSC 133 우선 정책)</li>
+</ul>
+
+<h4>Scope (out) — 절대 손대지 않는다</h4>
+<ul>
+  <li>카드 직접 입력(P9 모바일 역할), WS/Push(P4/P5), 한 카드 다중 모바일 디바이스 표시</li>
+  <li>카드 hover preview 확장, libghostty mini embed</li>
+  <li>claude session 자체의 영속화/resume (P4+)</li>
+</ul>
+
+<h4>Key Deliverables</h4>
+<p>
+  신규 파일: <code>SessionStatusSnapshot.swift</code>, <code>SessionStatusObserver.swift</code>, <code>NeedsInputPolicy.swift</code>, <code>NeedsInputTelemetry.swift</code>, <code>SessionStatusStore.swift</code>, <code>SessionStatusCoordinator.swift</code>, <code>SessionActionRouter.swift</code>, <code>ActionPayload.swift</code>, <code>AgentDashboardView.swift</code>, <code>AgentCardView.swift</code>, <code>AgentStatusBadge.swift</code>, <code>AgentJumpAction.swift</code>, <code>AnsiSGRParser.swift</code>, <code>ShellPreviewExtractor.swift</code>, <code>Utf8BoundaryTruncator.swift</code>, <code>ViewportPollingTimer.swift</code>, <code>FocusedPaneStore.swift</code>, <code>SessionIndex.swift</code>, <code>AgentSortFilterControls.swift</code>, <code>AgentViewSettings.swift</code>
+</p>
+<p>
+  신규 테스트: <code>SessionStatusSnapshotTests</code>, <code>SessionIndexTests</code>, <code>SessionStatusObserverTests</code>, <code>NeedsInputPolicyV1Tests</code>, <code>NeedsInputTelemetryTests</code>, <code>AnsiSGRParserTests</code>, <code>ShellPreviewExtractorTests</code>, <code>Utf8BoundaryTruncatorTests</code>, <code>SessionActionRouterTests</code>, <code>SessionStatusCoordinatorTests</code>, <code>ViewportPollingTimerTests</code>, <code>AgentJumpActionTests</code>, <code>AgentDashboardViewModelTests</code>, <code>AgentViewSettingsTests</code>, <code>AgentDashboardIntegrationTests</code>, <code>AgentViewInvariantTests</code>
+</p>
+<p>
+  문서: <code>docs/adr/E-agent-view-rendering.md</code><br>
+  코퍼스: <code>Tests/Fixtures/korean-emoji-corpus.txt</code> (100건, 200 grapheme/line)
+</p>
+
+<h4>Dependencies</h4>
+<p>P1 (libghostty 통합), P2 (workspace 탭 + 다중 pane + lifecycle wiring). 둘 다 main 머지 완료.</p>
+
+<h4>Effort 추정</h4>
+<table>
+  <thead><tr><th>구분</th><th>일수</th></tr></thead>
+  <tbody>
+    <tr><td>기본 effort</td><td>4~6일 (master § P3)</td></tr>
+    <tr><td>컨틴전시 (ADR-E +1일)</td><td>5~7일</td></tr>
+    <tr><td>본 문서 기본 분배</td><td>6일 (Day 1~6, 0.8+1.0+1.0+1.2+1.0+1.0)</td></tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-2">2. RALPLAN-DR Summary</h2>
+
+<h3>Principles (6)</h3>
+<ol>
+  <li><strong>Lifecycle vs Agent-Status 도메인 분리</strong>. <code>Session.status</code> (running/exited)는 P1/P2 lifecycle invariant 보존. agent-view용 동적 상태(idle/working/needsInput)는 별도 도메인으로 모델링하여 backward compat 회귀 0건 보장. <strong>SessionStatusCoordinator는 SessionLifecycleHooks의 단일 방향 소비자이며, lifecycle hook으로 agent-status를 push하지 않는다 (단방향 invariant).</strong></li>
+  <li><strong>needsInput 감지는 false negative 허용, false positive 금지</strong>. 사용자가 입력 대기 중인데 카드가 idle 표시(FN)는 불편 수준. 입력 대기가 아닌데 needsInput 표시(FP)는 잘못된 액션 유도. v1은 보수적 white-list + SGR reset prefix 조건으로 시작.</li>
+  <li><strong>메인 스레드 보호 (이벤트 분리 + 동적 폴링)</strong>. preview는 throttle 100ms publisher, needsInput은 throttle bypass fast-lane. polling은 focused pane 250ms / background pane 1000ms 동적 빈도로 평균 호출량 절감.</li>
+  <li><strong>libghostty PTY owning invariant 보존</strong>. agent-status 감지가 PTY 재소유 또는 두 번 읽기 금지. <code>ghostty_surface_read_text</code> (viewport snapshot, free 1:1) + <code>ghostty_runtime_action_cb</code> (RING_BELL/PROMPT_TITLE 등 high-level signal, main thread hop) 조합.</li>
+  <li><strong>UTF-8 메시지 경계 보존</strong>. 한국어/ZWJ emoji 포함 preview 추출 시 <code>Data.prefix(byte)</code> 대신 grapheme cluster 단위 truncation. ANSI SGR/CR 파싱도 byte 경계가 아닌 <code>String.Index</code> 단위.</li>
+  <li><strong>C ABI alloc/free 1:1 강제</strong>. <code>ghostty_surface_read_text</code> 호출 시 반드시 <code>defer { ghostty_surface_free_text(...) }</code> 패턴. 메모리 leak 0건이 verifier 4축의 leak/RAII 축에 포함.</li>
+</ol>
+
+<h3>Decision Drivers (Top 3)</h3>
+<table>
+  <thead><tr><th>우선순위</th><th>Driver</th><th>근거</th></tr></thead>
+  <tbody>
+    <tr><td>D1</td><td>P1/P2 backward compat 부담 최소화</td><td>P1/P2 verifier 4축 critical 0건 통과 상태 유지. <code>Session.status</code> enum case 변경 시 SessionManager + SessionVerifier + 7개 테스트가 동시 마이그레이션 필요</td></tr>
+    <tr><td>D2</td><td>테스트 가능성 (단위 + 통합)</td><td>PTY 없는 환경에서 status/preview 파생 로직 검증. PTY-bound 컴포넌트와 derivation 컴포넌트 분리</td></tr>
+    <tr><td>D3</td><td>사용자 visible behavior 정확성</td><td>A1~A6 acceptance가 한국어/CR/RPROMPT/needsInput 모두 통과. needsInput strong signal은 throttle bypass로 즉시 전파, preview는 throttle 100ms</td></tr>
+  </tbody>
+</table>
+
+<h3>Viable Options Considered (3)</h3>
+<p>핵심 architectural choice: agent-view 도메인 데이터를 어디에 두는가?</p>
+<table>
+  <thead><tr><th>옵션</th><th>모델 변경</th><th>Backward compat</th><th>도메인 응집</th><th>Pros</th><th>Cons</th><th>판정</th></tr></thead>
+  <tbody>
+    <tr><td>A. <code>Session.status</code> enum 세분화 (idle/working/needsInput/exited)</td><td>SessionStatus 4-state 교체</td><td>.running 비교부 ≥12군데 마이그레이션 필요</td><td>lifecycle + agent-status 혼합</td><td>enum 1개 표현 단순</td><td>backward compat 부담 최대</td><td><span class="tag danger">거부</span></td></tr>
+    <tr><td>B. <code>Session</code> 에 <code>agentStatus</code> 신규 필드</td><td>옵셔널 default 추가</td><td>기존 .running/.exited 그대로</td><td>모델 안 명시 분리</td><td>모델 응집</td><td><code>with(...)</code> 빌더 폭 증가, Session high-freq 갱신</td><td><span class="tag danger">거부</span></td></tr>
+    <tr><td>C. SessionStatusSnapshot 별도 struct</td><td>Session 무변경</td><td>Session 무변경, 최강 안전</td><td>완전히 다른 struct, SRP 최강</td><td>backward compat + 테스트성 + SRP</td><td>신규 컴포넌트(SessionStatusStore) 추가</td><td><span class="tag ok">선택</span></td></tr>
+  </tbody>
+</table>
+
+<div class="callout ok">
+  <div class="label">결정 사유</div>
+  <p>D1 (backward compat) + D2 (테스트성) + D3 (사용자 정확성) 모두 충족. lifecycle terminate path에 agent-status 동기 갱신 의무 부과 안 함. lifecycle hook이 발행한 <code>onSessionTerminated</code> 이벤트를 SessionStatusCoordinator가 main thread에서 단방향 소비하여 snapshot.agentStatus = .exited 전이. 역방향 의존 0건. P2 actor isolation invariant 보존.</p>
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-3">3. 핵심 설계 결정 8건</h2>
+
+<h3 id="d3-1">D3-1. Session 모델 확장 전략 — Option C</h3>
+
+<pre><code>// Sources/Session/SessionStatusSnapshot.swift (신규)
+public enum AgentStatus: String, Sendable, Equatable {
+    case idle, working, needsInput, exited
+}
+
+public struct SessionStatusSnapshot: Sendable, Equatable {
+    public let sessionId: UUID
+    public let agentStatus: AgentStatus
+    public let latestPreview: String     // &lt;= 200 grapheme clusters, UTF-8 boundary safe
+    public let lastActivityAt: Date
+}</code></pre>
+
+<div class="callout">
+  <div class="label">lifecycle terminate path 비결합 invariant</div>
+  <p>SessionManager의 <code>terminate(id:)</code> / <code>terminateAll(inWorkspace:)</code> 경로는 agent-status 갱신을 동기 수행하지 않는다. lifecycle hook이 발행한 <code>onSessionTerminated</code> 이벤트를 SessionStatusCoordinator가 main thread에서 단방향 소비.</p>
+</div>
+
+<h3 id="d3-2">D3-2. needsInput 감지 휴리스틱 — versioned policy + telemetry + ❯ FP 강화</h3>
+
+<pre><code>// Sources/Session/NeedsInputPolicy.swift (신규)
+public protocol NeedsInputPolicy: Sendable {
+    var version: String { get }
+    func detect(in viewportText: String) -> Bool
+}
+
+public struct NeedsInputPolicyV1: NeedsInputPolicy {
+    public let version = "v1-2026-05"
+    private static let patterns: [String] = [
+        "Do you want to apply this change?",
+        "Do you want to proceed?",
+        "Press Enter to continue",
+        "[y/n]",
+    ]
+    // FP 방지: SGR reset 직후의 ❯ 만 인정
+    private static let claudePromptMarker = "\u{1b}[0m❯ "
+
+    public func detect(in viewportText: String) -> Bool {
+        let tail = viewportText.suffix(80)
+        for pat in Self.patterns where tail.contains(pat) { return true }
+        if tail.contains(Self.claudePromptMarker) { return true }
+        if tail.contains("\u{1b}[39m❯ ") { return true }
+        return false
+    }
+}
+
+@MainActor
+public final class NeedsInputTelemetry: ObservableObject {
+    @Published public private(set) var triggerCountThisMonth: Int = 0
+    @Published public private(set) var lastTriggeredAt: Date?
+    private var monthAnchor: DateComponents?
+
+    /// 월 카운터 reset 조건: 현재 month-of-year != 마지막 record 시점의 month-of-year.
+    public func record(now: Date = Date()) {
+        let cal = Calendar(identifier: .gregorian)
+        let comps = cal.dateComponents([.year, .month], from: now)
+        if monthAnchor != comps {
+            monthAnchor = comps
+            triggerCountThisMonth = 0
+        }
+        triggerCountThisMonth += 1
+        lastTriggeredAt = now
+    }
+}</code></pre>
+
+<ul>
+  <li>패턴은 viewport text <strong>마지막 80 bytes</strong> 안에서만 매칭 (스크롤 위쪽 historical 메시지 FP 방지)</li>
+  <li>claude <code>SessionKind == .claude</code> 인 세션에만 적용</li>
+  <li>셸 세션 <code>working</code> 단순화: "최근 500ms 안에 PTY output(viewport 변경 또는 action_cb) 이 있으면 working, 없으면 idle". 자식 PID/상태 조회는 P4+ deferred.</li>
+  <li>V2 policy bump 시 V1은 namespace 보존 (regression 비교 + telemetry 카운터 추적)</li>
+</ul>
+
+<h3 id="d3-3">D3-3. PTY output 구독 메커니즘 — 2-trail hybrid</h3>
+
+<p>libghostty가 PTY를 owning(P2 invariant). 외부 raw byte 재읽기 금지.</p>
+
+<p><strong>Trail A (high-level signal)</strong>: <code>ghostty_runtime_action_cb</code> hook. 구독 action:</p>
+<ul>
+  <li><code>GHOSTTY_ACTION_RING_BELL</code> → needsInput 강신호</li>
+  <li><code>GHOSTTY_ACTION_COMMAND_FINISHED</code> → working → idle 전이</li>
+  <li><code>GHOSTTY_ACTION_PROMPT_TITLE</code> → preview 후보</li>
+  <li><code>GHOSTTY_ACTION_PROGRESS_REPORT</code> → working 강신호</li>
+</ul>
+
+<div class="callout warn">
+  <div class="label">Unknown tag pass-through 정책</div>
+  <p>4개 known tag 외 미래 신규 tag 등장 시 SessionActionRouter는 pass-through 정책: warn log emit (<code>OSLog category "AgentView.Router"</code>) + telemetry counter <code>unknownActionCount</code> 증가 + dispatch 미수행 (vendor bump 호환성).</p>
+</div>
+
+<p>action_cb는 libghostty read/write/render thread 중 어디에서든 동기 invoke. 따라서 callback 진입 즉시 payload만 추출하고 dispatch는 main thread hop:</p>
+
+<pre><code>// Sources/TerminalView/GhosttyApp.swift 수정 (action_cb 본문)
+action_cb: { _, target, action in
+    let tag = action.tag
+    let surfaceUserdata: UnsafeMutableRawPointer? = {
+        if target.tag == GHOSTTY_TARGET_SURFACE,
+           let surface = target.target.surface {
+            return ghostty_surface_userdata(surface)
+        }
+        return nil
+    }()
+    let payload = ActionPayload(extractedFromAction: action)
+    DispatchQueue.main.async {
+        SessionActionRouter.shared?.dispatch(
+            tag: tag,
+            surfaceUserdata: surfaceUserdata,
+            payload: payload
+        )
+    }
+    return true
+}</code></pre>
+
+<p><code>ActionPayload</code>는 Sendable struct. action union 내 string/integer/enum만 extract 보유. 포인터 보유 금지 (main thread hop 후 libghostty 메모리 invalid 가능).</p>
+
+<p><strong>Trail B (low-level snapshot)</strong>: viewport polling 동적 빈도. focused pane 4Hz, 그 외 background pane 1Hz.</p>
+
+<div class="callout">
+  <div class="label">"focused" 정의</div>
+  <p>pane이 focused 라는 것은 다음 두 조건 모두 만족하는 상태. (i) <code>manager.selectedID == workspaceId</code> 이고 <code>FocusedPaneStore.focused[workspaceId] == paneId</code>, (ii) <code>NSApp.isActive == true</code>. app 백그라운드 진입 시 <code>NSApp.isActive == false</code> 되어 모든 surface가 background tier (1Hz) 강등. app 활성화 복귀 시 다음 tick에서 focused 재계산.</p>
+</div>
+
+<pre><code>// Sources/UI/AgentView/ViewportPollingTimer.swift (신규)
+@MainActor
+public final class ViewportPollingTimer {
+    private let focusedIntervalMs: Int = 250
+    private let backgroundIntervalMs: Int = 1000
+    private var lastPolledAt: [UUID: Date] = [:]
+    private weak var focusedPaneStore: FocusedPaneStore?
+    private weak var manager: WorkspaceManager?
+    private let sessionIndex: SessionIndex
+    private let observer: SessionStatusObserver
+    private let surfaceRegistry: SurfaceRegistry
+
+    public func tick(now: Date = Date()) {
+        let appActive = NSApp.isActive
+        let focusedPaneId: UUID? = {
+            guard appActive,
+                  let wsId = manager?.selectedID,
+                  let store = focusedPaneStore else { return nil }
+            return store.focused[wsId]
+        }()
+        for entry in sessionIndex.allRunningSessions() {
+            let interval = (entry.paneId == focusedPaneId)
+                ? focusedIntervalMs : backgroundIntervalMs
+            if shouldPoll(sessionId: entry.sessionId, intervalMs: interval, now: now) {
+                poll(entry: entry, now: now)
+            }
+        }
+    }
+
+    /// CRITICAL: ghostty_text_s 의 alloc/free 1:1 강제.
+    private func poll(entry: SessionIndexEntry, now: Date) {
+        guard let surfaceView = surfaceRegistry.acquireExisting(paneId: entry.paneId),
+              let surface = surfaceView.surfaceHandle else { return }
+        var text = ghostty_text_s()
+        let ok = ghostty_surface_read_text(surface, GHOSTTY_SELECTION_VIEWPORT, &amp;text)
+        defer { ghostty_surface_free_text(surface, &amp;text) }
+        guard ok else { return }
+        let viewportText = String(cString: text.text)
+        observer.observe(sessionId: entry.sessionId, viewportText: viewportText, at: now)
+        lastPolledAt[entry.sessionId] = now
+    }
+}</code></pre>
+
+<p>평균 호출량: 1 focused × 4Hz + 19 background × 1Hz = <strong>평균 23Hz</strong> (정적 80Hz 대비 71% 절감).</p>
+
+<h3 id="d3-4">D3-4. SessionStatusCoordinator — 3-publisher 분리</h3>
+
+<p>needsInput은 strong signal이므로 throttle 적용 시 D3(사용자 정확성) 충돌. preview/needsInput/status를 별도 publisher로 분리.</p>
+
+<pre><code>// Sources/Session/SessionStatusCoordinator.swift (신규)
+@MainActor
+public final class SessionStatusCoordinator: ObservableObject {
+    @Published public private(set) var snapshots: [UUID: SessionStatusSnapshot] = [:]
+
+    private let previewSubject = PassthroughSubject&lt;(UUID, String), Never&gt;()
+    private let needsInputSubject = PassthroughSubject&lt;UUID, Never&gt;()  // throttle 없음
+    private let statusSubject = PassthroughSubject&lt;(UUID, AgentStatus), Never&gt;()
+    private var cancellables: Set&lt;AnyCancellable&gt; = []
+
+    public init() {
+        // (a) preview: 100ms throttle (high-frequency 대응)
+        previewSubject
+            .throttle(for: .milliseconds(100), scheduler: DispatchQueue.main, latest: true)
+            .sink { [weak self] (id, preview) in self?.applyPreview(sessionId: id, preview: preview) }
+            .store(in: &amp;cancellables)
+        // (b) needsInput fast-lane: throttle bypass, removeDuplicates 만
+        needsInputSubject
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] id in self?.markNeedsInput(sessionId: id) }
+            .store(in: &amp;cancellables)
+        // (c) status: throttle 없음 (저빈도)
+        statusSubject
+            .removeDuplicates(by: { $0 == $1 })
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] (id, status) in self?.applyStatus(sessionId: id, status: status) }
+            .store(in: &amp;cancellables)
+    }
+    // publishPreview, publishNeedsInput, publishStatus 메서드 + private applyXxx
+}</code></pre>
+
+<p>검증 가능 정량:</p>
+<ul>
+  <li>preview 1초 100건 send → applyPreview ≤ 12회 (100ms throttle)</li>
+  <li>needsInput 1건 send → markNeedsInput elapsed &lt; 20ms (fast-lane)</li>
+  <li>status 빈도가 본래 낮아 throttle 불필요</li>
+</ul>
+
+<h3 id="d3-5">D3-5. ANSI SGR 파서 — SwiftUI AttributedString</h3>
+
+<table>
+  <thead><tr><th>옵션</th><th>Pros</th><th>Cons</th><th>채택</th></tr></thead>
+  <tbody>
+    <tr><td>plain strip</td><td>단순</td><td>시각 정보 손실</td><td><span class="tag danger">거부</span></td></tr>
+    <tr><td>SwiftUI AttributedString SGR parser</td><td>foreground/bg/bold/italic 지원, SwiftUI 네이티브</td><td>SGR 부분집합만</td><td><span class="tag ok">선택</span></td></tr>
+    <tr><td>mini-libghostty embed</td><td>충실 렌더</td><td>코드 표면적 폭증, terminal state machine internal copy 별도 운영 비용 불균형, P3 효과 대비 비용 과다</td><td><span class="tag danger">거부</span> (P12+ deferred)</td></tr>
+  </tbody>
+</table>
+
+<p>CR(<code>\r</code>) 처리는 SGR 파서가 line 단위 절단 후 마지막 <code>\r</code> 이후 segment만 보존. 한국어/ZWJ emoji는 <code>String.Index</code> 단위.</p>
+
+<h3 id="d3-6">D3-6. AgentJumpAction + FocusedPaneStore + becomeFirstResponder</h3>
+
+<pre><code>@MainActor
+public final class AgentJumpAction {
+    public let manager: WorkspaceManager
+    public let focusedPaneStore: FocusedPaneStore
+    public let surfaceRegistry: SurfaceRegistry
+
+    public func jump(to snapshot: SessionStatusSnapshot, snapshotIndex: SessionIndex) {
+        guard let location = snapshotIndex.locate(sessionId: snapshot.sessionId) else { return }
+        manager.select(id: location.workspaceId)
+        focusedPaneStore.setFocus(workspaceId: location.workspaceId, paneId: location.paneId)
+        if let view = surfaceRegistry.acquireExisting(paneId: location.paneId) {
+            view.window?.makeFirstResponder(view)  // GhosttyTerminalView:209-215 호출
+        }
+    }
+}
+
+@MainActor
+public final class FocusedPaneStore: ObservableObject {
+    @Published public private(set) var focused: [UUID: UUID] = [:]
+    public func setFocus(workspaceId: UUID, paneId: UUID) { focused[workspaceId] = paneId }
+}</code></pre>
+
+<h3 id="d3-7">D3-7. 셸 preview — OSC 133 우선 + 3-조건 conjunction fallback</h3>
+
+<ol>
+  <li>1순위: OSC 133 marker 존재 시 prompt 영역 직접 식별.</li>
+  <li>Fallback (OSC 133 marker 부재 시 또는 marker 영역 외부):
+    <ol>
+      <li>SGR + CR 처리 후 줄 단위 분리</li>
+      <li>빈 줄, <code>\r</code>로 redraw된 잔여 줄, length≤1 skip</li>
+      <li><strong>prompt-only 줄 판정</strong> — 3 조건 모두 충족 시:
+        <ul>
+          <li>길이 ≤ 12 grapheme cluster</li>
+          <li>끝 문자가 <code>% </code>, <code>$ </code>, <code># </code>, <code>❯ </code> 중 하나</li>
+          <li>직전 줄이 빈 줄이거나 CR redraw 직후 (마지막 line 인 경우)</li>
+        </ul>
+      </li>
+      <li>ANSI 잔여 escape 누락 검증: preview에 ESC가 있으면 unit test 실패</li>
+      <li>한국어/ZWJ emoji 처리: <code>String.Index</code> + grapheme cluster prefix(200)</li>
+    </ol>
+  </li>
+</ol>
+
+<p>RPROMPT 처리: SGR 파서가 CUP/HPA escape 만나면 segment 경계 처리하여 우측 부분 drop.</p>
+
+<h3 id="d3-8">D3-8. sort/filter 영속화 — extraFields["agentView.*"]</h3>
+
+<pre><code>{
+  "agentView.sort": "lastActivityAtDesc",
+  "agentView.filter": "all"
+}</code></pre>
+
+<ul>
+  <li>마이그레이션: 기존 P2 영속화 파일은 <code>extraFields == nil</code> → 디코딩 그대로 → 부팅 시 default sort</li>
+  <li>변경 시점: 사용자 UI 변경 → <code>WorkspaceManager.persistCurrent()</code> 가 다음 디스크 fsync에 포함</li>
+  <li>master § 4 reserved namespace 표 등록 PR은 Exit Gate "soft requirement" (5일 unblock 정책)</li>
+</ul>
+
+<!-- =================================================================== -->
+<h2 id="sec-4">4. Day-by-Day Work Package (6일)</h2>
+
+<p>각 Day 카드 구조: 목표 / 산출물 / OMC 위임 / 예상 소요 / 기술 노트 / 측정 가능한 종료 조건.</p>
+
+<div class="day-card">
+  <h3 id="day-1">Day 1 — 도메인 모델 + 인덱스 (0.8일)</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>SessionStatusSnapshot, SessionStatusStore, SessionIndex 추가. Session 모델 무변경 검증.</dd>
+    <dt>산출물</dt>
+    <dd><code>SessionStatusSnapshot.swift</code>, <code>SessionStatusStore.swift</code>, <code>SessionIndex.swift</code>, <code>SessionStatusSnapshotTests.swift</code> (≥8건), <code>SessionIndexTests.swift</code> (≥6건)</dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (model=sonnet)</dd>
+    <dt>예상 소요</dt>
+    <dd>0.8일</dd>
+  </dl>
+  <h4>기술 노트</h4>
+  <ul>
+    <li><code>SessionStatusStore.snapshots: [UUID: SessionStatusSnapshot]</code> <code>@Published</code></li>
+    <li>immutable: <code>SessionStatusSnapshot</code> 모든 stored property <code>let</code>, <code>with(...)</code> 빌더 보유</li>
+  </ul>
+  <h4>측정 가능한 종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>grep -rnE '(var) +[A-Z]' Sources/Session/SessionStatusSnapshot.swift</code> → 0건</li>
+    <li><input type="checkbox" disabled> SessionStatusSnapshotTests 8/8 PASS</li>
+    <li><input type="checkbox" disabled> <code>grep -rnE 'enum +SessionStatus' Sources/Session/Session.swift</code> → 정확히 1건 (P1/P2 유지)</li>
+    <li><input type="checkbox" disabled> <code>grep -rn 'public let status: SessionStatus' Sources/Session/Session.swift</code> → 정확히 1건 (변경 없음)</li>
+    <li><input type="checkbox" disabled> SessionIndex.locate(sessionId:) — workspace 3 × pane 2 = 6 session 시나리오 정확 매핑, miss nil</li>
+    <li><input type="checkbox" disabled> SessionStatusStore upsert(_:) 후 키 1개 존재 XCTAssertEqual</li>
+  </ul>
+</div>
+
+<div class="day-card">
+  <h3 id="day-2">Day 2 — SessionStatusObserver + NeedsInputPolicy + Telemetry (1일)</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>viewport text + action callback → SessionStatusSnapshot 발행. NeedsInputPolicy versioned + V1 + Telemetry 구현.</dd>
+    <dt>산출물</dt>
+    <dd><code>SessionStatusObserver.swift</code>, <code>NeedsInputPolicy.swift</code>, <code>NeedsInputTelemetry.swift</code>, <code>SessionStatusObserverTests</code> (≥12건), <code>NeedsInputPolicyV1Tests</code> (≥12건), <code>NeedsInputTelemetryTests</code> (≥4건), <code>Tests/Fixtures/korean-emoji-corpus.txt</code> (100건)</dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (model=sonnet)</dd>
+    <dt>예상 소요</dt>
+    <dd>1.0일</dd>
+  </dl>
+  <h4>기술 노트</h4>
+  <ul>
+    <li>SessionStatusObserver init 인자: sessionId, kind, clock, policy</li>
+    <li>observe(viewportText:) + observe(action:) 두 메서드</li>
+    <li>내부 4 KiB ring buffer (policy 가 마지막 80 bytes scan)</li>
+    <li>needsInput 트리거 시 NeedsInputTelemetry.record() 호출</li>
+  </ul>
+  <h4>측정 가능한 종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>NeedsInputPolicyV1().detect(in: "Do you want to apply this change? [y/n]")</code> → true</li>
+    <li><input type="checkbox" disabled> "...exceeding 80 bytes window padding..." → false (위치 검사)</li>
+    <li><input type="checkbox" disabled> "cat README.md 결과: ❯ 화살표 기호" → false (SGR reset prefix 없이 ❯, FP 차단)</li>
+    <li><input type="checkbox" disabled> "\u{1b}[0m❯ " → true (claude REPL prompt 정확)</li>
+    <li><input type="checkbox" disabled> "\u{1b}[39m❯ " → true (default fg reset 변형)</li>
+    <li><input type="checkbox" disabled> <code>version == "v1-2026-05"</code> XCTAssertEqual</li>
+    <li><input type="checkbox" disabled> <code>record()</code> 후 triggerCountThisMonth == 1</li>
+    <li><input type="checkbox" disabled> 월 경계 cross 리셋 (2026-05 record×3 + 2026-06 record×1 → 06월 count==1)</li>
+    <li><input type="checkbox" disabled> SessionStatusObserver.observe(viewportText: "\u{1b}[0m❯ ") 후 snapshot.agentStatus == .needsInput</li>
+    <li><input type="checkbox" disabled> shell observe("abc") + clock 400ms → .working, 600ms → .idle</li>
+    <li><input type="checkbox" disabled> 한국어/이모지 corpus 정량: 100건 (각 200 grapheme) 입력 후 모든 snapshot.latestPreview.validateUTF8() PASS 100/100 + raw ESC 0건 + 0건</li>
+    <li><input type="checkbox" disabled> FN test: "분석을 마쳤습니다." → .needsInput == false</li>
+  </ul>
+</div>
+
+<div class="day-card">
+  <h3 id="day-3">Day 3 — ANSI SGR 파서 + Utf8 truncator + ShellPreviewExtractor (1일)</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>SwiftUI AttributedString SGR 파서 구현. CR/RPROMPT/한국어/ZWJ emoji/escape 처리. OSC 133 우선 정책.</dd>
+    <dt>산출물</dt>
+    <dd><code>AnsiSGRParser.swift</code>, <code>ShellPreviewExtractor.swift</code>, <code>Utf8BoundaryTruncator.swift</code>, <code>AnsiSGRParserTests</code> (≥14건), <code>ShellPreviewExtractorTests</code> (≥12건), <code>Utf8BoundaryTruncatorTests</code> (≥8건)</dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (model=sonnet) + tdd-guide</dd>
+    <dt>예상 소요</dt>
+    <dd>1.0일</dd>
+  </dl>
+  <h4>기술 노트</h4>
+  <ul>
+    <li>AnsiSGRParser.parse(_:) → AttributedString. ADR-E (가) 부분집합. 미지원 silently drop + <code>OSLog(category: "AgentView.SGR").debug(...)</code> emit</li>
+    <li>ShellPreviewExtractor.extract(_:): 1순위 OSC 133 영역 / fallback 3-조건 conjunction</li>
+    <li>Utf8BoundaryTruncator.truncate(_:maxGraphemes:): String.Index prefix. ZWJ emoji 1 grapheme</li>
+  </ul>
+  <h4>측정 가능한 종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>parse("\u{1b}[31mhello\u{1b}[0m")</code> → foregroundColor == .red</li>
+    <li><input type="checkbox" disabled> <code>parse("\u{1b}[38;2;128;64;255mtruecolor\u{1b}[0m")</code> → RGB(128,64,255)</li>
+    <li><input type="checkbox" disabled> <code>parse("\u{1b}[38;5;196m256\u{1b}[0m")</code> → 256 팔레트 196번 검증</li>
+    <li><input type="checkbox" disabled> bold 1/22 on/off</li>
+    <li><input type="checkbox" disabled> blink(5) 미지원 → silently drop, plain text 반환</li>
+    <li><input type="checkbox" disabled> "plain\r\nnext" → "plain\nnext" (CRLF normalized)</li>
+    <li><input type="checkbox" disabled> "first\rsecond" → "second" (\r 이전 drop)</li>
+    <li><input type="checkbox" disabled> <code>extract("user@host % ")</code> → nil (prompt-only 3-조건)</li>
+    <li><input type="checkbox" disabled> <code>extract("output line\nuser@host % ")</code> → "output line"</li>
+    <li><input type="checkbox" disabled> <code>extract("user@host % command\n결과: 한국어 출력\n❯ ")</code> → "결과: 한국어 출력"</li>
+    <li><input type="checkbox" disabled> OSC 133 우선 영역만: <code>extract("\u{1b}]133;A\u{1b}\\user@host % \u{1b}]133;B\u{1b}\\ls\n결과")</code> → "결과"</li>
+    <li><input type="checkbox" disabled> OSC 133 외부 영역 fallback: <code>"prefix raw text\n\u{1b}]133;A...\u{1b}\\cmd\nresult"</code> 영역별 분리 처리</li>
+    <li><input type="checkbox" disabled> RPROMPT: <code>"left prompt\u{1b}[100Cright prompt"</code> → "left prompt"</li>
+    <li><input type="checkbox" disabled> Utf8 한국어: <code>truncate("가나다라마바사", 3)</code> == "가나다" (byte 절단 X)</li>
+    <li><input type="checkbox" disabled> ZWJ emoji: <code>truncate("a👨‍👩‍👧‍👦b", 2)</code> == "a👨‍👩‍👧‍👦" (가족 emoji 1 grapheme 보존)</li>
+    <li><input type="checkbox" disabled> ZWJ emoji byte 절단 X: count==2, unicodeScalars.count ≥ 8</li>
+    <li><input type="checkbox" disabled> preview raw ESC 0건 grep</li>
+  </ul>
+</div>
+
+<div class="day-card">
+  <h3 id="day-4">Day 4 — action_cb main thread hop + ViewportPollingTimer 동적 빈도 + SessionStatusCoordinator 3-publisher (1.2일)</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>P2 GhosttyApp.action_cb 를 P3 라우터로 교체하되 main thread hop 강제. ViewportPollingTimer focused 4Hz / background 1Hz. read_text/free_text 1:1. SessionStatusCoordinator wiring.</dd>
+    <dt>산출물</dt>
+    <dd>GhosttyApp.swift 수정, <code>SessionActionRouter.swift</code>, <code>ActionPayload.swift</code>, <code>ViewportPollingTimer.swift</code>, <code>SessionStatusCoordinator.swift</code>, <code>SessionActionRouterTests</code> (≥8건), <code>SessionStatusCoordinatorTests</code> (≥10건), <code>ViewportPollingTimerTests</code> (≥6건)</dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (model=opus) — libghostty C ABI 인접</dd>
+    <dt>예상 소요</dt>
+    <dd>1.2일</dd>
+  </dl>
+  <h4>기술 노트</h4>
+  <ul>
+    <li>action_cb 내부: <code>ghostty_surface_userdata(surface)</code> 추출 + ActionPayload 생성 only. dispatch는 <code>DispatchQueue.main.async</code>. callback thread에서 SessionActionRouter 직접 호출 금지</li>
+    <li>ActionPayload Sendable struct, 포인터 보유 금지</li>
+    <li>SurfaceRegistry [UUID: NSView] 에서 surfaceUserdata → paneId 역인덱스. GhosttyTerminalView 에 paneId 프로퍼티 부착</li>
+    <li>ViewportPollingTimer: Timer.scheduledTimer 250ms repeats, main queue. 각 tick focused/background 빈도 판정 후 selective poll</li>
+    <li>poll(...) 내부 <code>defer { ghostty_surface_free_text(...) }</code> 강제</li>
+    <li>exited session polling 자동 stop</li>
+    <li>SessionActionRouter unknown tag warn log emit + unknownActionCount 증가 + dispatch 미수행</li>
+  </ul>
+  <h4>측정 가능한 종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>grep -A 10 'action_cb:' Sources/TerminalView/GhosttyApp.swift | grep -c 'DispatchQueue.main.async'</code> ≥ 1</li>
+    <li><input type="checkbox" disabled> <code>grep -n 'SessionActionRouter.shared' Sources/TerminalView/GhosttyApp.swift</code> ≥ 1</li>
+    <li><input type="checkbox" disabled> TSan 30분 실행 SessionActionRouter.dispatch 진입 알람 0건</li>
+    <li><input type="checkbox" disabled> <code>grep -n 'paneId' Sources/TerminalView/GhosttyTerminalView.swift</code> ≥ 1</li>
+    <li><input type="checkbox" disabled> SessionActionRouter.dispatch(tag: .ringBell, ...) → SessionStatusObserver.observe(action: .ringBell)</li>
+    <li><input type="checkbox" disabled> GHOSTTY_ACTION_COMMAND_FINISHED → observer.observe(action: .commandFinished)</li>
+    <li><input type="checkbox" disabled> Unknown tag pass-through: NEW_TAB → observer 미호출, unknownActionCount == 1, warn log emit</li>
+    <li><input type="checkbox" disabled> ViewportPollingTimer 동적 빈도: 1초 invocation count == 23±3 (1 focused × 4Hz + 19 background × 1Hz, 정적 80Hz 대비 71% 절감)</li>
+    <li><input type="checkbox" disabled> focused pane 변경 시 새 focused 다음 poll elapsed ≤ 250ms</li>
+    <li><input type="checkbox" disabled> app 백그라운드 강등: NSApp.isActive == false mock → focusedPaneId == nil → 모든 surface 1Hz 강등</li>
+    <li><input type="checkbox" disabled> <code>grep -n 'ghostty_surface_free_text' Sources/UI/AgentView/ViewportPollingTimer.swift</code> ≥ 1</li>
+    <li><input type="checkbox" disabled> <code>grep -n 'defer.*ghostty_surface_free_text'</code> ≥ 1</li>
+    <li><input type="checkbox" disabled> alloc/free 1:1 (Sources/ 한정): <code>grep -rc 'ghostty_surface_read_text' Sources/</code> == <code>grep -rc 'ghostty_surface_free_text' Sources/</code> (vendor/ 경로 제외)</li>
+    <li><input type="checkbox" disabled> 20 surface × 30분 idle 후 xcrun leaks count == 0</li>
+    <li><input type="checkbox" disabled> needsInput fast-lane: 1건 send → markNeedsInput elapsed &lt; 20ms</li>
+    <li><input type="checkbox" disabled> preview throttle: 1초 100건 send → applyPreview ≤ 12회</li>
+    <li><input type="checkbox" disabled> onSessionTerminated 발행 시 해당 polling timer invalidate + snapshot.agentStatus == .exited</li>
+    <li><input type="checkbox" disabled> backward compat: WorkspaceCoordinator.attachSessionsForPersistedWorkspaces() + SessionStatusCoordinator wire 통합 테스트 PASS</li>
+  </ul>
+</div>
+
+<div class="day-card">
+  <h3 id="day-5">Day 5 — AgentDashboardView + AgentCardView + AgentJumpAction (1일)</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>AgentViewPlaceholder를 실데이터 AgentDashboardView로 교체. 카드, status badge, AttributedString 렌더, 클릭 점프 + first responder 전환.</dd>
+    <dt>산출물</dt>
+    <dd><code>AgentDashboardView.swift</code>, <code>AgentCardView.swift</code>, <code>AgentStatusBadge.swift</code>, <code>AgentJumpAction.swift</code>, <code>FocusedPaneStore.swift</code>, WorkspaceContentView 수정, <code>AgentJumpActionTests</code> (≥10건), <code>AgentDashboardViewModelTests</code> (≥6건)</dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (model=sonnet) + designer (카드 layout)</dd>
+    <dt>예상 소요</dt>
+    <dd>1.0일</dd>
+  </dl>
+  <h4>기술 노트</h4>
+  <ul>
+    <li>AgentDashboardView ObservedObject: statusCoordinator + manager</li>
+    <li>ViewModel.cards: snapshots × workspaces 를 SessionIndex로 join</li>
+    <li>카드 그리드: <code>LazyVGrid(columns: [GridItem(.adaptive(minimum: 280))], spacing: 12)</code></li>
+    <li>status badge 색상: idle=gray, working=blue, needsInput=orange (pulse), exited=secondary</li>
+    <li>카드 onTapGesture → AgentJumpAction.jump → window?.makeFirstResponder(GhosttyTerminalView)</li>
+  </ul>
+  <h4>측정 가능한 종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>grep -n 'AgentViewPlaceholder' Sources/UI/WorkspaceContentView.swift</code> == 0</li>
+    <li><input type="checkbox" disabled> <code>grep -n 'AgentDashboardView' Sources/UI/WorkspaceContentView.swift</code> ≥ 1</li>
+    <li><input type="checkbox" disabled> AgentJumpAction.jump 후 manager.selectedID == location.workspaceId</li>
+    <li><input type="checkbox" disabled> focusedPaneStore.focused[location.workspaceId] == location.paneId</li>
+    <li><input type="checkbox" disabled> <code>grep -n 'makeFirstResponder' Sources/UI/AgentView/AgentJumpAction.swift</code> ≥ 1</li>
+    <li><input type="checkbox" disabled> mock NSView.becomeFirstResponder 호출 횟수 == 1</li>
+    <li><input type="checkbox" disabled> 카드 0개 시 "활성 세션이 없습니다" 표시 (accessibilityIdentifier == "agent-dashboard-empty")</li>
+    <li><input type="checkbox" disabled> 3 workspace × 2 pane = 6 카드 시나리오 vm.cards.count == 6</li>
+    <li><input type="checkbox" disabled> AgentStatusBadge 4종 status 한국어 라벨: idle="활성", working="작업 중", needsInput="입력 필요", exited="종료됨" 모두 XCTAssertEqual</li>
+    <li><input type="checkbox" disabled> AgentCardView preview AttributedString 렌더 (raw ESC 0건)</li>
+  </ul>
+</div>
+
+<div class="day-card">
+  <h3 id="day-6">Day 6 — 정렬/필터 + 영속화 + 통합 + verifier 4축 + ADR-E (1일)</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>정렬·필터 UI, 영속화, 통합 테스트, verifier 4축, ADR-E 문서.</dd>
+    <dt>산출물</dt>
+    <dd><code>AgentSortFilterControls.swift</code>, <code>AgentViewSettings.swift</code>, <code>AgentViewSettingsTests</code> (≥6건), <code>AgentDashboardIntegrationTests</code> (≥4건), <code>AgentViewInvariantTests</code> (≥5건), <code>docs/adr/E-agent-view-rendering.md</code></dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (model=sonnet) + verifier + writer (ADR-E)</dd>
+    <dt>예상 소요</dt>
+    <dd>1.0일</dd>
+  </dl>
+  <h4>기술 노트</h4>
+  <ul>
+    <li>sort: lastActivityAtDesc (default), lastActivityAtAsc, workspaceName, statusFirst (needsInput → working → idle → exited)</li>
+    <li>filter: all, needsInput, working, claudeOnly</li>
+    <li>영속화: WorkspaceManager.updateAgentViewSettings(_:) 가 agentView workspace extraFields 갱신 + persistCurrent()</li>
+    <li>ADR-E: master § 3.3 ADR 템플릿 (Decision/Drivers/Alternatives/Consequences/Follow-ups) 준수</li>
+  </ul>
+  <h4>측정 가능한 종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> 6 카드 sort=lastActivityAtDesc 첫 카드 lastActivityAt max</li>
+    <li><input type="checkbox" disabled> filter=needsInput vm.cards.allSatisfy { .needsInput }</li>
+    <li><input type="checkbox" disabled> sort/filter 변경 → fsync → 재부팅 후 보존</li>
+    <li><input type="checkbox" disabled> keyboard nav right arrow → next card focus</li>
+    <li><input type="checkbox" disabled> Return on focused card → AgentJumpAction.jump 호출 == 1</li>
+    <li><input type="checkbox" disabled> P2 invariant 회귀 0건: dedupAgentViews 후 agentView 정확히 1개, canClose == false</li>
+    <li><input type="checkbox" disabled> 점프 후 invariant 회귀 검증: AgentJumpAction.jump 100회 반복 후 agentView.count == 1 + canClose == false 보존</li>
+    <li><input type="checkbox" disabled> verifier 4축 explicit 명령: (1) immutable <code>grep -rnE '(var) +[A-Z]' Sources/Session/SessionStatusSnapshot.swift ... Sources/UI/AgentView/</code> → 0건. (2) error 한국어 i18n: KoreanErrorCatalog.code(from:) 매핑 5/5. (3) leak: FdLeakTests 20 iter PASS + xcrun leaks 30분 시나리오 0 + <code>grep -rc read_text Sources/</code> == <code>grep -rc free_text Sources/</code>. (4) actor isolation: <code>grep -rn 'nonisolated' Sources/Session/SessionStatus*.swift Sources/Session/SessionActionRouter.swift</code> → 0건</li>
+    <li><input type="checkbox" disabled> <code>docs/adr/E-agent-view-rendering.md</code> 파일 존재</li>
+    <li><input type="checkbox" disabled> <code>grep -E '^##? (Decision|Drivers|Alternatives|Consequences|Follow-ups)' docs/adr/E-agent-view-rendering.md | wc -l</code> == 5</li>
+    <li><input type="checkbox" disabled> ADR-E 4개 절: <code>grep -E 'SGR 부분집합|read_text.*free_text|NeedsInput Policy versioning|OSC 133' docs/adr/E-agent-view-rendering.md | wc -l</code> ≥ 4</li>
+  </ul>
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-5">5. Architecture Diagram (ASCII art)</h2>
+
+<div class="ascii">┌────────────────────────────────────────────────────────────────────────────┐
+│  GhosttyApp.action_cb (Ghostty read/write/render thread, 임의 thread)       │
+│       │                                                                    │
+│       │ ActionPayload extract (Sendable, 포인터 보유 금지)                 │
+│       ▼                                                                    │
+│  DispatchQueue.main.async { ... } ──── main thread hop                     │
+│       │                                                                    │
+└───────┼────────────────────────────────────────────────────────────────────┘
+        ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Main Thread                                                               │
+│                                                                            │
+│  SessionActionRouter ──── surfaceUserdata → paneId → sessionId             │
+│       │                                                                    │
+│       ▼                                                                    │
+│  SessionStatusObserver (PTY output → snapshot 파생)                        │
+│       │                                                                    │
+│       │ observe(action:) ┐                                                 │
+│       │ observe(viewportText:) ┤                                           │
+│       │                       ▼                                            │
+│       │   ┌────────────────────────────────────────┐                       │
+│       │   │ NeedsInputPolicyV1 (versioned)         │                       │
+│       │   │ Utf8BoundaryTruncator (grapheme)       │                       │
+│       │   │ ShellPreviewExtractor (OSC 133+fb)     │                       │
+│       │   │ AnsiSGRParser (AttributedString)       │                       │
+│       │   └────────────────────────────────────────┘                       │
+│       │                                                                    │
+│       │ publishPreview / publishNeedsInput / publishStatus                 │
+│       ▼                                                                    │
+│  SessionStatusCoordinator (3-publisher)                                    │
+│       │  previewSubject.throttle(100ms) ───────────► applyPreview          │
+│       │  needsInputSubject (throttle bypass) ──────► markNeedsInput        │
+│       │  statusSubject (throttle 없음) ───────────► applyStatus            │
+│       │                                                                    │
+│       ▼                                                                    │
+│  @Published snapshots: [UUID: SessionStatusSnapshot]                       │
+│       │                                                                    │
+│       ▼                                                                    │
+│  AgentDashboardView (LazyVGrid)                                            │
+│       │                                                                    │
+│       ├──► AgentCardView × N (status badge + preview AttributedString)    │
+│       │       │                                                            │
+│       │       └─ onTapGesture → AgentJumpAction.jump                       │
+│       │              │                                                     │
+│       │              ├─► WorkspaceManager.select(id:)                      │
+│       │              ├─► FocusedPaneStore.setFocus                         │
+│       │              └─► view.window?.makeFirstResponder(view)             │
+│       │                                                                    │
+│       └──► AgentSortFilterControls (extraFields["agentView.*"] 영속화)    │
+│                                                                            │
+│  ViewportPollingTimer ── 250ms tick                                        │
+│       │                                                                    │
+│       │ focused 4Hz (NSApp.isActive + FocusedPaneStore)                    │
+│       │ background 1Hz (그 외)                                             │
+│       │                                                                    │
+│       ▼                                                                    │
+│  ghostty_surface_read_text → defer { ghostty_surface_free_text } (1:1)     │
+│       │                                                                    │
+│       ▼                                                                    │
+│  SessionStatusObserver (loop back)                                         │
+└────────────────────────────────────────────────────────────────────────────┘
+
+Session (P1/P2 lifecycle model, P3에서 diff 0줄)
+  └─► SessionLifecycleHooks (onSessionCreated / onSessionTerminated)
+              │
+              ▼ (단방향 invariant: lifecycle hook → SessionStatusCoordinator)
+         SessionStatusCoordinator.publishStatus(.exited)</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-6">6. Critical Code Specs</h2>
+
+<p>위 D3-1 ~ D3-8 의사 코드 참조. 실제 구현 시 helper 메서드 + 에러 처리 + Combine cancellable 관리 추가.</p>
+
+<h3 id="sec-6-5">6.5 Pre-mortem (deliberate mode 의무 — 3 시나리오)</h3>
+
+<p>가정: P3 main 머지 직후 6주 이내 실패가 발생했다. 무엇이 잘못되었는가?</p>
+
+<div class="callout warn">
+  <div class="label">시나리오 A — libghostty bump가 read_text API 시그니처 변경</div>
+  <p><strong>트리거</strong>: <code>vendor/ghostty</code> 0.x → 1.0 upgrade에서 <code>ghostty_surface_read_text</code> 의 <code>ghostty_text_s</code> 레이아웃 변경</p>
+  <p><strong>증상</strong>: ViewportPollingTimer crash (EXC_BAD_ACCESS) 또는 preview 깨진 raw bytes</p>
+  <p><strong>사전 방어</strong>:</p>
+  <ol>
+    <li>ViewportPollingTimer 진입부에 <code>ghostty.h</code> <code>GHOSTTY_API_VERSION</code> assert</li>
+    <li><code>defer { free_text }</code> 1:1 grep 회귀 테스트가 vendor bump CI에서 fail 시 즉시 alert</li>
+    <li>ADR-E (나) 절 "vendor bump 시 ABI breakage 체크리스트"</li>
+  </ol>
+  <p><strong>회복 경로</strong>: polling 일시 정지 + 한국어 warning toast로 graceful degradation. 카드 본문은 마지막 snapshot 유지. action_cb (Trail A) 만으로 needsInput/working/exited 전이는 동작 보존</p>
+</div>
+
+<div class="callout warn">
+  <div class="label">시나리오 B — claude CLI 출력 카피 전면 변경 → NeedsInputPolicyV1 FN 100%</div>
+  <p><strong>트리거</strong>: claude CLI 업그레이드에서 문구 변경 (예: "Approve this edit?")</p>
+  <p><strong>증상</strong>: needsInput trigger count == 0 이 한 달 지속</p>
+  <p><strong>사전 방어</strong>:</p>
+  <ol>
+    <li>NeedsInputTelemetry monthly counter + <code>CHAT_TERMINAL_AGENT_TELEMETRY_LOG=1</code> 영속화</li>
+    <li>"30일 무 trigger" 알람 (월 트리거 count &lt; 1 시 user-visible warn)</li>
+  </ol>
+  <p><strong>회복 경로</strong>: NeedsInputPolicyV2 작성 → version bump (v2-YYYY-MM) → A/B comparison 1주 → V1 deprecated. ADR-E (다) "v2 bump 시그널" 정책 발동</p>
+</div>
+
+<div class="callout warn">
+  <div class="label">시나리오 C — 30 세션 동시 운영 (max=20 invariant 위반 시도)</div>
+  <p><strong>트리거</strong>: 사용자가 JSON 직접 수정 또는 코드 회귀로 max=20 우회</p>
+  <p><strong>증상</strong>: ViewportPollingTimer 30 surface × focused 250ms 동시 호출로 메인 스레드 점유 폭발 / 메모리 leak 누적</p>
+  <p><strong>사전 방어</strong>:</p>
+  <ol>
+    <li>SessionIndex.size &gt; 20 detect 시 polling 전면 정지 + 한국어 warning toast</li>
+    <li>ADR-E (나) "20 surface ceiling enforcement"</li>
+    <li>SessionManager.maxSessions assert 강화 (P2 invariant 보존)</li>
+  </ol>
+  <p><strong>회복 경로</strong>: telemetry log detect → 사용자 "세션을 20개 이하로 정리" 한국어 안내 dialog → max=20 정렬 후 polling 재개</p>
+</div>
+
+<h3 id="sec-6-7">6.7 확장 테스트 4영역 매트릭스 (deliberate mode 의무)</h3>
+
+<table>
+  <thead><tr><th>영역</th><th>본 phase 범위</th><th>검증 책임</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Unit</strong></td>
+      <td>NeedsInputPolicyV1Tests (28건) + Utf8BoundaryTruncatorTests (8건) + ShellPreviewExtractorTests (12건) + AnsiSGRParserTests (14건) + SessionStatusObserverTests (12건) + AgentSortFilterControlsTests + Korean/Emoji corpus 100건 (<code>Tests/Fixtures/korean-emoji-corpus.txt</code>)</td>
+      <td>Day 1~3 + Day 6</td>
+    </tr>
+    <tr>
+      <td><strong>Integration</strong></td>
+      <td>SessionStatusCoordinator 3-publisher × SessionStatusObserver × ViewportPollingTimer chain + AgentDashboardIntegrationTests 6 카드 + AgentJumpAction × FocusedPaneStore × surfaceRegistry chain</td>
+      <td>Day 4~5</td>
+    </tr>
+    <tr>
+      <td><strong>E2E</strong></td>
+      <td>실 libghostty + 실 child PTY 1건: <code>make e2e-p3</code> → 3 workspace 생성 → 6 pane spawn → 6 카드 표시 + 1 카드 click → first responder 전환 검증. XCUITest 또는 P10 통합 harness reuse. AgentViewInvariantTests 5/5 가 partial E2E 역할</td>
+      <td>Day 6</td>
+    </tr>
+    <tr>
+      <td><strong>Observability</strong></td>
+      <td>NeedsInputTelemetry monthly log (<code>CHAT_TERMINAL_AGENT_TELEMETRY_LOG=1</code>, <code>~/Library/Logs/ClaudeAlarmTerminal/agent-view-telemetry.log</code>) + TSan 30분 SessionActionRouter.dispatch 알람 0건 + xcrun leaks 20 surface × 30분 idle 0건 + verifier 4축 critical 0건. SessionActionRouter.unknownActionCount 임계 초과 시 vendor bump 의심 시그널</td>
+      <td>Day 4 + Day 6</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-7">7. ADR-E Operationalization</h2>
+
+<p>본 phase에서 작성될 <code>docs/adr/E-agent-view-rendering.md</code> 의 4개 절:</p>
+
+<h3>(가) 지원 SGR 코드 부분집합</h3>
+
+<table>
+  <thead><tr><th>카테고리</th><th>SGR 코드</th><th>의미</th></tr></thead>
+  <tbody>
+    <tr><td>Reset</td><td>0</td><td>모든 속성 reset</td></tr>
+    <tr><td>Style</td><td>1 bold, 3 italic, 4 underline, 7 reverse, 22/23/24/27 off</td><td>텍스트 스타일</td></tr>
+    <tr><td>Foreground basic</td><td>30~37</td><td>8색 fg</td></tr>
+    <tr><td>Foreground bright</td><td>90~97</td><td>고휘도 8색 fg</td></tr>
+    <tr><td>Foreground default</td><td>39</td><td>fg reset</td></tr>
+    <tr><td>Background basic</td><td>40~47</td><td>8색 bg</td></tr>
+    <tr><td>Background bright</td><td>100~107</td><td>고휘도 8색 bg</td></tr>
+    <tr><td>Background default</td><td>49</td><td>bg reset</td></tr>
+    <tr><td>Foreground 256-color</td><td>38;5;N (N=0~255)</td><td>xterm 256 팔레트</td></tr>
+    <tr><td>Background 256-color</td><td>48;5;N</td><td>xterm 256 팔레트</td></tr>
+    <tr><td>Foreground truecolor</td><td>38;2;R;G;B</td><td>24-bit RGB</td></tr>
+    <tr><td>Background truecolor</td><td>48;2;R;G;B</td><td>24-bit RGB</td></tr>
+  </tbody>
+</table>
+
+<p>미지원: blink(5,6), font alternate(10~19), framed(51), encircled(52), overline(53), proportional spacing(26/50) — silently drop + <code>OSLog(subsystem: "com.choms0521.ClaudeAlarmTerminal", category: "AgentView.SGR").debug(...)</code> emit.</p>
+
+<div class="callout">
+  <div class="label">플랫폼 범위</div>
+  <p>SGR 파서와 AttributedString 사용은 desktop (macOS) 전용. P4 envelope payload (모바일/WS 서버)는 raw SGR sequence 보존. AttributedString 변환은 데스크톱 카드 렌더 시점에만 적용. 모바일 측 렌더러는 자체 SGR 파서 또는 plain strip 선택권 보유.</p>
+  <p>CSI 미지원 escape (CUP, ED, HPA)는 segment boundary 처리하되 attribute 미반영. RPROMPT 처리에 활용.</p>
+</div>
+
+<h3>(나) read_text / free_text 1:1 leak invariant</h3>
+
+<p><code>ghostty_surface_read_text(...)</code> 가 채운 <code>ghostty_text_s.text</code> 멤버는 libghostty alloc 메모리. 반드시 동일 surface에 대해 <code>ghostty_surface_free_text(surface, &amp;text)</code> 해제. P3는 ViewportPollingTimer.poll 단일 호출 지점에서 <code>defer</code> 패턴으로 1:1 보장.</p>
+
+<p>verifier 4축 leak/RAII 축 추가 항목:</p>
+<ul>
+  <li>20 surface × 30분 idle 후 <code>xcrun leaks &lt;pid&gt;</code> count == 0</li>
+  <li><code>grep -rc 'ghostty_surface_read_text' Sources/</code> == <code>grep -rc 'ghostty_surface_free_text' Sources/</code> (vendor 경로 제외)</li>
+</ul>
+
+<div class="callout warn">
+  <div class="label">vendor bump 시 ABI breakage 체크리스트 (시나리오 A 대응)</div>
+  <ul>
+    <li>ghostty.h <code>GHOSTTY_API_VERSION</code> 매크로 빌드 타임 assert</li>
+    <li><code>MemoryLayout&lt;ghostty_text_s&gt;.size</code> 단위 테스트 (member 추가/삭제 detect)</li>
+    <li><code>defer { free_text }</code> grep 회귀 테스트 1:1 위반 시 CI fail</li>
+  </ul>
+</div>
+
+<div class="callout warn">
+  <div class="label">20 surface ceiling enforcement (시나리오 C 대응)</div>
+  <p>SessionIndex.size &gt; 20 detect 시 polling 정지 + 한국어 warning toast + telemetry log.</p>
+</div>
+
+<h3>(다) NeedsInput Policy versioning</h3>
+
+<ul>
+  <li>매 release NeedsInputPolicyV1.patterns trigger rate를 NeedsInputTelemetry.triggerCountThisMonth 로 측정</li>
+  <li>월 trigger count &lt; 1 시 policy bump (v2) 필요 신호 (claude CLI 출력 카피 변경 의심)</li>
+  <li>v2 bump 시그널 정책 (시나리오 B 대응): V1 monthly counter &lt; 1 1회 발생 시 user-visible 한국어 warn toast + telemetry log</li>
+  <li>v2 release 시 V1은 <code>NeedsInputPolicyV1</code> namespace 보존 + 기본 정책만 <code>NeedsInputPolicyV2</code> 교체 (regression 비교)</li>
+  <li>FP escalation: 사용자 보고 1건 = HIGH priority bug → patterns에서 즉시 제외 + telemetry counter reset</li>
+</ul>
+
+<h3>(라) OSC 133 semantic prompt marker 우선 정책</h3>
+
+<ul>
+  <li>OSC 133 sequence (<code>;A</code> prompt start, <code>;B</code> command start, <code>;C</code> output start, <code>;D</code> command end) 가 viewport text에 <strong>1개 이상</strong> 존재 시 신뢰</li>
+  <li><strong>적용 범위</strong>: marker 1개 이상 존재 시 해당 marker로 둘러싸인 영역만 OSC 133 우선 정책으로 prompt 영역 추출. marker 외부 텍스트는 fallback heuristic (길이/끝문자/직전 줄 3-조건 conjunction) 처리. viewport가 OSC 133 영역과 raw text 영역 혼재 시 두 정책이 영역별 공존</li>
+  <li>OSC 133 없으면 D3-7 fallback 으로 전체 viewport 처리</li>
+  <li>modern shell (zsh osc133 plugin, fish 3.4+, bash custom PROMPT_COMMAND) 에서만 발행. default zsh 환경에서는 fallback 경로 정상</li>
+</ul>
+
+<!-- =================================================================== -->
+<h2 id="sec-8">8. Acceptance Criteria</h2>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>기준</th><th>검증 일자</th><th>검증 절차</th><th>통과</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>A1</td>
+      <td>3 workspace × (claude + shell) = 6 카드, latestPreview 한국어/ZWJ emoji UTF-8 경계 무결</td>
+      <td>Day 5/6</td>
+      <td>(a) AgentDashboardIntegrationTests.test_6card_scenario_korean_preview PASS, (b) preview raw ESC 0건, (c) ZWJ emoji grapheme 보존, (d) 200 grapheme corpus 100건 / validateUTF8 0 fail</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A2</td>
+      <td>claude "Do you want to apply this change? [y/n]" → status needsInput</td>
+      <td>Day 2/4/6</td>
+      <td>(a) NeedsInputPolicyV1Tests.test_realPrompt_detected, (b) SessionStatusObserverTests.test_promptInViewport_yieldsNeedsInput, (c) AgentDashboardIntegrationTests.test_needsInput_propagates, (d) ❯ 단독 SGR reset 없이 FP 차단</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A3</td>
+      <td>카드 click → 정확한 WS+pane jump + first responder 전환</td>
+      <td>Day 5/6</td>
+      <td>(a) AgentJumpActionTests.test_jump_setsSelectedAndFocusedPane, (b) test_jump_callsMakeFirstResponder, (c) 6 카드 매트릭스</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A4</td>
+      <td>agent-view close 불가 (P2 invariant 회귀 방지)</td>
+      <td>Day 6</td>
+      <td>(a) canClose == false, (b) removeWorkspace 거부, (c) keyboard 단축키 close 불가, (d) jump 100회 반복 후 agentView 1개 보존</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A5</td>
+      <td>셸 preview CR/RPROMPT/한국어/OSC 133</td>
+      <td>Day 3/6</td>
+      <td>(a) ShellPreviewExtractorTests 12/12, (b) CR redraw, (c) RPROMPT 우측 drop, (d) OSC 133 우선 + marker 영역만 fallback, (e) raw escape 0건</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A6</td>
+      <td>sort default lastActivityAtDesc + filter + keyboard nav</td>
+      <td>Day 6</td>
+      <td>(a) defaultSort, (b) filter_needsInput, (c) keyboard nav 4방향</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-9">9. Risks &amp; Mitigations</h2>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>위험</th><th>가능성</th><th>영향</th><th>완화</th><th>책임</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>R1</td>
+      <td>정적 250ms × 20 surface = 80Hz main thread polling 부담</td>
+      <td><span class="tag warn">중</span></td>
+      <td><span class="tag warn">중</span></td>
+      <td>focused 250ms / background 1000ms 동적 빈도 평균 23Hz (71% 절감), 단위 검증 1초 invocation 23±3</td>
+      <td>Day 4 executor</td>
+    </tr>
+    <tr>
+      <td>R2</td>
+      <td>needsInput white-list가 claude CLI 업데이트로 깨짐 (FN 증가)</td>
+      <td><span class="tag warn">중</span></td>
+      <td><span class="tag ok">낮</span> (FN-tolerant)</td>
+      <td>NeedsInputPolicy versioned + V1 namespace 보존, NeedsInputTelemetry monthly counter, count&lt;1 시 v2 bump 시그널</td>
+      <td>Day 2 executor</td>
+    </tr>
+    <tr>
+      <td>R3</td>
+      <td>ghostty action_cb target mismatch (잘못된 카드 갱신)</td>
+      <td><span class="tag ok">낮</span></td>
+      <td><span class="tag warn">중</span></td>
+      <td>SessionActionRouter target → surface ↔ paneId 검증 후만 dispatch, mismatch warn log + skip. main thread hop 이후 검증이라 race-free</td>
+      <td>Day 4 executor</td>
+    </tr>
+    <tr>
+      <td>R4</td>
+      <td>Combine throttle이 needsInput 지연</td>
+      <td><span class="tag ok">낮</span></td>
+      <td><span class="tag warn">중</span></td>
+      <td>needsInputSubject 별도 publisher throttle bypass + removeDuplicates만. preview만 100ms throttle. fast-lane elapsed &lt; 20ms 단위 검증</td>
+      <td>Day 4 executor</td>
+    </tr>
+    <tr>
+      <td>R5</td>
+      <td>ghostty_surface_read_text 250ms polling fragments race</td>
+      <td><span class="tag warn">중</span></td>
+      <td><span class="tag warn">중</span></td>
+      <td>(1) ViewportPollingTimer는 main thread에서만 read_text 호출 (race mitigation primary), (2) libghostty main thread 호출 시 fragment-safe 보장 (vendor cmux 패턴 embedded.zig:1629), (3) hash short-circuit은 SGR 파서 부담 절감 perf optimization으로 명시 분리, (4) hash 진동 detect — 1초 내 hash 5회 이상 변경 시 telemetry log emit</td>
+      <td>Day 4 executor</td>
+    </tr>
+    <tr>
+      <td>R6</td>
+      <td>ghostty_text_s 메모리 leak</td>
+      <td><span class="tag warn">중</span></td>
+      <td><span class="tag warn">중</span> (장시간 운영 누적)</td>
+      <td>poll 내부 defer { free_text } 패턴 alloc/free 1:1 강제. Sources/ 한정 grep 호출 횟수 동일 + 20 surface × 30분 idle xcrun leaks 0건 verifier 4축 포함</td>
+      <td>Day 4 executor</td>
+    </tr>
+    <tr>
+      <td>R7</td>
+      <td>extraFields 영속화 충돌 (P5+ 동일 키)</td>
+      <td><span class="tag ok">낮</span></td>
+      <td><span class="tag ok">낮</span></td>
+      <td>agentView.* 네임스페이스 prefix 강제. master § 4 reserved namespace 표 등록 PR은 Exit Gate "soft requirement" (5일 unblock). P2 forward-compat catch-all 정상 동작</td>
+      <td>Day 6 writer</td>
+    </tr>
+    <tr>
+      <td>R8</td>
+      <td>Session 모델 무변경 결정이 P4+ 재논의</td>
+      <td><span class="tag warn">중</span></td>
+      <td><span class="tag ok">낮</span></td>
+      <td>ADR-E "Session 무변경 + lifecycle terminate path 비결합" 결정 명시. P4 WS 서버 단계에서도 SessionStatusSnapshot 외부 publish 가능 (decoupled)</td>
+      <td>Day 6 writer</td>
+    </tr>
+    <tr>
+      <td>R9</td>
+      <td>AttributedString SGR truecolor + 256-color 조합 edge case</td>
+      <td><span class="tag ok">낮</span></td>
+      <td><span class="tag ok">낮</span></td>
+      <td>ADR-E (가) 부분집합 명시, 미지원 SGR silently drop + DEBUG 로그</td>
+      <td>Day 3 executor</td>
+    </tr>
+    <tr>
+      <td>R10</td>
+      <td>action_cb가 read/write/render thread 호출 main-isolated state race</td>
+      <td><span class="tag warn">중</span></td>
+      <td><span class="tag danger">높</span> (TSan 알람)</td>
+      <td>action_cb 본문 DispatchQueue.main.async 강제, payload immutable Sendable, TSan 30분 알람 0건 검증</td>
+      <td>Day 4 executor</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-10">10. Exit Gate to P4</h2>
+
+<h4>Hard requirements</h4>
+<ul class="exit-criteria">
+  <li><input type="checkbox" disabled> Acceptance A1~A6 모두 통과 (6/6)</li>
+  <li><input type="checkbox" disabled> verifier 4축 critical 0건 (immutable / error i18n / leak / actor isolation)</li>
+  <li><input type="checkbox" disabled> <code>docs/adr/E-agent-view-rendering.md</code> 작성 완료, Architect/Critic 합의 통과</li>
+  <li><input type="checkbox" disabled> <code>docs/plans/p3/p3-detailed.html</code> ralplan APPROVE 후 정착</li>
+  <li><input type="checkbox" disabled> <code>docs/p3/handoff-to-p4.md</code> 작성</li>
+  <li><input type="checkbox" disabled> P2 invariant 회귀 0건 (AgentViewInvariantTests 5/5 PASS, jump 100회 반복 후 agent-view 1개 보존)</li>
+  <li><input type="checkbox" disabled> Session.swift diff 0줄 (D3-1 Option C 결정 보존 grep)</li>
+  <li><input type="checkbox" disabled> Thread Sanitizer 30분 SessionActionRouter.dispatch 알람 0건</li>
+  <li><input type="checkbox" disabled> <code>grep -rc 'ghostty_surface_read_text' Sources/</code> == <code>grep -rc 'ghostty_surface_free_text' Sources/</code> (vendor 제외)</li>
+  <li><input type="checkbox" disabled> xcrun leaks 20 surface × 30분 idle leak count == 0</li>
+</ul>
+
+<h4>Soft requirements (외부 PR 의존, 5일 unblock 정책 적용)</h4>
+<ul class="exit-criteria">
+  <li><input type="checkbox" disabled> master § 4 reserved namespace 표에 <code>agentView.sort</code>, <code>agentView.filter</code> 등록 PR 머지 — 책임: Day 6 executor가 master plan PR 작성 + Critic 별도 sub-ralplan 합의 (max 2 사이클)</li>
+  <li><input type="checkbox" disabled> master § 4.3 환경 변수 표에 신규 6개 등록 PR 머지 — 동일 규약</li>
+</ul>
+
+<div class="callout">
+  <div class="label">unblock 정책 (5일)</div>
+  <p>master PR 5일 이상 미머지 시 P3 → P4 진입을 strict block 하지 않는다. 사유:</p>
+  <ol>
+    <li>extraFields["agentView.*"] prefix는 P2 forward-compat catch-all (Workspace.swift M6 decoder)로 master § 4 변경 없이 동작 가능 — P3 기능 자체는 차단되지 않음</li>
+    <li>P4 진입 시 sub-ralplan 다음 사이클에서 일괄 반영 가능 (P3와 P4가 같은 master 사이클에 묶임)</li>
+    <li>환경변수 표는 docstring + 부록 A 보강으로 운영 단계 튜닝 surface 확보</li>
+  </ol>
+  <p>따라서 외부 PR 머지는 "soft requirement"이며 unblock 발동 시 <code>docs/p3/handoff-to-p4.md</code> 에 "master PR debt: 2건" 항목으로 등재. P4 ralplan 첫 사이클의 입력으로 전달.</p>
+</div>
+
+<!-- =================================================================== -->
+<h2 id="app-a">부록 A — 신규 환경 변수</h2>
+
+<table>
+  <thead><tr><th>이름</th><th>Default</th><th>용도</th><th>적용 단계</th></tr></thead>
+  <tbody>
+    <tr><td><code>CHAT_TERMINAL_AGENT_POLL_INTERVAL_MS</code></td><td>250</td><td>viewport polling focused interval (ms). 60~5000 clamp</td><td>Day 4</td></tr>
+    <tr><td><code>CHAT_TERMINAL_AGENT_BG_POLL_INTERVAL_MS</code></td><td>1000</td><td>viewport polling background interval (ms). 200~10000</td><td>Day 4</td></tr>
+    <tr><td><code>CHAT_TERMINAL_AGENT_PREVIEW_THROTTLE_MS</code></td><td>100</td><td>preview Combine throttle interval (ms). 10~1000. needsInput throttle 없음</td><td>Day 1</td></tr>
+    <tr><td><code>CHAT_TERMINAL_AGENT_PREVIEW_MAX_GRAPHEMES</code></td><td>200</td><td>latestPreview 최대 grapheme cluster 수</td><td>Day 3</td></tr>
+    <tr><td><code>CHAT_TERMINAL_AGENT_DEBUG_LOG</code></td><td>0</td><td>1일 때 SessionStatusObserver transition 모두 <code>~/Library/Logs/ClaudeAlarmTerminal/agent-view.log</code> 기록</td><td>Day 6</td></tr>
+    <tr><td><code>CHAT_TERMINAL_AGENT_TELEMETRY_LOG</code></td><td>0</td><td>1일 때 NeedsInputTelemetry 월 카운터 + SessionActionRouter.unknownActionCount 를 <code>~/Library/Logs/ClaudeAlarmTerminal/agent-view-telemetry.log</code> 기록</td><td>Day 6</td></tr>
+  </tbody>
+</table>
+
+<p><code>CHAT_TERMINAL_AGENT_POLL_INTERVAL_MS=0</code> 시 polling 비활성 (action_cb only). 테스트 환경 timer 부담 회피용.</p>
+
+<!-- =================================================================== -->
+<h2 id="app-b">부록 B — 참고 문헌</h2>
+
+<ul>
+  <li>master 계획: <code>docs/plans/work-plan-v4.md</code> § P3 (line 124~155), § ADR-E (line 633)</li>
+  <li>P1 상세: <code>docs/plans/p1/p1-detailed.html</code></li>
+  <li>P2 상세: <code>docs/plans/p2/p2-detailed.html</code></li>
+  <li>P2 합의 이력: <code>docs/plans/p2/p2-history.md</code></li>
+  <li>P2 → P3 인계: <code>docs/p2/handoff-to-p3.md</code></li>
+  <li>P2 verifier 리포트: <code>docs/p2/verifier-report.md</code></li>
+  <li>libghostty C ABI: <code>Frameworks/GhosttyKit.xcframework/macos-arm64_x86_64/Headers/ghostty.h</code>
+    <ul>
+      <li><code>ghostty_runtime_action_cb</code> (line 1014)</li>
+      <li><code>ghostty_action_tag_e</code> (line 951): RING_BELL (936), COMMAND_FINISHED (944), PROGRESS_REPORT (942), PROMPT_TITLE (920)</li>
+      <li><code>ghostty_surface_read_text</code> (line 1159), <code>ghostty_surface_free_text</code> (line 1162)</li>
+    </ul>
+  </li>
+  <li>libghostty action_cb thread invariant: <code>vendor/ghostty/src/apprt/embedded.zig:267-287</code>, fragment-safe 패턴 line 1629</li>
+  <li>libghostty Swift 진입: <code>Sources/TerminalView/GhosttyApp.swift</code> action_cb registration</li>
+  <li>신규 진입 anchor: <code>Sources/UI/Sidebar/AgentViewPlaceholder.swift</code>, <code>Sources/UI/WorkspaceContentView.swift</code> 라우터</li>
+  <li>becomeFirstResponder 호출 anchor: <code>Sources/TerminalView/GhosttyTerminalView.swift:209-215</code></li>
+  <li>OSC 133 semantic prompt: <a href="https://gitlab.freedesktop.org/Per_Bothner/specifications/-/blob/master/proposals/semantic-prompts.md">https://gitlab.freedesktop.org/Per_Bothner/specifications/-/blob/master/proposals/semantic-prompts.md</a></li>
+  <li>디자인 시스템 reference: <code>docs/plans/p2/p2-detailed.html</code> <code>&lt;style&gt;</code> 블록 그대로 차용</li>
+</ul>
+
+</main>
+</div>
+</body>
+</html>
