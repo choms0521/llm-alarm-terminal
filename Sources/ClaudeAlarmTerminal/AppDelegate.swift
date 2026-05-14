@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import SwiftUI
 import os
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -7,21 +8,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var mainWindow: NSWindow?
     private var ghosttyApp: GhosttyApp?
-    private var terminalView: GhosttyTerminalView?
-
-    /// Single-session bookkeeping for P1. We keep the current session's UUID
-    /// here so the Cmd+T / Cmd+Shift+T handlers can terminate it before
-    /// spawning a new one (P1 invariant: max 1 session at a time).
+    private var workspaceManager: WorkspaceManager?
     private let sessionManager = SessionManager()
-    private var currentSessionID: UUID?
 
     /// Day 7 lifecycle hook. P1 keeps the body of the will-sleep / did-wake
-    /// handlers empty (logs only) — P4 will invalidate WS-attached state and
+    /// handlers empty (logs only). P4 will invalidate WS-attached state and
     /// arm push fallback here. See `docs/lifecycle-policy.md`.
     private let powerObserver = PowerEventObserver()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let contentRect = NSRect(x: 0, y: 0, width: 960, height: 600)
+        // P2 Day 3: replace P1 single-surface window with a SwiftUI sidebar +
+        // workspace content split. libghostty is instantiated up-front because
+        // Day 4 normal-workspace pane terminals will request surfaces from it.
+        self.ghosttyApp = GhosttyApp()
+
+        let store: WorkspaceStore
+        do {
+            store = try WorkspaceStore()
+        } catch {
+            // Application Support 디렉터리 접근 실패는 macOS 환경 자체 문제 — 사용자에게 즉시 surface.
+            Self.logger.error("WorkspaceStore 초기화 실패: \(error.localizedDescription, privacy: .public)")
+            let alert = NSAlert()
+            alert.messageText = "워크스페이스 저장소를 초기화하지 못했습니다."
+            alert.informativeText = error.localizedDescription
+            alert.addButton(withTitle: "종료")
+            alert.runModal()
+            NSApp.terminate(nil)
+            return
+        }
+        let manager = WorkspaceManager(store: store)
+        self.workspaceManager = manager
+
+        let contentRect = NSRect(x: 0, y: 0, width: 1024, height: 640)
         let styleMask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
         let window = NSWindow(
             contentRect: contentRect,
@@ -30,21 +48,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             defer: false
         )
         window.title = "Claude Alarm Terminal"
-        window.minSize = NSSize(width: 480, height: 320)
+        window.minSize = NSSize(width: 720, height: 480)
         window.center()
 
-        // Instantiate libghostty app + idle-passive surface (no PTY attached
-        // yet). Cmd+T / Cmd+Shift+T swap the surface to one running a real
-        // command via `replaceCommand`. The empty surface still renders and
-        // keeps AppKit's contentView populated so the launch produces a
-        // visible window even if the user never invokes a session.
-        if let app = GhosttyApp() {
-            let view = GhosttyTerminalView(app: app, command: nil, cwd: nil, frame: contentRect)
-            window.contentView = view
-            window.makeFirstResponder(view)
-            self.ghosttyApp = app
-            self.terminalView = view
-        }
+        let hosting = NSHostingView(rootView: RootView(manager: manager))
+        window.contentView = hosting
 
         window.makeKeyAndOrderFront(nil)
         self.mainWindow = window
@@ -58,13 +66,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        // Best-effort cleanup so child PTY processes don't linger after the
-        // app shuts down. Termination is async; we don't wait for it because
-        // AppKit will shoot us anyway.
-        if let id = currentSessionID {
-            Task { [sessionManager] in
-                try? await sessionManager.terminate(id: id)
-            }
+        // Best-effort cleanup: kill any session not yet wired to a workspace lifecycle.
+        // Day 5 introduces workspace-aware cleanup via terminateAll(inWorkspace:).
+        Task { [sessionManager] in
+            // No-op for now (sessions list internal to actor); Day 5 wires it.
+            _ = await sessionManager.count()
         }
     }
 
@@ -95,128 +101,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appMenuItem.submenu = appMenu
         mainMenu.addItem(appMenuItem)
 
-        // Session menu
-        let sessionMenuItem = NSMenuItem()
-        let sessionMenu = NSMenu(title: "Session")
-        let newShell = NSMenuItem(
-            title: "New Shell Session",
-            action: #selector(newShellSession(_:)),
-            keyEquivalent: "t"
+        // Workspace 메뉴 placeholder. Day 8 에서 단축키 wiring 완성.
+        let wsMenuItem = NSMenuItem()
+        let wsMenu = NSMenu(title: "Workspace")
+        let newWorkspace = NSMenuItem(
+            title: "새 워크스페이스",
+            action: #selector(newWorkspaceFromMenu(_:)),
+            keyEquivalent: ""
         )
-        newShell.keyEquivalentModifierMask = [.command]
-        newShell.target = self
-        sessionMenu.addItem(newShell)
-
-        let newClaude = NSMenuItem(
-            title: "New Claude Session",
-            action: #selector(newClaudeSession(_:)),
-            keyEquivalent: "t"
-        )
-        newClaude.keyEquivalentModifierMask = [.command, .shift]
-        newClaude.target = self
-        sessionMenu.addItem(newClaude)
-
-        sessionMenuItem.submenu = sessionMenu
-        mainMenu.addItem(sessionMenuItem)
+        newWorkspace.target = self
+        wsMenu.addItem(newWorkspace)
+        wsMenuItem.submenu = wsMenu
+        mainMenu.addItem(wsMenuItem)
 
         NSApp.mainMenu = mainMenu
     }
 
-    // MARK: - Session shortcuts
-
-    @objc private func newShellSession(_ sender: Any?) {
-        spawnSession(kind: .shell)
-    }
-
-    @objc private func newClaudeSession(_ sender: Any?) {
-        spawnSession(kind: .claude)
-    }
-
-    /// Resolve the command + args list for the given session kind. Returns
-    /// the command string libghostty will pass to its internal PTY (which
-    /// invokes `/bin/sh -c <command>` style — multi-word commands are fine).
-    /// Throws `BinaryResolveError.claudeNotFound` when `kind == .claude` and
-    /// no claude binary is on PATH or in the brew fallbacks.
-    private func resolveCommandString(kind: SessionKind) throws -> String {
-        switch kind {
-        case .claude:
-            return try resolveClaudeBinary()
-        case .shell:
-            let shellPath = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
-            return "\(shellPath) -l"
-        }
-    }
-
-    private func spawnSession(kind: SessionKind) {
-        guard let view = terminalView else { return }
-
-        let cwd = FileManager.default.homeDirectoryForCurrentUser.path
-
-        // Resolve the command synchronously on the main thread so we can
-        // present the Korean NSAlert immediately on failure without bouncing
-        // through the SessionManager actor.
-        let commandString: String
-        do {
-            commandString = try resolveCommandString(kind: kind)
-        } catch {
-            presentSpawnFailureAlert(kind: kind, error: error)
-            return
-        }
-
-        Task { [weak self] in
-            guard let self = self else { return }
-
-            // P1 invariant: tear down any existing session first.
-            if let existing = self.currentSessionID {
-                try? await self.sessionManager.terminate(id: existing)
-                await self.sessionManager.remove(id: existing)
-                await MainActor.run {
-                    self.currentSessionID = nil
-                }
-            }
-
-            do {
-                let session = try await self.sessionManager.createInternal(
-                    kind: kind, cwd: cwd
-                )
-                let sessionID = session.id
-                await MainActor.run {
-                    self.currentSessionID = sessionID
-                    // Swap libghostty's surface to the new command. libghostty
-                    // owns the PTY for this surface and renders the child's
-                    // output natively (ANSI codes interpreted correctly).
-                    view.replaceCommand(commandString, cwd: cwd)
-                }
-            } catch {
-                await MainActor.run {
-                    self.presentSpawnFailureAlert(kind: kind, error: error)
-                }
-            }
-        }
-    }
-
-    private func presentSpawnFailureAlert(kind: SessionKind, error: Error) {
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-
-        switch kind {
-        case .claude:
-            alert.messageText = "Claude 세션을 시작하지 못했습니다."
-            if case BinaryResolveError.claudeNotFound = error {
-                alert.informativeText = "claude 실행 파일을 찾을 수 없습니다. brew install claude 후 다시 시도하시기 바랍니다."
-            } else {
-                alert.informativeText = String(describing: error)
-            }
-        case .shell:
-            alert.messageText = "Shell 세션을 시작하지 못했습니다."
-            alert.informativeText = String(describing: error)
-        }
-
-        alert.addButton(withTitle: "확인")
-        if let window = mainWindow {
-            alert.beginSheetModal(for: window, completionHandler: nil)
-        } else {
-            alert.runModal()
+    @objc private func newWorkspaceFromMenu(_ sender: Any?) {
+        // Day 3 메뉴는 UI 트리거 placeholder. Day 8 에서 정식 단축키 + cwd picker 통합 후 동작.
+        Task { @MainActor [weak self] in
+            guard let self, let manager = self.workspaceManager else { return }
+            manager.addWorkspace(
+                cwd: WorkspaceManager.defaultWorkspaceRoot(),
+                name: "새 워크스페이스 \(manager.workspaces.count)"
+            )
         }
     }
 }

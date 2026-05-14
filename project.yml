@@ -38,6 +38,7 @@ targets:
       - path: Sources/Session
       - path: Sources/Lifecycle
       - path: Sources/Workspace
+      - path: Sources/UI
     resources:
       - path: Resources
         excludes:
@@ -183,7 +184,11 @@ targets:
     platform: macOS
     deploymentTarget: "14.0"
     sources:
+      - path: Sources/Session
+      - path: Sources/PTY
+      - path: Sources/Lifecycle
       - path: Sources/Workspace
+      - path: Sources/UI
       - path: Tests/WorkspaceTests
     dependencies:
       - package: AnyCodable
@@ -192,6 +197,10 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.choms0521.ClaudeAlarmTerminal.WorkspaceTests
         GENERATE_INFOPLIST_FILE: "YES"
         CODE_SIGN_STYLE: Manual
+        HEADER_SEARCH_PATHS:
+          - "$(SRCROOT)/Sources/PTY/include"
+        SWIFT_INCLUDE_PATHS:
+          - "$(SRCROOT)/Sources/PTY/include"
       configs:
         Debug:
           CODE_SIGN_IDENTITY: "-"
