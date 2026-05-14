@@ -66,10 +66,34 @@ final class GhosttyApp {
                 // Day 3: render-tick wakeup is no-op. Day 5+ will dispatch
                 // a CADisplayLink/CVDisplayLink callback here.
             },
-            action_cb: { _, _, action in
-                // Day 3: log the action tag so we can verify surfaces emit
-                // events. Real routing comes in later days.
-                GhosttyApp.logger.debug("action cb tag=\(action.tag.rawValue, privacy: .public)")
+            action_cb: { _, target, action in
+                // P3 Day 4: action_cb 는 libghostty 의 read/write/render thread 중
+                // 어디에서든 동기 invoke 된다(vendor/ghostty/src/apprt/embedded.zig:267-287).
+                // callback 진입 즉시 payload 만 추출하고 dispatch 는 main thread hop.
+                // 포인터는 hop 후 invalid 일 수 있으므로 sendable struct 로 copy.
+                let actionTag: ActionTag
+                switch action.tag {
+                case GHOSTTY_ACTION_RING_BELL: actionTag = .ringBell
+                case GHOSTTY_ACTION_COMMAND_FINISHED: actionTag = .commandFinished
+                case GHOSTTY_ACTION_PROMPT_TITLE: actionTag = .promptTitle
+                case GHOSTTY_ACTION_PROGRESS_REPORT: actionTag = .progressReport
+                default: actionTag = .unknown(rawValue: action.tag.rawValue)
+                }
+                let surfaceUserdata: UnsafeMutableRawPointer? = {
+                    if target.tag == GHOSTTY_TARGET_SURFACE,
+                       let surface = target.target.surface {
+                        return ghostty_surface_userdata(surface)
+                    }
+                    return nil
+                }()
+                let payload = ActionPayload()
+                DispatchQueue.main.async {
+                    SessionActionRouter.shared?.dispatch(
+                        tag: actionTag,
+                        surfaceUserdata: surfaceUserdata,
+                        payload: payload
+                    )
+                }
                 return true
             },
             read_clipboard_cb: { _, _, _ in

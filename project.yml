@@ -224,6 +224,7 @@ targets:
       - path: Sources/UI
         excludes:
           - "Pane/**"
+          - "AgentView/GhosttyViewportProvider.swift"
       - path: Tests/SessionTests
     dependencies:
       - package: AnyCodable

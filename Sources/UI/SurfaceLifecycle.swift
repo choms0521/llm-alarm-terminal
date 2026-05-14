@@ -38,4 +38,10 @@ public final class SurfaceRegistry: ObservableObject {
 
     /// 활성 surface 수. DebugRenderStats 와 통합 테스트에서 사용.
     public var activeCount: Int { surfaces.count }
+
+    /// ViewportPollingTimer 가 polling tick 마다 호출. 등록된 surface 만 반환하고
+    /// 미등록 paneId 는 nil. factory 를 호출하지 않으므로 acquire 와 구분된다.
+    public func acquireExisting(paneId: UUID) -> NSView? {
+        surfaces[paneId]
+    }
 }

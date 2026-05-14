@@ -27,6 +27,18 @@ final class GhosttyTerminalView: NSView {
     private let ghosttyApp: GhosttyApp
     private var surface: ghostty_surface_t?
 
+    /// 본 view 가 매핑된 Pane.id. P3 Day 4 의 SessionActionRouter 가 surfaceUserdata
+    /// pointer 를 paneId 로 환원할 때, 그리고 ViewportPollingTimer 가
+    /// SurfaceRegistry 에서 acquireExisting 으로 view 를 찾을 때 anchor 가 된다.
+    /// agent-view dashboard 부재 시(P1 path) nil 이면 routing 비활성.
+    var paneId: UUID?
+
+    /// libghostty surface 핸들 read-only 접근자. GhosttyViewportProvider 가
+    /// `ghostty_surface_read_text` 를 호출한 뒤 반드시
+    /// `defer { ghostty_surface_free_text(...) }` 로 1:1 alloc/free 를 강제하면서
+    /// viewport 를 폴링한다.
+    var surfaceHandle: ghostty_surface_t? { surface }
+
     /// Tracking area for mouseMoved / mouseEntered / mouseExited. Recreated
     /// on `updateTrackingAreas` so it always matches the current bounds.
     private var trackingArea: NSTrackingArea?
