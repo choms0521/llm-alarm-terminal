@@ -12,6 +12,11 @@ configs:
   Debug: debug
   Release: release
 
+packages:
+  AnyCodable:
+    url: https://github.com/Flight-School/AnyCodable
+    from: "0.6.7"
+
 settings:
   base:
     SWIFT_VERSION: "5.10"
@@ -32,6 +37,7 @@ targets:
       - path: Sources/PTY
       - path: Sources/Session
       - path: Sources/Lifecycle
+      - path: Sources/Workspace
     resources:
       - path: Resources
         excludes:
@@ -69,6 +75,7 @@ targets:
       - sdk: QuartzCore.framework
       - sdk: AVFoundation.framework
       - sdk: UserNotifications.framework
+      - package: AnyCodable
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.choms0521.ClaudeAlarmTerminal
@@ -167,6 +174,26 @@ targets:
         Release:
           CODE_SIGN_IDENTITY: "-"
 
+  WorkspaceTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Sources/Workspace
+      - path: Tests/WorkspaceTests
+    dependencies:
+      - package: AnyCodable
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.choms0521.ClaudeAlarmTerminal.WorkspaceTests
+        GENERATE_INFOPLIST_FILE: "YES"
+        CODE_SIGN_STYLE: Manual
+      configs:
+        Debug:
+          CODE_SIGN_IDENTITY: "-"
+        Release:
+          CODE_SIGN_IDENTITY: "-"
+
 schemes:
   PTYVerifier:
     build:
@@ -194,3 +221,11 @@ schemes:
         GhostBridgeVerifier: all
     run:
       config: Debug
+  WorkspaceTests:
+    build:
+      targets:
+        WorkspaceTests: test
+    test:
+      config: Debug
+      targets:
+        - WorkspaceTests
