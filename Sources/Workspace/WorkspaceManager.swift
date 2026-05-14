@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import AnyCodable
 
 /// Workspace 집합과 선택 상태를 보유하는 `@MainActor` ViewModel.
 ///
@@ -174,6 +175,32 @@ public final class WorkspaceManager: ObservableObject {
         guard workspaces.contains(where: { $0.id == id }) else { return }
         selectedID = id
         persistCurrent()
+    }
+
+    /// agent-view workspace 의 extraFields 를 갱신하여 sort/filter 설정을 영속화.
+    /// agent-view 자체가 없으면 silently noop (load 직후엔 항상 존재).
+    public func updateAgentViewExtraFields(_ extraFields: [String: AnyCodable]?) {
+        guard let idx = workspaces.firstIndex(where: { $0.kind == .agentView }) else { return }
+        let ws = workspaces[idx]
+        let newWs = Workspace(
+            id: ws.id,
+            name: ws.name,
+            cwd: ws.cwd,
+            panes: ws.panes,
+            createdAt: ws.createdAt,
+            kind: ws.kind,
+            envSnapshot: ws.envSnapshot,
+            pushChannelHints: ws.pushChannelHints,
+            fetchHintMetadata: ws.fetchHintMetadata,
+            extraFields: extraFields
+        )
+        workspaces[idx] = newWs
+        persistCurrent()
+    }
+
+    /// 영속화된 agent-view extraFields 를 반환 (없으면 nil).
+    public func agentViewExtraFields() -> [String: AnyCodable]? {
+        workspaces.first(where: { $0.kind == .agentView })?.extraFields
     }
 
     /// 현재 in-memory 상태를 디스크에 저장.
