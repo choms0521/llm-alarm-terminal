@@ -59,17 +59,30 @@ public enum SessionSpawnEnv {
             create: false)
         let root = appSupport
             .appendingPathComponent("ClaudeAlarmTerminal/claude-config", isDirectory: true)
+        try cleanupStaleConfigDirs(
+            rootDir: root,
+            liveSessionIds: liveSessionIds,
+            olderThan: Date().addingTimeInterval(-7 * 86400)
+        )
+    }
+
+    /// 테스트 가능한 generic 변종 — rootDir / threshold 주입 가능.
+    /// rootDir 부재 시 silent return.
+    public static func cleanupStaleConfigDirs(
+        rootDir: URL,
+        liveSessionIds: Set<UUID>,
+        olderThan: Date
+    ) throws {
         guard let entries = try? FileManager.default.contentsOfDirectory(
-            at: root,
+            at: rootDir,
             includingPropertiesForKeys: [.contentModificationDateKey]
         ) else { return }
-        let sevenDaysAgo = Date().addingTimeInterval(-7 * 86400)
         for entry in entries {
             guard let id = UUID(uuidString: entry.lastPathComponent),
                   !liveSessionIds.contains(id),
                   let mtime = try? entry.resourceValues(forKeys: [.contentModificationDateKey])
                                           .contentModificationDate,
-                  mtime < sevenDaysAgo else { continue }
+                  mtime < olderThan else { continue }
             try? FileManager.default.removeItem(at: entry)
         }
     }

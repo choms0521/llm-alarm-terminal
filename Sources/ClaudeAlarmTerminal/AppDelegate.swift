@@ -51,6 +51,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         Task { @MainActor in
             await coordinator.attachSessionsForPersistedWorkspaces()
         }
+        // M2: stale claude-config dir cleanup hook (live sessions 미매칭 + mtime 7d+).
+        // 부팅 직후 1회만 실행. 실패는 비-critical (cleanup 없이도 동작).
+        Task.detached {
+            let live: Set<UUID> = []
+            try? SessionSpawnEnv.cleanupStaleClaudeConfigDirs(liveSessionIds: live)
+        }
 
         let contentRect = NSRect(x: 0, y: 0, width: 1024, height: 640)
         let styleMask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]

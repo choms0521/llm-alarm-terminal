@@ -130,6 +130,9 @@ targets:
       - path: Sources/Session
       - path: Sources/Lifecycle
       - path: Sources/Workspace
+      - path: Sources/UI
+        excludes:
+          - "Pane/**"
       - path: Sources/SessionVerifier
     dependencies:
       - package: AnyCodable
@@ -218,6 +221,9 @@ targets:
       - path: Sources/Session
       - path: Sources/Lifecycle
       - path: Sources/Workspace
+      - path: Sources/UI
+        excludes:
+          - "Pane/**"
       - path: Tests/SessionTests
     dependencies:
       - package: AnyCodable

@@ -57,7 +57,10 @@ final class SessionManagerV2Tests: XCTestCase {
 
     func test_maxSessionsReached_emitsKoreanMessage() {
         let err = ManagerError.maxSessionsReached(currentMax: 20)
-        XCTAssertEqual(err.description, "최대 20개 세션까지 동시에 실행할 수 있습니다.")
+        XCTAssertEqual(
+            err.description,
+            "최대 세션 개수에 도달했습니다 (N=20). 기존 세션을 종료하세요."
+        )
     }
 
     func test_defaultMaxSessions_is20() async {
