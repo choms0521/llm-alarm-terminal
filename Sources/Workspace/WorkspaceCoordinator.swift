@@ -12,10 +12,16 @@ import Foundation
 public final class WorkspaceCoordinator {
     public let manager: WorkspaceManager
     public let sessionManager: SessionManager
+    public let surfaceRegistry: SurfaceRegistry
 
-    public init(manager: WorkspaceManager, sessionManager: SessionManager) {
+    public init(
+        manager: WorkspaceManager,
+        sessionManager: SessionManager,
+        surfaceRegistry: SurfaceRegistry = SurfaceRegistry()
+    ) {
         self.manager = manager
         self.sessionManager = sessionManager
+        self.surfaceRegistry = surfaceRegistry
     }
 
     // MARK: - Bootstrap session attachment
@@ -71,8 +77,9 @@ public final class WorkspaceCoordinator {
 
     // MARK: - closePane / closeWorkspace
 
-    /// pane close: 세션 terminate + remove → workspace 모델에서 pane 제거.
-    /// SwiftUI 가 PaneTerminalView 를 dealloc 하면 `ghostty_surface_free` 가 child PTY 까지 정리.
+    /// pane close: 세션 terminate + remove → surface release → workspace 모델에서 pane 제거.
+    /// surfaceRegistry.release 가 마지막 strong reference 를 해제하면 NSView dealloc 가
+    /// `ghostty_surface_free` 를 호출해 child PTY 까지 정리한다.
     public func closePane(workspaceId: UUID, paneId: UUID) async {
         guard let ws = manager.workspaces.first(where: { $0.id == workspaceId }),
               let pane = ws.panes.first(where: { $0.id == paneId }) else { return }
@@ -81,16 +88,22 @@ public final class WorkspaceCoordinator {
             try? await sessionManager.terminate(id: sessionId)
             await sessionManager.remove(id: sessionId)
         }
+        surfaceRegistry.release(paneId: paneId)
         manager.removePane(workspaceId: workspaceId, paneId: paneId)
     }
 
-    /// workspace close: 내부 모든 session terminateAll → 레지스트리 제거 → workspace 제거.
+    /// workspace close: 내부 모든 session terminateAll → 각 pane surface release → workspace 제거.
     /// agent-view 워크스페이스는 `WorkspaceManager.removeWorkspace` 가 무시(invariant 보존).
     public func closeWorkspace(id: UUID) async {
         await sessionManager.terminateAll(inWorkspace: id)
         let toRemove = await sessionManager.sessionIds(inWorkspace: id)
         for sid in toRemove {
             await sessionManager.remove(id: sid)
+        }
+        if let ws = manager.workspaces.first(where: { $0.id == id }) {
+            for pane in ws.panes {
+                surfaceRegistry.release(paneId: pane.id)
+            }
         }
         manager.removeWorkspace(id: id)
     }

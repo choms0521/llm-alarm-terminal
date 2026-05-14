@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var ghosttyApp: GhosttyApp?
     private var workspaceManager: WorkspaceManager?
     private var coordinator: WorkspaceCoordinator?
+    private var debugRenderStats: DebugRenderStats?
     private let sessionManager = SessionManager()
 
     /// Day 7 lifecycle hook. P1 keeps the body of the will-sleep / did-wake
@@ -39,8 +40,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let manager = WorkspaceManager(store: store)
         self.workspaceManager = manager
-        let coordinator = WorkspaceCoordinator(manager: manager, sessionManager: sessionManager)
+        let registry = SurfaceRegistry()
+        let coordinator = WorkspaceCoordinator(
+            manager: manager,
+            sessionManager: sessionManager,
+            surfaceRegistry: registry
+        )
         self.coordinator = coordinator
+        // env 미설정 시 nil → zero overhead.
+        self.debugRenderStats = DebugRenderStats(registry: registry)
         // 영속화 복원된 panes 에 새 session 부착 (P2 결정: 부팅 후 첫 진입 시 session 시작).
         Task { @MainActor in
             await coordinator.attachSessionsForPersistedWorkspaces()

@@ -107,7 +107,7 @@ final class PaneSplitTests: XCTestCase {
     func test_grep_adrI_forbiddenPatterns_zeroMatches() throws {
         let project = try projectRoot()
         let scanDirs = ["Sources/UI/Pane", "Sources/Session"]
-        let pattern = "(hibernate|pause|releaseSurface|surface\\.destroy|stopRendering|suspendRender|displayLayer.*nil)"
+        let pattern = "(hibernate|pause|releaseSurface|occlusionState|surface\\.destroy|stopRendering|suspendRender|displayLayer.*nil)"
         let regex = try NSRegularExpression(pattern: pattern, options: [.caseInsensitive])
 
         var hits: [String] = []

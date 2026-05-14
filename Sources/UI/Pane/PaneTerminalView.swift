@@ -4,8 +4,12 @@ import AppKit
 /// libghostty surface 를 하나 호스팅하는 NSViewRepresentable.
 ///
 /// 각 pane 인스턴스는 독립 `GhosttyTerminalView` (즉, 독립 `ghostty_surface_t`) 를 보유한다
-/// — ADR-I cmux 패턴(동시 다중 surface alive). pane 종료 시 `deinit` 가
-/// `ghostty_surface_free` 를 호출하여 child PTY 까지 정리.
+/// — ADR-I cmux 패턴(동시 다중 surface alive). pane 종료 시 SurfaceRegistry 가
+/// release 하여 NSView 의 deinit → `ghostty_surface_free` 가 child PTY 까지 정리.
+///
+/// Day 7: `SurfaceRegistry` 가 view 의 owner 이므로 workspace 전환 등으로 SwiftUI 트리가
+/// 재구성되어도 surface 가 destroy 되지 않는다. makeNSView 는 registry 에서 기존 인스턴스
+/// 를 acquire 하거나 새로 생성.
 ///
 /// 환경 변수 격리(`HISTFILE`, `CLAUDE_CONFIG_DIR`)는 `/usr/bin/env` prefix 로
 /// command line 에 직접 주입한다. libghostty 가 명령을 spawn 할 때 prefix env 가
@@ -14,25 +18,30 @@ struct PaneTerminalView: NSViewRepresentable {
     let workspace: Workspace
     let pane: Pane
     let ghosttyApp: GhosttyApp
+    let registry: SurfaceRegistry
 
-    init(workspace: Workspace, pane: Pane, ghosttyApp: GhosttyApp) {
+    init(workspace: Workspace, pane: Pane, ghosttyApp: GhosttyApp, registry: SurfaceRegistry) {
         self.workspace = workspace
         self.pane = pane
         self.ghosttyApp = ghosttyApp
+        self.registry = registry
     }
 
-    func makeNSView(context: Context) -> GhosttyTerminalView {
-        let command = Self.buildCommand(workspace: workspace, pane: pane)
-        return GhosttyTerminalView(
-            app: ghosttyApp,
-            command: command,
-            cwd: workspace.cwd,
-            frame: .zero
-        )
+    func makeNSView(context: Context) -> NSView {
+        registry.acquire(paneId: pane.id) {
+            let command = Self.buildCommand(workspace: workspace, pane: pane)
+            return GhosttyTerminalView(
+                app: ghosttyApp,
+                command: command,
+                cwd: workspace.cwd,
+                frame: .zero
+            )
+        }
     }
 
-    func updateNSView(_ nsView: GhosttyTerminalView, context: Context) {
-        // Day 4 범위: command 는 makeNSView 시점에 결정. update 는 no-op.
+    func updateNSView(_ nsView: NSView, context: Context) {
+        // Day 7 범위: command 는 acquire 시점에 결정. update 는 no-op.
+        // 향후 size / focus 변경은 GhosttyTerminalView 의 자체 layout 콜백이 처리.
     }
 
     /// kind 별 env 격리 prefix + 실제 실행 binary 를 합성한 command 문자열.
@@ -52,10 +61,8 @@ struct PaneTerminalView: NSViewRepresentable {
     }
 
     /// 공백 / 특수문자 가 포함된 path 는 shell-quote (단일 인용부호).
-    /// libghostty 의 command parser 가 단순 split 방식이라 가정 — 공백 보호.
     private static func shellQuote(_ path: String) -> String {
         guard path.contains(where: { $0 == " " || $0 == "\t" || $0 == "'" }) else { return path }
-        // 안에 있는 ' 는 '\'' 로 이스케이프.
         let escaped = path.replacingOccurrences(of: "'", with: "'\\''")
         return "'\(escaped)'"
     }

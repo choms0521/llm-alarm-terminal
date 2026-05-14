@@ -76,7 +76,12 @@ struct WorkspacePaneContentView: View {
 
     @ViewBuilder
     private func paneSlot(pane: Pane) -> some View {
-        PaneTerminalView(workspace: workspace, pane: pane, ghosttyApp: ghosttyApp)
+        PaneTerminalView(
+            workspace: workspace,
+            pane: pane,
+            ghosttyApp: ghosttyApp,
+            registry: coordinator.surfaceRegistry
+        )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .overlay(alignment: .topTrailing) {
                 PaneCloseButton(onClose: {
