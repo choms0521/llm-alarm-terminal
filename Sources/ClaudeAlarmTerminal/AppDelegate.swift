@@ -13,6 +13,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var debugRenderStats: DebugRenderStats?
     private let sessionManager = SessionManager()
 
+    // P3 Day 5 wiring: agent-view dashboard 데이터 흐름.
+    private let statusObserver = SessionStatusObserver(
+        policy: NeedsInputPolicyV1(),
+        telemetry: NeedsInputTelemetry()
+    )
+    private let statusCoordinator = SessionStatusCoordinator()
+    private let focusedPaneStore = FocusedPaneStore()
+    private var agentJumpAction: AgentJumpAction?
+    private var sessionActionRouter: SessionActionRouter?
+    private var viewportPollingTimer: ViewportPollingTimer?
+
     /// Day 7 lifecycle hook. P1 keeps the body of the will-sleep / did-wake
     /// handlers empty (logs only). P4 will invalidate WS-attached state and
     /// arm push fallback here. See `docs/lifecycle-policy.md`.
@@ -48,6 +59,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         self.coordinator = coordinator
         // env 미설정 시 nil → zero overhead.
         self.debugRenderStats = DebugRenderStats(registry: registry)
+
+        // P3 Day 5 wiring: SessionStatusCoordinator 가 observer publisher 와 lifecycle
+        // hook 을 단방향 소비하도록 attach. AgentJumpAction 으로 카드 click 점프 가능.
+        let jumpAction = AgentJumpAction(
+            manager: manager,
+            focusedPaneStore: focusedPaneStore,
+            surfaceRegistry: registry
+        )
+        self.agentJumpAction = jumpAction
+        statusCoordinator.attach(observer: statusObserver)
+        Task { @MainActor [statusCoordinator, sessionManager] in
+            await statusCoordinator.attach(lifecycleHooks: sessionManager.hooks)
+        }
+
+        // SessionActionRouter: action_cb → main hop → observer.observe(action:).
+        let router = SessionActionRouter(
+            observer: statusObserver,
+            resolvePaneId: { ud in
+                guard let p = ud else { return nil }
+                let view = Unmanaged<GhosttyTerminalView>.fromOpaque(p).takeUnretainedValue()
+                return view.paneId
+            },
+            resolveSessionId: { [weak self] paneId in
+                guard let mgr = self?.workspaceManager else { return nil }
+                for ws in mgr.workspaces {
+                    if let pane = ws.panes.first(where: { $0.id == paneId }) {
+                        return pane.sessionId
+                    }
+                }
+                return nil
+            }
+        )
+        SessionActionRouter.shared = router
+        self.sessionActionRouter = router
+
+        // ViewportPollingTimer: 동적 빈도 viewport read_text + observer.observe(viewportText:).
+        let store2 = SessionStatusStore()
+        let pollingTimer = ViewportPollingTimer(
+            selectedWorkspaceIdProvider: { [weak manager] in manager?.selectedID },
+            focusedPaneStore: focusedPaneStore,
+            provider: GhosttyViewportProvider(surfaceRegistry: registry),
+            sessionIndexProvider: { [weak manager] in
+                SessionIndex(workspaces: manager?.workspaces ?? [])
+            },
+            observer: statusObserver,
+            store: store2
+        )
+        pollingTimer.start()
+        self.viewportPollingTimer = pollingTimer
+
         Task { @MainActor in
             await coordinator.attachSessionsForPersistedWorkspaces()
         }
@@ -73,6 +134,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let app = self.ghosttyApp
         let rootView = RootView(
             manager: manager,
+            coordinator: statusCoordinator,
+            jumpAction: jumpAction,
             onCloseWorkspace: { id in
                 Task { @MainActor in
                     await coordinator.closeWorkspace(id: id)
