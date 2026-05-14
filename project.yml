@@ -127,7 +127,11 @@ targets:
     sources:
       - path: Sources/PTY
       - path: Sources/Session
+      - path: Sources/Lifecycle
+      - path: Sources/Workspace
       - path: Sources/SessionVerifier
+    dependencies:
+      - package: AnyCodable
     settings:
       base:
         PRODUCT_NAME: session-verifier
@@ -194,6 +198,33 @@ targets:
         Release:
           CODE_SIGN_IDENTITY: "-"
 
+  SessionTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Sources/PTY
+      - path: Sources/Session
+      - path: Sources/Lifecycle
+      - path: Sources/Workspace
+      - path: Tests/SessionTests
+    dependencies:
+      - package: AnyCodable
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.choms0521.ClaudeAlarmTerminal.SessionTests
+        GENERATE_INFOPLIST_FILE: "YES"
+        CODE_SIGN_STYLE: Manual
+        HEADER_SEARCH_PATHS:
+          - "$(SRCROOT)/Sources/PTY/include"
+        SWIFT_INCLUDE_PATHS:
+          - "$(SRCROOT)/Sources/PTY/include"
+      configs:
+        Debug:
+          CODE_SIGN_IDENTITY: "-"
+        Release:
+          CODE_SIGN_IDENTITY: "-"
+
 schemes:
   PTYVerifier:
     build:
@@ -229,3 +260,11 @@ schemes:
       config: Debug
       targets:
         - WorkspaceTests
+  SessionTests:
+    build:
+      targets:
+        SessionTests: test
+    test:
+      config: Debug
+      targets:
+        - SessionTests

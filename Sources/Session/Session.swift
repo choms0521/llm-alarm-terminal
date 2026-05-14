@@ -30,12 +30,8 @@ public enum SessionOrigin: String, Sendable, Equatable {
 /// new `Session` via `with(...)` so that `SessionManager` only needs to swap
 /// values in its dictionary — no in-place mutation of the model itself.
 ///
-/// `PTYHandle` is a value type (`Equatable` struct of fd + pid + slave path),
-/// so this struct can stay `Sendable` even though it transitively carries the
-/// master fd integer.
-///
-/// `ptyHandle` is optional starting Day 5b: when `origin == .internal` the
-/// libghostty surface owns the PTY and there is no external handle.
+/// P2 추가 필드(`workspaceId`, `paneId`, `env`)는 모두 옵셔널/기본값을 가져
+/// P1 레거시 콜러(SessionVerifier 등)의 init 호출을 깨지 않는다.
 public struct Session: Identifiable, Sendable, Equatable {
     public let id: UUID
     public let kind: SessionKind
@@ -46,6 +42,13 @@ public struct Session: Identifiable, Sendable, Equatable {
     public let status: SessionStatus
     public let claudeSessionId: String?
 
+    /// P2: 소속 Workspace 의 id. P1 레거시 경로(workspace 컨텍스트 없음)는 nil.
+    public let workspaceId: UUID?
+    /// P2: 소속 Pane 의 id. P1 레거시 경로는 nil.
+    public let paneId: UUID?
+    /// P2: spawn 시 PTY child 에 전달된 env dict (디버깅/검증 용도). 비전파 invariant 확인 anchor.
+    public let env: [String: String]
+
     public init(
         id: UUID = UUID(),
         kind: SessionKind,
@@ -54,7 +57,10 @@ public struct Session: Identifiable, Sendable, Equatable {
         cwd: String,
         createdAt: Date = Date(),
         status: SessionStatus = .running,
-        claudeSessionId: String? = nil
+        claudeSessionId: String? = nil,
+        workspaceId: UUID? = nil,
+        paneId: UUID? = nil,
+        env: [String: String] = [:]
     ) {
         self.id = id
         self.kind = kind
@@ -64,12 +70,13 @@ public struct Session: Identifiable, Sendable, Equatable {
         self.createdAt = createdAt
         self.status = status
         self.claudeSessionId = claudeSessionId
+        self.workspaceId = workspaceId
+        self.paneId = paneId
+        self.env = env
     }
 
-    /// Returns a copy with selected fields overridden. Each argument defaults
-    /// to `nil` so callers only specify what they want to change. The Swift
-    /// type system lets us keep this immutable-friendly without the per-call
-    /// boilerplate of a builder.
+    /// 선택 필드만 override 하여 새 인스턴스 반환.
+    /// 각 인자 default `nil` — 호출부는 변경하려는 필드만 지정.
     public func with(
         status: SessionStatus? = nil,
         claudeSessionId: String?? = nil
@@ -82,7 +89,10 @@ public struct Session: Identifiable, Sendable, Equatable {
             cwd: cwd,
             createdAt: createdAt,
             status: status ?? self.status,
-            claudeSessionId: claudeSessionId ?? self.claudeSessionId
+            claudeSessionId: claudeSessionId ?? self.claudeSessionId,
+            workspaceId: workspaceId,
+            paneId: paneId,
+            env: env
         )
     }
 }
