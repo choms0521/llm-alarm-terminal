@@ -1,0 +1,2009 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P2 상세 계획서 — 다중 세션 + 워크스페이스 탭 + 가로 분할 (2026-05-13)</title>
+<style>
+  :root {
+    --bg: #fbfaf7;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d8dee4;
+    --accent: #0550ae;
+    --accent-soft: #ddf4ff;
+    --warn: #9a6700;
+    --warn-soft: #fff8c5;
+    --danger: #cf222e;
+    --danger-soft: #ffebe9;
+    --ok: #1a7f37;
+    --ok-soft: #dafbe1;
+    --code-bg: #f3f0ea;
+    --code-fg: #24292f;
+    --table-stripe: #f6f3ec;
+    --table-head: #eceae3;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Helvetica, Arial, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 32px;
+    padding: 32px 24px;
+  }
+
+  aside.toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    border-right: 1px solid var(--border);
+    padding-right: 16px;
+    font-size: 13.5px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+  }
+
+  aside.toc h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin: 0 0 12px 0;
+  }
+
+  aside.toc ol {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+  }
+
+  aside.toc ol li {
+    margin: 4px 0;
+  }
+
+  aside.toc ol ol {
+    padding-left: 14px;
+    margin-top: 4px;
+  }
+
+  aside.toc a {
+    color: var(--fg);
+    text-decoration: none;
+  }
+
+  aside.toc a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+
+  main {
+    max-width: 900px;
+    min-width: 0;
+  }
+
+  h1 {
+    font-size: 28px;
+    margin: 0 0 8px 0;
+    line-height: 1.3;
+  }
+
+  h2 {
+    font-size: 22px;
+    margin-top: 40px;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h3 {
+    font-size: 18px;
+    margin-top: 28px;
+    margin-bottom: 8px;
+  }
+
+  h4 {
+    font-size: 15px;
+    margin-top: 20px;
+    margin-bottom: 6px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  p { margin: 8px 0; }
+
+  .meta {
+    color: var(--muted);
+    font-size: 13.5px;
+    margin-bottom: 24px;
+  }
+
+  .meta strong { color: var(--fg); }
+
+  code {
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+
+  pre {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 14px 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    border: 1px solid var(--border);
+  }
+
+  pre code {
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+  }
+
+  .kw { color: #cf222e; font-weight: 600; }
+  .str { color: #0a3069; }
+  .com { color: #6e7781; font-style: italic; }
+  .num { color: #0550ae; }
+  .typ { color: #953800; }
+  .fn { color: #8250df; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13.5px;
+  }
+
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    background: var(--table-head);
+    font-weight: 600;
+  }
+
+  tbody tr:nth-child(even) {
+    background: var(--table-stripe);
+  }
+
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin: 16px 0;
+  }
+
+  .callout.warn {
+    border-left-color: var(--warn);
+    background: var(--warn-soft);
+  }
+
+  .callout.danger {
+    border-left-color: var(--danger);
+    background: var(--danger-soft);
+  }
+
+  .callout.ok {
+    border-left-color: var(--ok);
+    background: var(--ok-soft);
+  }
+
+  .callout .label {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    margin-bottom: 4px;
+  }
+
+  .day-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin: 18px 0;
+    background: #fff;
+  }
+
+  .day-card h3 {
+    margin-top: 0;
+  }
+
+  .day-card dl {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 6px 16px;
+    margin: 8px 0 12px 0;
+    font-size: 14px;
+  }
+
+  .day-card dt {
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .day-card dd {
+    margin: 0;
+  }
+
+  ul.exit-criteria {
+    list-style: none;
+    padding-left: 0;
+    margin: 8px 0 0 0;
+  }
+
+  ul.exit-criteria li {
+    margin: 4px 0;
+    font-size: 14px;
+  }
+
+  ul.exit-criteria input[type="checkbox"] {
+    margin-right: 8px;
+  }
+
+  .ascii {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.45;
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    background: var(--accent-soft);
+    color: var(--accent);
+    margin-right: 4px;
+  }
+
+  .tag.warn { background: var(--warn-soft); color: var(--warn); }
+  .tag.danger { background: var(--danger-soft); color: var(--danger); }
+  .tag.ok { background: var(--ok-soft); color: var(--ok); }
+
+  .pending {
+    color: var(--warn);
+    font-style: italic;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 28px 0;
+  }
+
+  @media print {
+    aside.toc { display: none; }
+    .layout { display: block; max-width: 100%; padding: 0; }
+    main { max-width: 100%; }
+    .day-card { page-break-inside: avoid; }
+    pre, .ascii { page-break-inside: avoid; }
+    body { font-size: 11pt; }
+    h2 { page-break-after: avoid; }
+  }
+
+  @media (max-width: 900px) {
+    .layout {
+      grid-template-columns: 1fr;
+    }
+    aside.toc {
+      position: static;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      padding-right: 0;
+      padding-bottom: 16px;
+      max-height: none;
+    }
+    .day-card dl {
+      grid-template-columns: 1fr;
+    }
+    .day-card dt {
+      margin-top: 4px;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <h2>목차</h2>
+  <ol>
+    <li><a href="#sec-1">1. 개요</a></li>
+    <li><a href="#sec-2">2. RALPLAN-DR Summary</a></li>
+    <li><a href="#sec-3">3. Day-by-Day Work Package</a>
+      <ol>
+        <li><a href="#day-1">Day 1 — Workspace/Pane 모델 + 영속화 스키마</a></li>
+        <li><a href="#day-2">Day 2 — SessionManager v2 확장</a></li>
+        <li><a href="#day-3">Day 3 — Vertical sidebar tab UI</a></li>
+        <li><a href="#day-4">Day 4 — Pane split UI</a></li>
+        <li><a href="#day-5">Day 5 — Pane lifecycle wiring</a></li>
+        <li><a href="#day-6">Day 6 — Multi-workspace cwd/env 격리</a></li>
+        <li><a href="#day-7">Day 7 — libghostty surface 자원 관리</a></li>
+        <li><a href="#day-8">Day 8 — 단축키 + 21번째 한국어 에러</a></li>
+        <li><a href="#day-9">Day 9 — 재시작 영속화 + verifier pass</a></li>
+        <li><a href="#day-contingency">+2일 컨틴전시 밴드</a></li>
+      </ol>
+    </li>
+    <li><a href="#sec-4">4. Architecture Diagram</a></li>
+    <li><a href="#sec-5">5. Critical Code Specs</a></li>
+    <li><a href="#sec-6">6. ADR-I Operationalization</a></li>
+    <li><a href="#sec-7">7. JSON Persistence Schema</a></li>
+    <li><a href="#sec-8">8. Acceptance Criteria</a></li>
+    <li><a href="#sec-9">9. Risks &amp; Mitigations</a></li>
+    <li><a href="#sec-10">10. Exit Gate to P3</a></li>
+    <li><a href="#app-a">부록 A. 환경 변수</a></li>
+    <li><a href="#app-b">부록 B. 참고 문헌</a></li>
+  </ol>
+</aside>
+
+<main>
+
+<h1>P2 상세 계획서 — 다중 세션 + 워크스페이스 탭 + 가로 분할(최대 2 pane)</h1>
+<p class="meta">
+  <strong>대상 단계</strong>: v4 마스터 계획 § P2 (lines 87~122)<br>
+  <strong>문서 버전</strong>: P2-detail v3 (Critic ITERATE 2차 대응: v2 24건 + v3 5건 적용 + 3건 deferred)<br>
+  <strong>문서 작성일</strong>: 2026-05-13<br>
+  <strong>예상 작업 일수</strong>: 기본 6~9일 + 1.2배 컨틴전시 = 7~11 working days<br>
+  <strong>승인 경로</strong>: ralplan 합의 (Architect → Critic → APPROVE 후 <code>docs/plans/p2/</code>로 이전)
+</p>
+
+<!-- =================================================================== -->
+<h2 id="sec-1">1. 개요</h2>
+
+<h4>Goal</h4>
+<p>P1에서 단일 세션으로 검증된 PTY + libghostty 토대를 다중 세션으로 확장합니다. 사이드바 탭 = workspace, workspace 내부에 최대 2개의 가로 분할 pane이 존재합니다. 각 pane은 생성 시점에 <code>claude</code>/<code>shell</code> 중 하나를 선택하며, <code>CHAT_TERMINAL_MAX_SESSIONS</code> (기본 20)이 SessionManager 차원에서 실효성을 가집니다. 첫 번째 탭은 항상 <code>agent-view</code> 종류로 close 불가(placeholder 콘텐츠는 P3에서 실데이터로 교체).</p>
+
+<h4>Side</h4>
+<p>desktop (macOS, Apple Silicon)</p>
+
+<h4>Scope (in) — 이번 단계에서 반드시 끝낸다</h4>
+<ul>
+  <li><code>Workspace { id, name, cwd, panes: [Pane], createdAt, kind: 'agent-view' | 'normal' }</code> 데이터 모델</li>
+  <li><code>Pane { id, sessionId, kind: claude|shell, position: top|bottom }</code></li>
+  <li>Workspace API: <code>workspace.list</code>, <code>workspace.create(cwd, name?)</code>, <code>workspace.recent</code> (in-memory + JSON 영속화)</li>
+  <li>첫 번째 탭 = <code>agent-view</code> invariant (close/제거 UI 없음, P3까지는 placeholder OK)</li>
+  <li>Vertical sidebar tab UI: 탭 선택, 새 workspace 생성(<code>+</code>), workspace close (agent-view 제외)</li>
+  <li>Pane split UI: 두 번째 pane 생성 시 pane type chooser(claude vs shell), 가로 분할 고정, 세 번째 pane 시도는 UI에서 비활성</li>
+  <li>SessionManager v2 확장: <code>maxSessions</code> enforce, 도달 시 한국어 에러 다이얼로그</li>
+  <li>세션-pane lifecycle: pane 닫기 → 세션 종료. workspace 닫기 → 내부 모든 세션 종료. claude <code>claudeSessionId</code> 메모리 보존(P1 인터페이스 재사용)</li>
+  <li>키보드 단축키: workspace 전환, pane 포커스 전환, pane split, pane close</li>
+  <li>workspace 상태 JSON 영속화 (앱 재시작 시 workspace 목록 복원, 세션은 복원하지 않음)</li>
+  <li>PTY env/cwd 격리 invariant — 셸 env snapshot, <code>cd</code>/<code>export</code> 비전파, 새 pane cwd = <code>workspace.cwd</code>, claude <code>CLAUDE_CONFIG_DIR</code> 세션마다 격리</li>
+  <li>libghostty 다중 surface 자원 관리: ADR-I cmux 패턴 적용(<a href="#sec-6">§6</a>)</li>
+</ul>
+
+<h4>Out of scope — 이번 단계에서 절대 손대지 않는다</h4>
+<ul>
+  <li>agent-view 실데이터 (P3 — 본 단계에서는 placeholder 콘텐츠)</li>
+  <li>WS 서버, pairing, Push (P4~P6b)</li>
+  <li>세션 자체의 영속화/resume (전체 MVP scope 밖)</li>
+  <li>chat-room↔pane 매트릭스 (P9)</li>
+  <li>3 pane 이상 분할, 세로 분할, 다중 윈도우</li>
+</ul>
+
+<h4>Key Deliverables</h4>
+<ol>
+  <li>Vertical sidebar + workspace tab system (agent-view 고정 + N normal workspaces)</li>
+  <li>Pane split + 2-pane horizontal layout (top/bottom)</li>
+  <li>SessionManager v2 (multi-session, max=N enforcement, lifecycle hooks, env/cwd snapshot capture)</li>
+  <li>Workspace 상태 JSON 영속화 (reserved fields 포함, atomic write)</li>
+  <li>PTY env/cwd 격리 코드 + 통합 테스트</li>
+  <li>libghostty surface ADR-I 운영화: 세션마다 독립 surface, hibernate 없음, telemetry env</li>
+</ol>
+
+<h4>Dependencies</h4>
+<p>P1 (단일 PTY + libghostty 통합). v4 마스터 계획 § P2 명시.</p>
+
+<h4>Effort 추정</h4>
+<table>
+  <thead>
+    <tr><th>구분</th><th>일수</th><th>비고</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>기본 effort</td><td>6~9일</td><td>v4 § P2 원본</td></tr>
+    <tr><td>1.2배 컨틴전시 적용</td><td>7~11일</td><td>v4 § 4.7 Effort Calendar — "actor 경계 명세 포함"</td></tr>
+    <tr><td>본 문서 기본 분배</td><td>9일 (Day 1~9)</td><td>중간값 채택 — multi-session 동시성 + JSON 영속화 + ADR-I 적용 3축 균형</td></tr>
+    <tr><td>컨틴전시 밴드</td><td>+2일</td><td>actor data race / JSON migration 충돌 / libghostty surface 누수 / env 누설 / IME 회귀</td></tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-2">2. RALPLAN-DR Summary</h2>
+
+<h4>Principles (5)</h4>
+<ol>
+  <li><strong>Build on P1 SessionManager, don't fork the actor model.</strong> P1에서 actor isolation을 견고하게 설계한 <code>SessionManager</code>를 그대로 확장합니다. max=1 상수를 max=N으로 풀고 lifecycle hook을 추가하는 surgical extension이며, 별도의 multi-session 매니저를 신설하지 않습니다. P1 → P2의 vertical slice 연속성을 유지합니다.</li>
+  <li><strong>Workspace as PTY env/cwd isolation boundary.</strong> Workspace는 단순한 탭 그룹이 아니라 PTY 환경 격리 경계입니다. 셸 env는 workspace 실행 시점에 snapshot되고, 다른 pane으로 누설되지 않으며, <code>cd</code>/<code>export</code>는 그 pane에 한정됩니다 (수락 기준 A6 핵심).</li>
+  <li><strong>cmux-style libghostty surface management (ADR-I).</strong> 각 세션마다 독립 <code>ghostty_surface_t</code> 인스턴스를 생성하고, hibernate/pause/release 로직을 0줄 작성합니다. 비가시 surface는 PTY read + scrollback + atlas texture를 그대로 유지하며 AppKit <code>displayLayer</code> 호출 부재로만 GPU 자원 idle. 메모리 압박 발생 시 P4+에서 hibernate 재검토.</li>
+  <li><strong>First tab = agent-view invariant, close-proof.</strong> 첫 번째 탭은 <code>kind: .agentView</code>로 자동 생성되고 close 버튼/메뉴 항목/단축키가 모두 차단됩니다. UI 우회 경로(단축키 직접 호출, 메뉴 자동화)도 SessionManager v2 차원에서 거부해야 합니다. P3에서 실데이터로 교체될 때까지 placeholder 콘텐츠로 채워집니다.</li>
+  <li><strong>Korean-safe persistence with reserved fields.</strong> JSON 영속화 스키마는 한국어 workspace 이름을 UTF-8 escape 없이 그대로 저장하며, P5 push 채널 매핑(<code>pushChannelHints</code>), P6a <code>chatRoomId</code>, P10b <code>fetchHint</code> 등 후속 단계의 필드를 reserved 형태로 미리 예약하여 마이그레이션 시 add-only 정책을 보장합니다.</li>
+</ol>
+
+<h4>Decision Drivers (Top 3)</h4>
+<ol>
+  <li><strong>다중 세션 동시성 안전이 본 단계 최대 risk.</strong> 20개 PTY가 동시에 read/write할 때 actor isolation 경계 설계가 부정확하면 data race가 발생합니다. P1의 단일 세션 코드에서는 노출되지 않았던 위험이 본 단계에서 전면화됩니다.</li>
+  <li><strong>JSON 영속화 스키마는 12 phase 전체에 묶임.</strong> P5(push 채널), P6a(chatRoomId), P9(chat-room↔pane 매트릭스)에서 새 필드가 추가되며, P2에서 잘못 설계하면 매 단계마다 marshal/unmarshal 호환성을 깨뜨립니다. reserved field + add-only 정책으로 흡수.</li>
+  <li><strong>libghostty 다중 surface 자원 사용량의 미지수.</strong> P1에서 단일 surface는 검증되었으나, 20 surface 동시 운영 시 메모리/GPU 부담은 아직 측정되지 않았습니다. ADR-I cmux 패턴이 채택되었으나 P2 일자에 telemetry hook을 심어 실측 가능 상태로 만들어야 합니다.</li>
+</ol>
+
+<h4>Viable Options Considered (3)</h4>
+
+<table>
+  <thead>
+    <tr><th>옵션</th><th>설명</th><th>장점</th><th>단점</th><th>판정</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>A. SessionManager v2 확장 + Workspace as env boundary + cmux surface</strong></td>
+      <td>P1의 SessionManager actor를 max=N으로 확장. Workspace는 env/cwd snapshot의 boundary. 각 세션마다 독립 libghostty surface, hibernate 없음(ADR-I).</td>
+      <td>P1 코드 재사용, vertical slice 연속성, ADR-I 와 정합, env 격리가 데이터 모델에 내장.</td>
+      <td>20 세션 동시 운영 시 메모리 400~600MB 부담(수용 가능 범위, telemetry로 모니터).</td>
+      <td><span class="tag ok">선택</span></td>
+    </tr>
+    <tr>
+      <td>B. Per-workspace SessionManager (sharded actor)</td>
+      <td>Workspace마다 별도의 SessionManager actor를 두어 isolation을 데이터 차원으로 강화.</td>
+      <td>workspace 간 동시성 분리 명확, actor 경계가 작아 추론 용이.</td>
+      <td>P1 SessionManager fork에 해당, max=N 전역 enforcement가 복잡해짐, lastClaudeSessionId 추적 분산. <strong>Principle 1(P1 actor model 재사용) 위반.</strong></td>
+      <td><span class="tag danger">거부</span> — P1 actor 모델 fork</td>
+    </tr>
+    <tr>
+      <td>C. libghostty surface hibernate / pool</td>
+      <td>비가시 workspace의 surface를 hibernate하거나 GPU 자원 풀에서 release하여 reactivation 시 재할당.</td>
+      <td>이론상 메모리 절감 가능.</td>
+      <td>cmux 정탐 결과 hibernate 코드 0줄, scrollback/atlas texture 손실 위험, 재활성화 latency. <strong>ADR-I와 정면 충돌.</strong> 메모리 압박이 실측되지 않은 상태에서의 조기 최적화.</td>
+      <td><span class="tag danger">거부</span> — ADR-I 위반, 조기 최적화</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <div class="label">선택 근거</div>
+  Option A는 P1과의 연속성(Principle 1), workspace를 env boundary로 보는 acceptance criterion 6(Principle 2), ADR-I cmux 패턴(Principle 3), close-proof agent-view(Principle 4), reserved-field 영속화(Principle 5) 다섯 원칙을 동시에 만족하는 유일한 경로입니다. Option B는 actor fork로 P1의 lastClaudeSessionId/ActivityScope 라이프사이클 추적을 분산시키고, Option C는 ADR-I와 정면 충돌합니다. 20 세션 동시 운영의 메모리 부담은 <a href="#sec-6">§6.2</a>의 실측 telemetry로 모니터합니다.
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-3">3. Day-by-Day Work Package</h2>
+
+<p>본 단계는 기본 6~9일 + 1.2배 컨틴전시 = 7~11일이 v4 § 4.7에서 할당되었습니다. 본 문서는 중간값인 <strong>9일 + 2일 컨틴전시</strong> 분포를 채택합니다. 각 일자의 "예상 소요"는 단일 개발자 실작업 시간 기준이며, OMC executor 위임 시간은 별도로 계산하지 않습니다.</p>
+
+<h4>MED1 Vertical Demo Checkpoints (honest disclosure)</h4>
+<p>Master § 3 vertical slice 원칙은 phase 단위입니다. 본 phase 내부의 day-by-day layering은 infrastructure days를 포함합니다. user-visible 데모 가능 checkpoint를 명시합니다.</p>
+<table>
+  <thead>
+    <tr><th>Checkpoint</th><th>Day</th><th>Demo 가능 시나리오</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Demo C1 (end-to-end create → spawn → close)</td>
+      <td><strong>Day 5 종료</strong></td>
+      <td>workspace 생성 → pane split (claude + shell) → 한국어 입출력 → pane/workspace close. Sidebar UI + Pane UI + lifecycle wiring이 통합됨.</td>
+    </tr>
+    <tr>
+      <td>Demo C2 (재시작 영속화 walkthrough)</td>
+      <td><strong>Day 9 종료</strong></td>
+      <td>workspace 다수 생성 → 한국어 이름 부여 → 종료/재시작 → 한국어 이름 보존 + 세션 부재 표시. M4 비정상 종료 복구 시연 포함.</td>
+    </tr>
+    <tr>
+      <td>Infrastructure days (no user-visible demo)</td>
+      <td>Day 1, Day 2, Day 6, Day 7</td>
+      <td>모델 정의 / actor 확장 / 격리 통합 테스트 / surface 자원 관리. 코드/테스트 산출물만 존재하며 demo 없음을 honest disclosure로 명시.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- Day 1 -->
+<section class="day-card" id="day-1">
+  <h3>Day 1 — Workspace/Pane 데이터 모델 + JSON 영속화 스키마 (reserved fields)</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd><code>Workspace</code>/<code>Pane</code> Swift 모델을 정의하고, <code>workspaces.json</code> 영속화 스키마 v1을 reserved field 포함하여 동결합니다. UI/SessionManager 연결은 Day 2~5에서 진행.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>Sources/Workspace/Workspace.swift</code> — <code>struct Workspace</code>, <code>enum WorkspaceKind { agentView, normal }</code></li>
+        <li><code>Sources/Workspace/Pane.swift</code> — <code>struct Pane</code>, <code>enum PanePosition { top, bottom }</code>, <code>enum PaneKind { claude, shell }</code></li>
+        <li><code>Sources/Workspace/WorkspaceStore.swift</code> — <code>Codable</code> 기반 JSON encode/decode + atomic write helper</li>
+        <li><code>docs/p2/workspace-schema-v1.md</code> — 스키마 문서(reserved field 목록 포함)</li>
+        <li><code>Tests/WorkspaceTests/SchemaCodecTests.swift</code> — round-trip + reserved field preservation 단위 테스트</li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (sonnet) — 표준 Codable 모델링, Day 1의 위험도 낮음</dd>
+    <dt>예상 소요</dt>
+    <dd>0.5~1.0일</dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li>모든 모델은 <strong>immutable struct</strong>로 정의. 변경은 <code>Workspace.with(...)</code> 빌더로 새 인스턴스 반환(전역 코딩 규약 준수).</li>
+        <li>JSON 스키마 <code>version: 1</code> 필드는 최상위 root에 위치. 향후 단계에서 add-only 마이그레이션을 검증하기 위한 anchor.</li>
+        <li><strong>Reserved fields 모델 소속 명시:</strong> <strong>Workspace level</strong> — <code>pushChannelHints: [String: String]?</code> (P5에서 활용), <code>fetchHintMetadata: [String: AnyCodable]?</code> (P10b에서 활용); <strong>Pane level</strong> — <code>chatRoomId: String?</code> (P6a/P9에서 활용, master § P9 line 351 1:1 바인딩 명세). P2에서는 모두 <code>nil</code> 유지이며 decode/encode 라운드트립 시 보존되어야 함.</li>
+        <li>저장 위치: <code>~/Library/Application Support/ClaudeAlarmTerminal/workspaces.json</code> (<code>FileManager.SearchPathDirectory.applicationSupportDirectory</code>).</li>
+        <li>Atomic write: write-to-temp + <code>rename(2)</code> (POSIX atomic). <code>FileManager.default.replaceItem(at:withItemAt:...)</code> 활용 가능.</li>
+        <li>Sessions는 영속화 대상이 아님(설계 결정) — <code>Workspace.panes[].sessionId</code>는 영속화하되 다음 부팅 시 SessionManager에 해당 session이 없으므로 UI에서 "세션 없음" 상태로 표시. P2 결정 항목: 부팅 직후 빈 pane 상태로 시작 (자동 respawn 안 함).</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>Workspace</code>/<code>Pane</code> 모델이 모두 immutable <code>struct</code>이며 <code>Codable</code> 준수 (<code>grep -E '(class|var) +[A-Z]' Sources/Workspace/</code> 결과로 mutable property 0개 확인)</li>
+    <li><input type="checkbox" disabled> <code>SchemaCodecTests</code>의 round-trip 테스트 통과 — 한국어 workspace 이름("내 프로젝트") 포함 4건 케이스 모두 통과</li>
+    <li><input type="checkbox" disabled> Reserved field preservation 테스트: P5/P6a/P10b 필드에 임의 값 주입 → encode → decode 후 동일 값 유지</li>
+    <li><input type="checkbox" disabled> 스키마 문서 <code>docs/p2/workspace-schema-v1.md</code>가 작성되어 모든 필드와 reserved field 사용 시점이 명시됨</li>
+    <li><input type="checkbox" disabled> Atomic write 테스트: 중간에 프로세스 강제 종료(<code>kill -9</code> 시뮬레이션)하더라도 기존 <code>workspaces.json</code>이 손상되지 않음 — <strong>M4: .tmp 잔존 시 다음 load() 가 정리하고, .json 부재 시 .bak 으로 복구함을 검증</strong></li>
+    <li><input type="checkbox" disabled> <strong>H2 save() 에러 surface:</strong> <code>save()</code>가 <code>throws</code>로 선언되어 있고 <code>replaceItem</code>/<code>moveItem</code> 실패 시 호출부가 catch하여 한국어 에러 dialog/log로 surface함이 단위 테스트로 검증됨 (silently swallow 0건). 인위적으로 read-only 디렉터리 권한을 부여한 후 save() 호출 → throw 발생 → 한국어 메시지 노출.</li>
+    <li><input type="checkbox" disabled> <strong>M6 forward-compat round-trip:</strong> Workspace/Pane에 unknown field("foo": "bar")를 임의 주입 → decode → encode → 다시 decode 시 unknown field가 <code>extraFields</code>에 보존됨</li>
+    <li><input type="checkbox" disabled> <strong>L1 AnyCodable:</strong> Package.swift 또는 Podfile에 Flight-School/AnyCodable 의존 등록 (decision A1: P2 v2부터 외부 패키지 채택, 인하우스 6줄 구현 대안은 거부). <code>swift package show-dependencies</code>에서 확인.</li>
+  </ul>
+</section>
+
+<!-- Day 2 -->
+<section class="day-card" id="day-2">
+  <h3>Day 2 — SessionManager v2 확장 (max=N, lifecycle hooks, env/cwd snapshot)</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>P1의 <code>SessionManager</code> actor를 max=N으로 확장하고, 세션 생성 시 env/cwd snapshot을 capture하는 책임을 추가합니다. workspace/pane 생명주기 hook 인터페이스를 정의합니다.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>Sources/Session/SessionManager.swift</code> — max를 <code>maxSessions: Int</code> 파라미터화, <code>create(kind:, cwd:, env:, ...)</code> 시그니처에 <code>env</code> 추가</li>
+        <li><code>Sources/Session/SessionSpawnEnv.swift</code> — workspace cwd + user env snapshot + claude <code>CLAUDE_CONFIG_DIR</code> 세션별 격리 디렉터리 생성</li>
+        <li><code>Sources/Session/SessionLifecycleHooks.swift</code> — <code>onSessionCreated</code>/<code>onSessionTerminated</code> Combine publisher</li>
+        <li><code>Tests/SessionTests/MaxSessionsConcurrentTests.swift</code> — 21개 동시 create 시도 시 1개 실패 + 한국어 에러 확인</li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (opus) — actor 동시성 + env snapshot 격리 정책 양쪽 깊은 추론 필요</dd>
+    <dt>예상 소요</dt>
+    <dd>1.0~1.5일 — <span class="pending">(동시성 risk 최고 일자)</span></dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li>P1의 actor isolation invariant(모든 public 메서드 <code>async</code>, <code>nonisolated</code> 진입점 0) 그대로 유지. grep 검증을 종료 조건에 재포함.</li>
+        <li>max enforcement: <code>maxSessions</code>는 init 파라미터로 받되 default 값은 <code>ProcessInfo.processInfo.environment["CHAT_TERMINAL_MAX_SESSIONS"] ?? "20"</code>의 parsed Int. 21번째 시도 시 <code>ManagerError.maxSessionsReached(currentMax: 20)</code> throw.</li>
+        <li>env snapshot 시점은 <strong>workspace 생성 시점</strong>에 <code>ProcessInfo.processInfo.environment</code>를 한 번 캡처하여 <code>Workspace.envSnapshot</code>에 저장합니다 (<a href="#sec-5">§5.1</a>, <a href="#sec-5">§5.4 <code>captureUserEnv</code></a> 참조). <code>SessionManager.create()</code>는 <code>workspace.envSnapshot</code>을 base로 dict copy하여 각 세션에 전달합니다. claude pane은 <code>CLAUDE_CONFIG_DIR</code> override, shell pane은 <code>HISTFILE</code> override(M3)를 base 위에 추가 적용합니다. <code>cd</code>/<code>export</code>는 PTY 안에서만 효과를 가지며 다른 pane에 전파되지 않음(POSIX 격리 invariant 자체로 충분).</li>
+        <li>claude <code>CLAUDE_CONFIG_DIR</code> 격리: <code>~/Library/Application Support/ClaudeAlarmTerminal/claude-config/&lt;sessionId&gt;/</code> 디렉터리를 spawn 직전 생성하고 env로 전달. 세션 종료 후 디렉터리는 <strong>P2에서는 보존</strong>(<code>claudeSessionId</code> 재사용 가능성). 청소 정책은 P4 reconnect 단계로 미룸.</li>
+        <li>Thread Sanitizer 활성화 상태로 본 일자 통합 테스트 통과.</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <strong>MED7 SessionManager grep 정규식 구체화:</strong> <code>grep -E '^\s*(public\s+)?func\s+(create|terminate|get|terminateAll|updateClaudeSessionId)' Sources/Session/SessionManager.swift</code> 결과 모든 매칭 라인이 <code>async</code> 키워드 포함. <code>grep nonisolated Sources/Session/SessionManager.swift</code> 결과 0건. (P1의 invariant 유지)</li>
+    <li><input type="checkbox" disabled> 동시 호출 단위 테스트: 21개의 Task가 동시에 <code>create()</code>를 시도할 때 20개 성공 + 1개 <code>maxSessionsReached</code> 에러</li>
+    <li><input type="checkbox" disabled> Thread Sanitizer 활성화 상태로 통합 테스트 통과 (data race 0건)</li>
+    <li><input type="checkbox" disabled> <strong>M1 fairness-stall 측정 게이트:</strong> 20-pane <code>terminateAll(inWorkspace:)</code> wall-clock 5초 이내 (TaskGroup 병렬화로 1초 SIGTERM grace × N의 직렬 누적 회피). terminateAll 진행 중 동시 <code>create()</code> 호출의 suspension ≤ 200ms (actor head-of-line stall 없음).</li>
+    <li><input type="checkbox" disabled> <strong>N2 v3 invariant — activityScope premature release 방지:</strong> 20-pane <code>terminateAll</code> 직후 invariant: <code>activityScope == nil iff sessions.allSatisfy { $0.value.status == .exited }</code>. terminateAll 진행 중간(일부 PTY 만 SIGKILL 완료된 시점)에 <code>activityScope</code>이 미리 nil이 되지 않음을 단위 테스트로 검증 (reentrancy 발현 0건). 검증: terminateAll 호출과 병렬로 <code>activityScope</code> 상태를 polling하여 모든 SIGKILL 완료 이전까지 nil이 아님을 assert.</li>
+    <li><input type="checkbox" disabled> 셸 spawn 시 <code>workspace.envSnapshot</code>이 base로 dict copy되고 <code>HISTFILE</code> override를 추가한 결과가 spawn env로 전달됨 (<code>XCTAssertEqual</code>로 spawn env에 <code>workspace.envSnapshot</code>의 모든 키가 포함되고 <code>HISTFILE</code>이 추가됐는지 검증)</li>
+    <li><input type="checkbox" disabled> claude spawn 시 <code>CLAUDE_CONFIG_DIR=~/Library/Application Support/ClaudeAlarmTerminal/claude-config/&lt;sessionId&gt;/</code>가 child env에 존재함이 단위 테스트로 확인됨 (각 세션마다 다른 path 확인)</li>
+    <li><input type="checkbox" disabled> SessionLifecycleHooks의 <code>onSessionCreated</code>/<code>onSessionTerminated</code>가 Combine publisher로 구독 가능하며, 단위 테스트에서 hook 호출 순서가 보장됨</li>
+  </ul>
+  <div class="callout warn">
+    <div class="label">위험 트리거</div>
+    Day 2 종료 시 동시성 또는 env 격리 종료 조건이 미달이면 컨틴전시 +1일 예산이 우선 투입됩니다(Thread Sanitizer 검출 race condition은 즉시 root cause 분석, env 누설 발견 시 spawn 코드 패치). Day 6의 multi-workspace 격리 통합 검증이 본 일자의 단위 격리 위에 쌓이므로 Day 2 미달은 Day 6의 acceptance 위험으로 직결됩니다.
+  </div>
+</section>
+
+<!-- Day 3 -->
+<section class="day-card" id="day-3">
+  <h3>Day 3 — Vertical sidebar tab UI (agent-view 첫 탭 invariant)</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>왼쪽 vertical sidebar에 workspace 탭 목록을 SwiftUI/AppKit으로 렌더링하고, 첫 번째 탭이 항상 <code>agent-view</code>이며 close UI가 노출되지 않음을 보장합니다.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>Sources/UI/Sidebar/SidebarView.swift</code> — vertical tab list, <code>+</code> 버튼, 선택 상태 binding</li>
+        <li><code>Sources/UI/Sidebar/WorkspaceTabRow.swift</code> — 탭 row 컴포넌트, agent-view는 close 버튼 미렌더링 분기</li>
+        <li><code>Sources/UI/Sidebar/AgentViewPlaceholder.swift</code> — P3 진입 전까지의 placeholder content view</li>
+        <li><code>Tests/UITests/AgentViewCloseInvariantTests.swift</code> — UI 테스트로 첫 탭에 close 버튼 존재하지 않음을 검증</li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (sonnet) — 표준 SwiftUI 작업 (단, UI invariant 테스트 design은 verifier로 한 번 재검토)</dd>
+    <dt>예상 소요</dt>
+    <dd>1.0일</dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li>앱 부팅 시 <code>WorkspaceStore</code>가 <code>workspaces.json</code> 로드 → workspace 목록 0개이면 자동으로 <code>kind: .agentView</code> 1개 + <code>kind: .normal</code> 1개(default workspace)를 생성하여 빈 상태 회피. <strong>MED5: default normal workspace의 cwd = <code>CHAT_TERMINAL_WORKSPACE_ROOT</code> (env 미설정 시 <code>$HOME</code>). 부록 A 환경 변수 표와 정합.</strong></li>
+        <li>이미 <code>agent-view</code>가 영속화에 존재하면 새로 만들지 않고 그대로 로드(invariant: agent-view는 정확히 1개만 존재).</li>
+        <li>Close 버튼 분기: <code>if workspace.kind == .normal { ... }</code> 패턴으로 SwiftUI view에서 분기. menu/단축키 호출도 동일 분기를 거치도록 ViewModel에 <code>canClose: Bool</code> computed property 정의.</li>
+        <li>키보드 단축키 wiring은 Day 8에서 완성. 본 일자에는 UI 상호작용(클릭으로 탭 전환, <code>+</code> 클릭으로 새 workspace) 까지만.</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> 빈 영속화 상태에서 앱 부팅 → sidebar 최상단에 <code>agent-view</code> 탭(close 버튼 없음) + 그 아래 default normal workspace 탭이 표시됨</li>
+    <li><input type="checkbox" disabled> <code>+</code> 클릭 시 cwd picker(또는 임시로 $HOME) → 새 workspace 탭이 sidebar에 추가됨</li>
+    <li><input type="checkbox" disabled> normal workspace 탭에는 close 버튼이 표시되고 클릭 시 workspace 제거됨 (단, 세션 정리는 Day 5에서 wiring)</li>
+    <li><input type="checkbox" disabled> agent-view 탭의 <code>canClose</code>는 <strong>false</strong>이며, ViewModel/View 양쪽에서 close 분기가 차단됨이 단위 테스트로 검증됨</li>
+    <li><input type="checkbox" disabled> UI 테스트 <code>AgentViewCloseInvariantTests</code> 통과 — agent-view 탭 row에 close 버튼이 hit-testable한 상태로 존재하지 않음</li>
+    <li><input type="checkbox" disabled> 탭 선택 시 main content area가 해당 workspace 컨텍스트로 갱신됨 (P3 placeholder OK)</li>
+  </ul>
+</section>
+
+<!-- Day 4 -->
+<section class="day-card" id="day-4">
+  <h3>Day 4 — Pane split UI (2-pane horizontal, type chooser, 3rd split block)</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>workspace 메인 영역에서 두 번째 pane을 만들 때 pane type chooser(claude vs shell)가 표시되고, 가로 분할로 두 번째 pane이 배치됩니다. 세 번째 pane split 시도는 UI에서 비활성됩니다.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>Sources/UI/Pane/WorkspaceContentView.swift</code> — top/bottom 가로 분할 SwiftUI layout</li>
+        <li><code>Sources/UI/Pane/PaneTypeChooser.swift</code> — claude/shell 선택 modal sheet</li>
+        <li><code>Sources/UI/Pane/PaneSplitButton.swift</code> — split 버튼, panes.count &gt;= 2이면 disabled</li>
+        <li><code>Sources/UI/Pane/PaneTerminalView.swift</code> — libghostty surface 호스팅 NSViewRepresentable (P1 <code>GhosttyTerminalView</code> 재사용)</li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (opus) — SwiftUI + AppKit (NSViewRepresentable) + libghostty surface 다중 인스턴스 관리</dd>
+    <dt>예상 소요</dt>
+    <dd>1.0~1.5일</dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li>가로 분할 = top/bottom split (<code>VStack</code> with <code>Divider</code>). top pane은 항상 먼저 생성된 pane, bottom은 두 번째 pane. drag-resize는 본 단계 out of scope (간단한 50:50 고정).</li>
+        <li>Pane type chooser는 <code>+ Split Pane</code> 클릭 시 modal sheet로 등장하여 사용자가 선택 후 SessionManager v2의 <code>create(kind: .shell or .claude, cwd: workspace.cwd, ...)</code> 호출 트리거.</li>
+        <li>3rd pane block: SwiftUI view 차원에서 <code>panes.count &gt;= 2 ? .disabled : .enabled</code>로 split 버튼 비활성. 추가로 ViewModel <code>canSplit: Bool</code>로 menu/단축키 경로도 동일 분기.</li>
+        <li>각 pane은 <strong>독립 libghostty surface</strong>를 소유 — ADR-I cmux 패턴 (<a href="#sec-6">§6</a>). 두 pane이 같은 surface 인스턴스를 공유하지 않음.</li>
+        <li>pane.position: 첫 번째 pane은 <code>.top</code>, 두 번째는 <code>.bottom</code>. 첫 번째 pane 제거 시 두 번째 pane이 <code>.top</code>으로 승격(Day 5 lifecycle 작업).</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> normal workspace 선택 시 main area에 single pane(top)이 표시되고 PTY가 spawn됨</li>
+    <li><input type="checkbox" disabled> <code>+ Split Pane</code> 클릭 → modal sheet 등장 → "Claude" 또는 "Shell" 선택 → bottom pane이 생성되고 두 pane이 가로로 분할 표시됨</li>
+    <li><input type="checkbox" disabled> 두 pane 모두 독립 libghostty surface 인스턴스를 가짐 (포인터 주소 다름이 디버그 로그로 확인됨)</li>
+    <li><input type="checkbox" disabled> 두 pane이 활성 상태에서 split 버튼이 disabled 표시됨 (panes.count == 2)</li>
+    <li><input type="checkbox" disabled> 메뉴/단축키 경로로 3rd pane을 시도해도 ViewModel <code>canSplit</code> false로 거부됨이 단위 테스트로 검증됨</li>
+    <li><input type="checkbox" disabled> <strong>MED3 ADR-I 정책 준수 grep 확장:</strong> <code>grep -rE '(hibernate|pause|releaseSurface|surface\.destroy|stopRendering|suspendRender|displayLayer.*nil)' Sources/UI/Pane/ Sources/Session/</code> 결과 0건 (cmux 패턴 invariant)</li>
+  </ul>
+</section>
+
+<!-- Day 5 -->
+<section class="day-card" id="day-5">
+  <h3>Day 5 — Pane/Workspace lifecycle wiring (pane close → terminate, workspace close → terminate all)</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>Pane close UI가 해당 세션을 정확히 terminate하고, workspace close가 내부 모든 세션을 terminate하도록 SessionManager v2 lifecycle hook을 wiring합니다. claude <code>claudeSessionId</code>는 메모리에 보존(P1 인터페이스 재사용).</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>Sources/Workspace/WorkspaceCoordinator.swift</code> — Workspace ↔ SessionManager 사이의 lifecycle 중재자 (actor 또는 @MainActor)</li>
+        <li><code>Sources/UI/Pane/PaneCloseButton.swift</code> — pane close 트리거</li>
+        <li>SidebarView의 workspace close 버튼이 <code>WorkspaceCoordinator.closeWorkspace(id:)</code> 호출</li>
+        <li><code>Tests/LifecycleTests/PaneSessionLifecycleTests.swift</code> — pane close → session terminate, workspace close → all sessions terminate 검증</li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (opus) — actor 경계를 넘는 lifecycle 신호 + fd leak 방지</dd>
+    <dt>예상 소요</dt>
+    <dd>1.0일</dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li>pane close 흐름: PaneCloseButton → WorkspaceCoordinator.closePane(workspaceId:, paneId:) → SessionManager.terminate(sessionId:) → SIGTERM → 1초 grace → SIGKILL → fd close → Workspace 모델에서 pane 제거 → JSON 영속화 갱신.</li>
+        <li>workspace close 흐름: SidebarView close 버튼 → WorkspaceCoordinator.closeWorkspace(id:) → Workspace 내 모든 pane에 대해 closePane 순차 호출 → 모두 종료 후 Workspace 제거 → JSON 영속화 갱신.</li>
+        <li>P1의 <code>lastClaudeSessionId</code> 보존 정책은 그대로 유지 — terminate 시 claudeSessionId를 SessionManager의 in-memory 맵에 옮겨 저장(P4 reconnect에서 사용 예약).</li>
+        <li>두 pane 중 첫 번째 pane을 close하면 두 번째 pane이 <code>.top</code>으로 승격되고 split 버튼이 재활성. (panes.count = 1).</li>
+        <li>fd leak 검증: 본 일자 통합 테스트에서 100회 pane close/open 반복 후 <code>lsof -p &lt;pid&gt; | grep ptm</code>의 fd 개수가 시작 시점과 동일.</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> Pane close 버튼 → 해당 PTY child가 SIGTERM/SIGKILL로 종료되고, masterFD가 close됨이 <code>lsof</code> 로 확인됨</li>
+    <li><input type="checkbox" disabled> Workspace close → 내부 모든 세션의 child PID가 <code>kill(pid, 0) != 0</code> (종료 확인)</li>
+    <li><input type="checkbox" disabled> 첫 번째 pane close 시 두 번째 pane이 top으로 승격되고 SwiftUI layout이 single-pane 상태로 갱신됨</li>
+    <li><input type="checkbox" disabled> Claude 세션 terminate 후 <code>SessionManager.lastClaudeSessionId[sessionId]</code>가 nil이 아님 (H3 정정: P1의 단일 Optional 이 P2 에서 [sessionId: String] dictionary 로 자연 확장, key 는 Session.id)</li>
+    <li><input type="checkbox" disabled> <strong>MED4 fd leak (idle/active 분기):</strong> 100회 pane close/open 반복 시 짝수번 iteration은 idle close (spawn 직후 close), 홀수번은 active close (<code>echo "test"</code> 입력 후 close). 시작/종료 시 <code>lsof -p</code> fd 개수 동일</li>
+    <li><input type="checkbox" disabled> JSON 영속화가 lifecycle 이벤트마다 atomic하게 갱신됨 (<code>workspaces.json</code> read-back으로 panes 배열 일치 확인)</li>
+  </ul>
+</section>
+
+<!-- Day 6 -->
+<section class="day-card" id="day-6">
+  <h3>Day 6 — Multi-workspace cwd/env 격리 통합 검증 (수락 기준 A6 핵심)</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>여러 workspace를 동시에 운영할 때 PTY env/cwd가 invariant대로 격리되는지 통합 검증합니다. v4 § P2 수락 기준 6 (PTY env/cwd 격리 invariant)의 4개 sub-조건을 본 일자에 모두 검증합니다.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>Tests/IntegrationTests/MultiWorkspaceIsolationTests.swift</code> — 5개 sub-invariant 통합 테스트 (Invariant 5 신규: HISTFILE 격리, M3)</li>
+        <li><strong><code>Tests/Helpers/PtyTestHarness.swift</code> (H7 신규):</strong> spawn → master fd에 <code>"pwd\n"</code>/<code>"echo $FOO\n"</code> 등 write → 100~300ms read with timeout → ANSI CSI escape sequence strip (regex <code>\x1b\[[0-9;]*[a-zA-Z]</code>) → assert. zsh prompt 재그리기 noise를 무시하고 명령 결과만 비교.</li>
+        <li>테스트 시나리오 fixture: <code>~/projA</code>, <code>~/projB</code> 디렉터리 mock + 각각의 expected output</li>
+        <li><code>docs/p2/env-isolation-policy.md</code> — env/cwd 격리 정책 명세 (invariant 5종, 검증 방법, 위반 시 회복 절차)</li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (opus) + verifier (sonnet) — 통합 테스트 작성 후 verifier가 별도 패스로 격리 invariant 위반 가능 경로 추가 정탐</dd>
+    <dt>예상 소요</dt>
+    <dd><strong>1.5~2.0일 (H7 PTY harness 작성 시간 포함, 컨틴전시 밴드 0.5일 사전 할당)</strong></dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li><strong>Invariant 1 — env snapshot (H6 정정):</strong> workspace A 생성 시점에 user env(<code>ProcessInfo.environment</code>)를 캡처하여 <code>Workspace.envSnapshot</code>에 저장. 같은 workspace의 모든 pane spawn은 이 snapshot을 base로 사용하며, <strong>workspace 생성 후</strong> user shell rc 변경(예: <code>export FOO=BAR</code>를 별도 터미널에서 실행)이 같은 workspace의 <strong>후속 pane spawn에 영향을 미치지 않음</strong>을 검증. 검증 절차: (1) workspace A 생성 (envSnapshot에 FOO 없음) → (2) 별도 외부 셸에서 user rc 파일에 <code>export FOO=BAR</code> 추가 → (3) workspace A에서 새 pane spawn → <code>echo $FOO</code> 결과가 빈 문자열 (snapshot이 base이므로 변경 무시).</li>
+        <li><strong>Invariant 2 — cd 비전파:</strong> workspace A pane 1에서 <code>cd /tmp</code> → 같은 workspace의 pane 2 spawn 시 <code>pwd</code> 결과가 <code>workspace.cwd</code>와 동일 (~/projA), 즉 직전 pane의 cwd를 상속받지 않음.</li>
+        <li><strong>Invariant 3 — workspace 간 누설 차단:</strong> workspace A pane에서 <code>export FOO=BAR</code> + <code>cd /tmp</code> → workspace B를 생성하고 pane spawn → A의 FOO와 cwd가 B에 전파되지 않음.</li>
+        <li><strong>Invariant 4 — claude config 격리:</strong> workspace A의 claude pane과 workspace B의 claude pane이 서로 다른 <code>CLAUDE_CONFIG_DIR</code> path를 가짐 (Day 2의 세션별 격리 디렉터리 정책이 workspace level에서도 정합).</li>
+        <li><strong>Invariant 5 — HISTFILE 격리 (M3 신규):</strong> 셸 pane spawn 시 <code>HISTFILE=~/Library/Caches/ClaudeAlarmTerminal/zsh_history/&lt;workspaceId&gt;/&lt;paneId&gt;/history</code> 환경 변수를 명시 설정. 통합 테스트: 두 셸 pane에서 각각 <code>echo a</code>, <code>echo b</code> 실행 후 종료 → 각 HISTFILE이 자기 명령만 포함하는지 확인.</li>
+        <li>verifier 패스: SessionSpawnEnv 코드에서 <code>ProcessInfo.processInfo.environment</code> 또는 <code>workspace.envSnapshot</code>을 dict copy가 아닌 reference로 전달하는 실수가 없는지, Swift dictionary value semantics가 깨질 가능성이 있는 경로 정탐.</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> Invariant 1 (env snapshot, H6 정정 의미) 통합 테스트 통과 — workspace 생성 후 user rc 변경이 후속 pane spawn에 영향 없음</li>
+    <li><input type="checkbox" disabled> Invariant 2 (cd 비전파) 통합 테스트 통과 — 새 pane의 pwd가 workspace.cwd와 일치, 직전 pane cwd 상속 0건</li>
+    <li><input type="checkbox" disabled> Invariant 3 (workspace 간 격리) 통합 테스트 통과 — A의 env/cwd 변경이 B에 0건 전파</li>
+    <li><input type="checkbox" disabled> Invariant 4 (claude config 격리) 통합 테스트 통과 — 두 workspace의 claude pane이 서로 다른 <code>CLAUDE_CONFIG_DIR</code> 디렉터리 사용 (path 비교)</li>
+    <li><input type="checkbox" disabled> <strong>Invariant 5 (HISTFILE 격리, M3) 통합 테스트 통과</strong> — 두 셸 pane의 HISTFILE이 별도 디렉터리 + 각 history 파일이 자기 명령만 포함</li>
+    <li><input type="checkbox" disabled> <strong>H7 PtyTestHarness</strong> 산출물 존재 + 위 5 invariant 모두 본 harness를 통해 검증됨 (ANSI strip + timeout read)</li>
+    <li><input type="checkbox" disabled> <code>docs/p2/env-isolation-policy.md</code>가 작성되어 5 invariant + 위반 시 회복 절차가 명시됨</li>
+    <li><input type="checkbox" disabled> verifier 패스: env 누설 가능 경로 critical 0건 보고</li>
+  </ul>
+  <div class="callout">
+    <div class="label">수락 기준 매핑</div>
+    본 일자의 invariant 1~4는 <a href="#sec-8">§8 수락 기준 표</a> A6 (PTY env/cwd 격리 invariant)와 1:1 매핑됩니다. Invariant 5 (HISTFILE 격리)는 M3 신규로, A6의 spec super-set 확장입니다. 본 일자 종료 조건 미통과 시 P2 단계 종료가 차단됩니다.
+  </div>
+</section>
+
+<!-- Day 7 -->
+<section class="day-card" id="day-7">
+  <h3>Day 7 — libghostty surface 자원 관리 (ADR-I cmux 패턴 + DebugRenderStats env)</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>ADR-I (P2 libghostty surface 자원 관리 정책)를 코드에 적용합니다. 각 세션마다 독립 surface를 생성하되 hibernate/pause/release 로직을 0줄로 유지하고, <code>CHAT_TERMINAL_DEBUG_SURFACE_STATS</code> 환경 변수로 cmux의 DebugRenderStats 패턴 telemetry를 활성화합니다.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>Sources/UI/Pane/SurfaceLifecycle.swift</code> — surface 생성/해제 RAII 래퍼, hibernate API 0개</li>
+        <li><code>Sources/UI/Pane/DebugRenderStats.swift</code> — env가 켜져 있을 때만 동작하는 telemetry 컴포넌트 (메모리, GPU FPS, surface 개수)</li>
+        <li><code>docs/p2/adr-i-application.md</code> — ADR-I의 P2 적용 내역 (정책, telemetry, 메모리 추정, revisit trigger)</li>
+        <li><code>Tests/SurfaceTests/SurfaceLifecycleTests.swift</code> — 20 surface 동시 생성/해제 시 메모리 누수 없음 + hibernate API 호출 0건 검증</li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (opus) — libghostty FFI + AppKit displayLayer 경계 깊은 추론</dd>
+    <dt>예상 소요</dt>
+    <dd>1.0일</dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li>ADR-I 정탐 결과(v4 § 5): cmux <code>Sources/GhosttyTerminalView.swift</code>에 hibernate 코드 0줄, <code>occlusionState</code> 사용처 2건은 모두 디버그 telemetry. 본 단계는 이 패턴을 그대로 모방.</li>
+        <li>비가시 surface 처리: workspace 전환 시 비가시 pane의 surface는 PTY read를 계속하고 scrollback/atlas texture를 유지. AppKit <code>displayLayer</code> 호출이 없는 상태로 자연스럽게 GPU idle.</li>
+        <li>SwiftUI에서 NSViewRepresentable로 wrap된 GhosttyTerminalView는 workspace 전환 시 view hierarchy에서 detach될 수 있으나, surface는 SessionManager가 owner이므로 destroy되지 않음. ViewModel 차원에서 surface lifetime을 분리.</li>
+        <li>Telemetry: <code>CHAT_TERMINAL_DEBUG_SURFACE_STATS=1</code> 환경 변수 설정 시 1초마다 메모리(<code>task_info()</code>), 활성 surface 개수, FPS(<code>CADisplayLink</code> 또는 <code>CVDisplayLink</code>) 로깅 — <code>~/Library/Logs/ClaudeAlarmTerminal/surface-stats.log</code>.</li>
+        <li>P2 결정 항목: 메모리 추정치는 Apple Silicon 16GB+ Mac 기준 20 세션 시 400~600MB(<a href="#sec-6">§6.2</a> 근거). 실측이 700MB+를 보고하면 telemetry 일자를 +1d 연장하여 root cause 정탐.</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <strong>MED3 ADR-I grep 확장:</strong> <code>grep -rE '(hibernate|pause|releaseSurface|occlusionState|surface\.destroy|stopRendering|suspendRender|displayLayer.*nil)' Sources/UI/Pane/ Sources/Session/</code> 결과 (telemetry 디버그 외) 0건</li>
+    <li><input type="checkbox" disabled> <strong>M5 leaks 검증 (메모리 차분 100MB 게이트 제거):</strong> 20 surface 동시 생성 후 해제 시 <code>xcrun leaks &lt;pid&gt;</code> 출력에서 leak count == 0. 추가로 Xcode Instruments Allocations에서 strong reference cycle 0건.</li>
+    <li><input type="checkbox" disabled> <code>CHAT_TERMINAL_DEBUG_SURFACE_STATS=1</code> 설정 후 앱 실행 → <code>surface-stats.log</code>에 1초 간격으로 메모리/FPS/surface 개수 로깅이 기록됨</li>
+    <li><input type="checkbox" disabled> 비가시 workspace의 surface가 destroy되지 않음 (workspace A 활성 → B 전환 → A의 surface 포인터 여전히 alive) 단위 테스트로 확인</li>
+    <li><input type="checkbox" disabled> Telemetry 끈 상태(env 미설정)에서는 stats 코드가 호출되지 않아 부담 없음 (CPU 측정 1% 미만)</li>
+    <li><input type="checkbox" disabled> <code>docs/p2/adr-i-application.md</code> 작성 완료 — 정책, 메모리 추정, revisit trigger, telemetry 사용법 명시</li>
+  </ul>
+</section>
+
+<!-- Day 8 -->
+<section class="day-card" id="day-8">
+  <h3>Day 8 — 키보드 단축키 + 21번째 세션 한국어 에러 다이얼로그</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>workspace 전환, pane 포커스 전환, pane split, pane close 단축키를 wiring하고, 21번째 세션 생성 시도 시 한국어 에러 다이얼로그를 표시합니다.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>Sources/UI/Shortcuts/KeyboardShortcuts.swift</code> — workspace/pane 단축키 등록 (NSMenu 또는 <code>.keyboardShortcut</code> modifier)</li>
+        <li><code>Sources/UI/Errors/KoreanErrorDialog.swift</code> — <code>MAX_SESSIONS_REACHED</code> 등 에러를 한국어 다이얼로그로 표시</li>
+        <li><code>Resources/ko.lproj/Errors.strings</code> — i18n 카탈로그에 P2 에러 메시지 추가 (P1의 i18n 시드를 확장)</li>
+        <li><code>Tests/ErrorDialogTests/MaxSessionsErrorDialogTests.swift</code> — 21번째 시도 시 한국어 메시지가 다이얼로그 텍스트로 표시됨 검증</li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (sonnet) — 표준 UI wiring + i18n</dd>
+    <dt>예상 소요</dt>
+    <dd>1.0일</dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li>단축키 매핑 (P2 결정 항목, 본 일자에 확정): workspace 전환 <strong>Cmd+1~9 (첫 9개 workspace 직접 점프)</strong>, <strong>Cmd+Opt+Up/Down (전체 workspace 순환 전환, 10개 초과 시 도달 경로)</strong>, 새 workspace Cmd+N, workspace close Cmd+W, pane focus 전환 Cmd+Opt+[/], pane split Cmd+D, pane close Cmd+Shift+W. H5: agent-view 1개 + normal 10개 (= 11 workspace) 환경에서도 Cmd+Opt+Up/Down으로 모든 workspace 도달 가능.</li>
+        <li>agent-view (workspace index 1)에는 Cmd+W가 적용되지 않음 — KeyboardShortcuts의 enabled 조건에 <code>workspace.canClose</code> 분기 포함. menu/단축키 모두에서 차단.</li>
+        <li>MED8 한국어 UI 라벨 정책: 모든 button label과 menu item label은 한국어 사용 (예: "Add device" → "디바이스 추가", "+ workspace" → "워크스페이스 추가", "Split Pane" → "팬 분할"). 단축키 modifier 표기는 macOS 표준 (Cmd, Opt, Ctrl, Shift) 유지.</li>
+        <li>21번째 세션 에러 메시지: "최대 세션 개수에 도달했습니다 (N=20). 기존 세션을 종료하세요." (v4 § P2 명시 문구 그대로). NSAlert 또는 SwiftUI <code>.alert</code> modifier 활용.</li>
+        <li>한국어 메시지 i18n 키: <code>error.max_sessions_reached</code> — v4 § 4.2 에러 카탈로그의 <code>MAX_SESSIONS_REACHED</code>와 매핑. <code>ko.lproj/Errors.strings</code>에 추가하여 P7 freeze 이전 add-only 정책으로 보존.</li>
+        <li>한국어 폰트 깨짐 방지: 다이얼로그 폰트는 시스템 기본(Apple SD Gothic Neo / Noto Sans KR) 사용. 다바이트 문자 escape 없이 직접 저장.</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> Cmd+1~9, <strong>Cmd+Opt+Up/Down (워크스페이스 순환)</strong>, Cmd+N, Cmd+W, Cmd+Opt+[, Cmd+Opt+], Cmd+D, Cmd+Shift+W 모두 의도된 동작 수행</li>
+    <li><input type="checkbox" disabled> 11개 이상 workspace 상태에서 Cmd+Opt+Up/Down으로 첫 ~ 마지막 workspace 모두 도달 가능 (H5 검증)</li>
+    <li><input type="checkbox" disabled> agent-view 탭이 활성 상태에서 Cmd+W를 눌러도 close 동작하지 않음 (canClose 분기 검증)</li>
+    <li><input type="checkbox" disabled> 21번째 세션 spawn 시도 시 한국어 에러 다이얼로그가 표시됨 — 메시지 = "최대 세션 개수에 도달했습니다 (N=20). 기존 세션을 종료하세요."</li>
+    <li><input type="checkbox" disabled> 21번째 시도가 실패해도 기존 20개 세션이 영향을 받지 않음 (kill, signal, fd 변화 0건)</li>
+    <li><input type="checkbox" disabled> 다이얼로그 메시지의 한국어 문자가 다바이트 깨짐 없이 표시됨 (UI 테스트의 accessibilityLabel 비교)</li>
+    <li><input type="checkbox" disabled> <code>ko.lproj/Errors.strings</code>에 H4의 5개 에러 키가 한국어 값으로 추가됨 (영어 fallback 미노출 검증)</li>
+    <li><input type="checkbox" disabled> <strong>MED6 IME 회귀 검증:</strong> 한국어 IME composition("안녕하세요" 입력) 중 단축키 modifier 키(Cmd, Opt)가 composition을 깨지 않음 — UI 통합 테스트로 검증</li>
+    <li><input type="checkbox" disabled> H4 i18n 키 표(아래 산출물 §Day 8 i18n 카탈로그)가 master § 4.2의 UPPER_SNAKE 코드와 1:1 매핑됨</li>
+  </ul>
+  <h4>Day 8 i18n 카탈로그 (H4 P2-scope 에러)</h4>
+  <table>
+    <thead>
+      <tr><th>i18n 키 (lower.snake)</th><th>master § 4.2 code (UPPER_SNAKE)</th><th>한국어 메시지</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>error.max_sessions_reached</code></td>
+        <td><code>MAX_SESSIONS_REACHED</code></td>
+        <td>최대 세션 개수에 도달했습니다 (N=20). 기존 세션을 종료하세요.</td>
+      </tr>
+      <tr>
+        <td><code>error.workspace_decode_failed</code></td>
+        <td><code>WORKSPACE_DECODE_FAILED</code> (P2 신규)</td>
+        <td>워크스페이스 파일을 읽을 수 없습니다. 백업 파일(workspaces.json.bak)에서 복구를 시도합니다.</td>
+      </tr>
+      <tr>
+        <td><code>error.atomic_write_failed</code></td>
+        <td><code>ATOMIC_WRITE_FAILED</code> (P2 신규)</td>
+        <td>워크스페이스 저장에 실패했습니다. 디스크 용량 또는 권한을 확인하세요.</td>
+      </tr>
+      <tr>
+        <td><code>error.claude_binary_not_found</code></td>
+        <td><code>CLAUDE_BINARY_NOT_FOUND</code> (P2 신규, P1 BinaryResolveError 와 매핑)</td>
+        <td>claude 바이너리를 찾을 수 없습니다. PATH, /opt/homebrew/bin, /usr/local/bin을 확인하세요.</td>
+      </tr>
+      <tr>
+        <td><code>error.cwd_inaccessible</code></td>
+        <td><code>CWD_INACCESSIBLE</code> (P2 신규)</td>
+        <td>워크스페이스 디렉터리에 접근할 수 없습니다: {path}</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>i18n 키 컨벤션: 본 카탈로그는 <code>lower.snake</code> 형식이며, master § 4.2의 <code>UPPER_SNAKE</code> 코드와 1:1 매핑. P2 신규 코드 4종은 master 다음 ralplan 사이클에 § 4.2 표 등록을 hand-off (L2).</p>
+</section>
+
+<!-- Day 9 -->
+<section class="day-card" id="day-9">
+  <h3>Day 9 — 앱 재시작 영속화 검증 + verifier pass + 수락 기준 walkthrough</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>앱을 종료/재시작했을 때 workspace 목록이 복원되고 세션은 모두 사라진 상태로 시작하는지 검증합니다. v4 § P2 수락 기준 6건 walkthrough + verifier 패스 critical 0건을 확보하여 P3 진입 준비를 마칩니다.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>Tests/IntegrationTests/RestartPersistenceTests.swift</code> — 앱 종료/재시작 시뮬레이션 (XCTest <code>setUp</code>/<code>tearDown</code>으로 store reload)</li>
+        <li><code>docs/p2-acceptance-log.md</code> — 6건 수락 기준 walkthrough 로그 (캡처/명령어 출력 첨부)</li>
+        <li>verifier 보고서: <code>docs/p2/verifier-report.md</code> — immutable / error-handling / leak / 동시성 4축 검토 결과</li>
+        <li>P3 인계 사항 정리 문서 <code>docs/p2/handoff-to-p3.md</code> — Workspace.kind == agentView가 placeholder content 보유 상태임을 명시</li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (sonnet) + verifier (opus) — 본 단계의 verifier는 SessionManager v2, WorkspaceStore, SurfaceLifecycle 3개 컴포넌트를 정독</dd>
+    <dt>예상 소요</dt>
+    <dd>0.5~1.0일</dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li>재시작 검증 시나리오: (1) workspace A, B 생성 + 각각 claude/shell pane spawn (2) 한국어 workspace 이름 "내 작업" 부여 (3) 앱 정상 종료(Cmd+Q) (4) 재실행 (5) sidebar에 A, B가 한국어 이름 그대로 복원되었으나 panes 배열의 sessionId는 무효, terminal area는 "세션 없음" 표시.</li>
+        <li>비정상 종료 시나리오: (1) workspace 1개 생성 후 <code>kill -9</code>로 강제 종료 (2) 재실행 (3) atomic write 정책에 의해 workspace 목록이 손상 없이 복원되거나, 최악의 경우 마지막 정상 저장 상태로 복원.</li>
+        <li>verifier 4축 체크리스트: (a) Workspace/Pane/Session 모델이 모두 immutable, mutation은 빌더 메서드로만 (b) SessionManager 모든 throw 경로가 한국어 에러 메시지 i18n key 사용 (c) PTY masterFD/childPID/surface 모두 RAII 정리 + 100회 반복 테스트에서 leak 없음 (d) actor isolation invariant grep 검증 + ThreadSan data race 0건.</li>
+        <li>P3 인계: agent-view workspace의 main area에 placeholder content("에이전트 뷰 — P3에서 실데이터로 교체") 텍스트만 표시됨이 명시되어 있고, P3에서 이 ViewModel만 교체하면 됨을 handoff 문서에 기술.</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> 정상 종료 후 재시작 시 workspace 목록(이름/cwd 포함)이 복원되며 한국어 이름 깨짐 0건</li>
+    <li><input type="checkbox" disabled> 재시작 후 모든 세션은 종료된 상태로 표시되며, 자동 respawn이 발생하지 않음 (Day 1 결정 사항)</li>
+    <li><input type="checkbox" disabled> <strong>M4 비정상 종료 복구:</strong> <code>kill -9</code> 후 재부팅 시 workspace 목록이 <strong>직전 정상 상태(.bak)</strong>로 복원되고 한국어 warn 로그 1줄("주 파일이 없어 백업(.bak)에서 복구를 시도합니다.")이 기록됨</li>
+    <li><input type="checkbox" disabled> M2 stale claude-config dir cleanup hook: 부팅 직후 1회 <code>SessionSpawnEnv.cleanupStaleClaudeConfigDirs(liveSessionIds:)</code> 호출이 실행됨 — live sessions 미매칭 + mtime 7일+ 디렉터리만 삭제됨이 단위 테스트로 검증됨</li>
+    <li><input type="checkbox" disabled> M6 forward-compat: unknown JSON field를 임의로 주입한 workspaces.json을 load → save → 다시 load 한 결과에서 unknown field가 보존됨이 round-trip 테스트로 검증됨</li>
+    <li><input type="checkbox" disabled> <strong>MED7 verifier 4축 critical 0건 명시:</strong> (1) immutable 위반 0 (mutation은 빌더 메서드로만), (2) error handling 누락 0 (모든 throw 경로가 한국어 i18n key 사용), (3) leak 0 (M5 기준 — <code>xcrun leaks &lt;pid&gt;</code> 출력 leak count == 0 + Xcode Instruments Allocations에서 strong reference cycle 0건), (4) actor data race 0 (Thread Sanitizer 활성화 통합 테스트 통과)</li>
+    <li><input type="checkbox" disabled> v4 § P2 수락 기준 6건(A1~A6, <a href="#sec-8">§8 표</a>)이 모두 OK 처리됨</li>
+    <li><input type="checkbox" disabled> <code>docs/p2/handoff-to-p3.md</code> 작성 완료 — agent-view placeholder 상태("에이전트 뷰 — P3에서 실데이터로 교체")와 P3 진입 시 교체 지점 명시</li>
+  </ul>
+</section>
+
+<!-- Contingency -->
+<section class="day-card" id="day-contingency">
+  <h3>+2일 컨틴전시 밴드 — 위험 트리거 기반 자동 투입</h3>
+  <p>v4 § 4.7의 1.2배 컨틴전시(=2일)는 다음 트리거가 발생하면 즉시 투입됩니다. 트리거 미발생 시에는 사용하지 않으며, 단계 조기 종료를 선호합니다.</p>
+  <table>
+    <thead>
+      <tr><th>트리거</th><th>발생 시점</th><th>투입 일수</th><th>대응</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>SessionManager v2 동시성 race condition (ThreadSan 검출)</td>
+        <td>Day 2</td>
+        <td>최대 1일</td>
+        <td>actor 경계 재검토, <code>nonisolated</code> 진입점 누락 여부 확인, suspension point 검토</td>
+      </tr>
+      <tr>
+        <td>JSON 영속화 round-trip 실패 또는 reserved field 손실</td>
+        <td>Day 1 또는 Day 5</td>
+        <td>최대 0.5일</td>
+        <td>Codable 구현체 점검, <code>AnyCodable</code> 누락 케이스 보강, schema 문서 갱신</td>
+      </tr>
+      <tr>
+        <td>20 surface 동시 운영 시 메모리 700MB 초과</td>
+        <td>Day 7</td>
+        <td>최대 1일</td>
+        <td>DebugRenderStats로 root cause 정탐. ADR-I revisit trigger 발동 검토(P4+로 미룸이 디폴트, 측정치 1GB+ 시에만 P2 내 hibernate 정탐)</td>
+      </tr>
+      <tr>
+        <td>첫 탭 close UI 우회 경로 발견 (menu/단축키/automation)</td>
+        <td>Day 3 또는 Day 8</td>
+        <td>최대 0.5일</td>
+        <td>ViewModel <code>canClose</code> 분기를 모든 경로(menu validator, keyboard shortcut, accessibility action)에 적용</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="callout warn">
+    <div class="label">상한선</div>
+    컨틴전시 총합은 2일을 초과하지 않습니다. 2일 초과 위험이 발견되면 P2 phase budget을 재산정하고 ralplan 재소집을 요청합니다. P1의 ADR-A C1 timebox와 달리 P2는 명시적 kill-switch가 없으나, 7~11일 상한을 초과하면 P3 진입을 차단합니다. Day 6 effort 자체에 0.5일이 사전 흡수되어 있으며(1.0~1.5일 → 1.5~2.0일), PtyTestHarness 작성 시간 포함.
+  </div>
+</section>
+
+<!-- =================================================================== -->
+<h2 id="sec-4">4. Architecture Diagram</h2>
+
+<p>P2 종료 시점의 컴포넌트 구성도입니다. P1 컴포넌트는 그대로 유지하고, 그 위에 Sidebar + Workspace + Pane 레이어가 추가되었습니다. 실선은 직접 함수 호출/이벤트, 점선은 시스템 인터럽트/시그널입니다.</p>
+
+<div class="ascii">
++----------------------------------------------------------------------------+
+|                       macOS AppKit Process                                  |
+|                                                                            |
+|  +-------------------+         +------------------------------+             |
+|  |   NSWindow        |         |  NSProcessInfo               |             |
+|  |   (single)        |         |  .beginActivity(...)         |             |
+|  +---------+---------+         +------------------------------+             |
+|            |                                                                |
+|     +------+--------+--------------------------------+                      |
+|     |               |                                |                      |
+|  +--v---+   +-------v---------------------+   +------v------------------+   |
+|  |Side  |   | WorkspaceContentView        |   | KeyboardShortcuts       |   |
+|  |bar   |   |  (top/bottom split)         |   |  Cmd+1..9 / Cmd+N /     |   |
+|  |View  |   |   +--------------+          |   |  Cmd+D / Cmd+Shift+W    |   |
+|  |      |   |   | PaneTerm.View (top)     |   +-------------------------+   |
+|  |[agt] |   |   |  -&gt; libghostty surf #i  |                                 |
+|  |[ws1] |   |   +--------------+          |                                 |
+|  |[ws2] |   |   | PaneTerm.View (bot)     |                                 |
+|  |[ +  ]|   |   |  -&gt; libghostty surf #j  |                                 |
+|  +--+---+   +--------+---------------------+                                |
+|     |                |                                                       |
+|     |  selects       |  pane CRUD                                            |
+|     v                v                                                       |
+|  +-----------------------------------------------------------+               |
+|  |  WorkspaceCoordinator  (@MainActor)                       |               |
+|  |   - openWorkspace / closeWorkspace                        |               |
+|  |   - openPane(workspace, kind) / closePane                 |               |
+|  |   - first-tab invariant enforcement (canClose=false)      |               |
+|  +---------+----------------------------------+--------------+               |
+|            |                                  |                              |
+|            | reads/writes                     | spawns/terminates            |
+|            v                                  v                              |
+|  +------------------------+          +---------------------------------+     |
+|  |  WorkspaceStore        |          |  SessionManager v2 (actor)      |     |
+|  |   workspaces.json      |          |   sessions[UUID: Session]       |     |
+|  |   - atomic write       |          |   maxSessions = N (default 20)  |     |
+|  |   - reserved fields    |          |   lifecycleHooks (Combine)      |     |
+|  |   - version: 1         |          |   lastClaudeSessionId           |     |
+|  +------------------------+          |   spawnEnv: snapshot(workspace) |     |
+|                                      +-----------+---------------------+     |
+|                                                  |                            |
+|                                                  | manages N                  |
+|                                                  v                            |
+|                                          +---------------+                    |
+|                                          |   Session     |                    |
+|                                          | id, kind, pty,|                    |
+|                                          | workspaceId,  |                    |
+|                                          | paneId, env,  |                    |
+|                                          | cwd, status   |                    |
+|                                          +-------+-------+                    |
+|                                                  |                            |
+|                                                  v                            |
+|                                          +---------------+                    |
+|                                          |  PTYHandle    |   (P1 reused)      |
+|                                          |  masterFD     |                    |
+|                                          |  childPID     |                    |
+|                                          +-------+-------+                    |
++--------------------------------------------------|--------------------------+
+                                                   | bytes via fd
+                                                   v
+                                  +-------------------------------+
+                                  |     PTY slave (kernel)        |
+                                  |  child:                       |
+                                  |    claude (CLAUDE_CONFIG_DIR  |
+                                  |      = per-session isolated)  |
+                                  |    OR $SHELL (env snapshot,   |
+                                  |      cwd = workspace.cwd,     |
+                                  |      cd/export not propagated)|
+                                  +-------------------------------+
+
+
+  Telemetry overlay (CHAT_TERMINAL_DEBUG_SURFACE_STATS=1):
+  +-----------------------------------------------------+
+  | DebugRenderStats (cmux pattern, ADR-I)              |
+  |   1Hz logger -&gt; surface-stats.log                   |
+  |   metrics: memory, active surface count, FPS        |
+  +-----------------------------------------------------+
+</div>
+
+<p>본 단계 종료 시점에는 위 컴포넌트가 존재하며, P3에서 <code>AgentViewPlaceholder</code>가 실데이터 카드 그리드로 교체됩니다. SessionManager v2의 lifecycleHooks Combine publisher가 P3 SessionStatusObserver의 입력원이 됩니다.</p>
+
+<h4>H5 단축키 보충 표 (KeyboardShortcuts 컴포넌트 명세)</h4>
+<table>
+  <thead>
+    <tr><th>단축키</th><th>동작</th><th>비고</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>Cmd+1</code> ~ <code>Cmd+9</code></td><td>첫 9개 workspace로 직접 점프 (index 1 = agent-view)</td><td>10개 초과 workspace는 직접 점프 불가</td></tr>
+    <tr><td><code>Cmd+Opt+Up</code> / <code>Cmd+Opt+Down</code></td><td>전체 workspace 순환 전환 (이전/다음)</td><td><strong>11개 이상 workspace 환경의 도달 경로</strong></td></tr>
+    <tr><td><code>Cmd+N</code></td><td>새 workspace 생성 (cwd picker 표시)</td><td>—</td></tr>
+    <tr><td><code>Cmd+W</code></td><td>현재 workspace close</td><td>agent-view에서는 <code>canClose=false</code>로 차단</td></tr>
+    <tr><td><code>Cmd+Opt+[</code> / <code>Cmd+Opt+]</code></td><td>pane focus 전환 (top/bottom)</td><td>—</td></tr>
+    <tr><td><code>Cmd+D</code></td><td>pane split (type chooser 표시)</td><td>panes.count == 2이면 차단</td></tr>
+    <tr><td><code>Cmd+Shift+W</code></td><td>현재 pane close</td><td>마지막 pane close 시 빈 workspace 표시</td></tr>
+  </tbody>
+</table>
+<p>agent-view 1개 + normal 10개 (= 11 workspace) 환경에서도 Cmd+Opt+Up/Down 순환 전환으로 모든 workspace 도달이 보장됩니다. macOS 표준 modifier 표기(Cmd, Opt, Ctrl, Shift)를 유지합니다 (MED8).</p>
+
+<!-- =================================================================== -->
+<h2 id="sec-5">5. Critical Code Specs</h2>
+
+<p>본 절은 구현 디테일이 모호하면 안 되는 5개 지점의 의사 Swift 코드입니다. 실제 구현은 다를 수 있으나 의미적 동등성은 유지되어야 합니다.</p>
+
+<h3>5.1 Workspace / Pane 데이터 모델</h3>
+
+<pre><code><span class="kw">import</span> Foundation
+
+<span class="kw">enum</span> <span class="typ">WorkspaceKind</span>: <span class="typ">String</span>, <span class="typ">Codable</span> {
+    <span class="kw">case</span> agentView
+    <span class="kw">case</span> normal
+}
+
+<span class="kw">enum</span> <span class="typ">PanePosition</span>: <span class="typ">String</span>, <span class="typ">Codable</span> {
+    <span class="kw">case</span> top
+    <span class="kw">case</span> bottom
+}
+
+<span class="kw">enum</span> <span class="typ">PaneKind</span>: <span class="typ">String</span>, <span class="typ">Codable</span> {
+    <span class="kw">case</span> claude
+    <span class="kw">case</span> shell
+}
+
+<span class="kw">struct</span> <span class="typ">Pane</span>: <span class="typ">Codable</span>, <span class="typ">Identifiable</span>, <span class="typ">Equatable</span> {
+    <span class="kw">let</span> id: <span class="typ">UUID</span>
+    <span class="kw">let</span> sessionId: <span class="typ">UUID</span>?       <span class="com">// 재시작 후에는 nil (세션은 영속화하지 않음)</span>
+    <span class="kw">let</span> kind: <span class="typ">PaneKind</span>
+    <span class="kw">let</span> position: <span class="typ">PanePosition</span>
+
+    <span class="com">// Reserved field: P9 chatRoomId는 pane level에 위치 (master § P9 line 351:</span>
+    <span class="com">// "채팅룸은 데스크톱의 특정 pane에 1:1로 바인딩됩니다"). P2에서는 nil 유지.</span>
+    <span class="kw">let</span> chatRoomId: <span class="typ">String</span>?
+
+    <span class="com">// Forward-compat: unknown JSON 필드를 silently drop하지 않고 보존(M6).</span>
+    <span class="kw">let</span> extraFields: [<span class="typ">String</span>: <span class="typ">AnyCodable</span>]?
+}
+
+<span class="kw">struct</span> <span class="typ">Workspace</span>: <span class="typ">Codable</span>, <span class="typ">Identifiable</span>, <span class="typ">Equatable</span> {
+    <span class="kw">let</span> id: <span class="typ">UUID</span>
+    <span class="kw">let</span> name: <span class="typ">String</span>             <span class="com">// 한국어 허용</span>
+    <span class="kw">let</span> cwd: <span class="typ">String</span>              <span class="com">// agent-view kind 의 경우 빈 문자열</span>
+    <span class="kw">let</span> panes: [<span class="typ">Pane</span>]           <span class="com">// 최대 2개 (top + bottom)</span>
+    <span class="kw">let</span> createdAt: <span class="typ">Date</span>
+    <span class="kw">let</span> kind: <span class="typ">WorkspaceKind</span>
+
+    <span class="com">// H6: workspace 생성 시점에 capture된 user env snapshot. 같은 workspace의 모든</span>
+    <span class="com">// pane spawn에 사용되며, workspace 생성 후 user shell rc 변경이 후속 pane에 영향 없음.</span>
+    <span class="kw">let</span> envSnapshot: [<span class="typ">String</span>: <span class="typ">String</span>]
+
+    <span class="com">// Reserved fields (P5+ 단계에서 활용, P2 에서는 nil 유지)</span>
+    <span class="kw">let</span> pushChannelHints: [<span class="typ">String</span>: <span class="typ">String</span>]?    <span class="com">// P5 push 채널 매핑</span>
+    <span class="kw">let</span> fetchHintMetadata: [<span class="typ">String</span>: <span class="typ">AnyCodable</span>]? <span class="com">// P10b fetchHint resolver 메타데이터</span>
+
+    <span class="com">// Forward-compat: unknown JSON 필드 보존 (M6).</span>
+    <span class="kw">let</span> extraFields: [<span class="typ">String</span>: <span class="typ">AnyCodable</span>]?
+
+    <span class="kw">var</span> canClose: <span class="typ">Bool</span> { kind == .normal }
+
+    <span class="com">// Immutable builder pattern (mutation 금지, 새 인스턴스 반환)</span>
+    <span class="kw">func</span> <span class="fn">with</span>(panes: [<span class="typ">Pane</span>]? = <span class="kw">nil</span>, name: <span class="typ">String</span>? = <span class="kw">nil</span>) -&gt; <span class="typ">Workspace</span> {
+        <span class="typ">Workspace</span>(
+            id: id,
+            name: name ?? self.name,
+            cwd: cwd,
+            panes: panes ?? self.panes,
+            createdAt: createdAt,
+            kind: kind,
+            envSnapshot: envSnapshot,
+            pushChannelHints: pushChannelHints,
+            fetchHintMetadata: fetchHintMetadata,
+            extraFields: extraFields
+        )
+    }
+}
+</code></pre>
+
+<h3>5.2 SessionManager v2 (max=N, env/cwd snapshot, claude config isolation)</h3>
+
+<pre><code><span class="kw">actor</span> <span class="typ">SessionManager</span> {
+    <span class="kw">enum</span> <span class="typ">ManagerError</span>: <span class="typ">Error</span> {
+        <span class="kw">case</span> maxSessionsReached(currentMax: <span class="typ">Int</span>)
+        <span class="kw">case</span> notFound(id: <span class="typ">UUID</span>)
+    }
+
+    <span class="kw">private</span>(<span class="kw">set</span>) <span class="kw">var</span> sessions: [<span class="typ">UUID</span>: <span class="typ">Session</span>] = [:]
+
+    <span class="com">// H3: P1 max=1 일 때는 `lastClaudeSessionId: String?` (단일 Optional) 이었고,</span>
+    <span class="com">// P2 max=N 으로 풀리면서 [sessionId: String] dictionary 로 자연 확장.</span>
+    <span class="com">// key 는 sessionId(=Session.id). actor 시그니처/메서드 동일 유지 → fork 아닌 확장.</span>
+    <span class="kw">private</span>(<span class="kw">set</span>) <span class="kw">var</span> lastClaudeSessionId: [<span class="typ">UUID</span>: <span class="typ">String</span>] = [:]
+    <span class="kw">private var</span> activityScope: <span class="typ">ActivityScope</span>? = <span class="kw">nil</span>
+    <span class="kw">private let</span> maxSessions: <span class="typ">Int</span>
+
+    <span class="kw">init</span>(maxSessions: <span class="typ">Int</span> = <span class="typ">Self</span>.defaultMax()) {
+        self.maxSessions = maxSessions
+    }
+
+    <span class="kw">static func</span> <span class="fn">defaultMax</span>() -&gt; <span class="typ">Int</span> {
+        <span class="kw">let</span> raw = <span class="typ">ProcessInfo</span>.processInfo.environment[<span class="str">"CHAT_TERMINAL_MAX_SESSIONS"</span>] ?? <span class="str">"20"</span>
+        <span class="kw">return</span> <span class="typ">Int</span>(raw) ?? <span class="num">20</span>
+    }
+
+    <span class="kw">func</span> <span class="fn">create</span>(workspace: <span class="typ">Workspace</span>, paneId: <span class="typ">UUID</span>,
+                kind: <span class="typ">PaneKind</span>,
+                rows: <span class="typ">UInt16</span>, cols: <span class="typ">UInt16</span>) <span class="kw">async throws</span> -&gt; <span class="typ">Session</span> {
+        <span class="kw">guard</span> sessions.count &lt; maxSessions <span class="kw">else</span> {
+            <span class="kw">throw</span> <span class="typ">ManagerError</span>.maxSessionsReached(currentMax: maxSessions)
+        }
+
+        <span class="com">// 1) env snapshot: workspace 생성 시점에 capture 된 envSnapshot 을 base 로 사용 (H6).</span>
+        <span class="com">//    workspace 생성 후 user shell rc 변경이 같은 workspace 의 후속 pane spawn 에 영향 없음.</span>
+        <span class="kw">var</span> envSnapshot = workspace.envSnapshot
+
+        <span class="com">// 2) claude 의 경우 세션별 격리 CLAUDE_CONFIG_DIR 디렉터리 생성</span>
+        <span class="kw">let</span> sessionId = <span class="typ">UUID</span>()
+        <span class="kw">if</span> kind == .claude {
+            <span class="kw">let</span> configRoot = <span class="kw">try</span> <span class="typ">SessionSpawnEnv</span>.claudeConfigDir(forSession: sessionId)
+            envSnapshot[<span class="str">"CLAUDE_CONFIG_DIR"</span>] = configRoot
+        }
+
+        <span class="com">// M3) shell pane: HISTFILE 을 pane 별 격리 디렉터리로 override (Invariant 5).</span>
+        <span class="kw">if</span> kind == .shell {
+            <span class="kw">let</span> histDir = <span class="kw">try</span> <span class="typ">SessionSpawnEnv</span>.zshHistoryDir(
+                workspaceId: workspace.id, paneId: paneId)
+            envSnapshot[<span class="str">"HISTFILE"</span>] = histDir + <span class="str">"/history"</span>
+        }
+
+        <span class="com">// 3) command + cwd 결정</span>
+        <span class="kw">let</span> command: <span class="typ">String</span> = kind == .claude
+            ? <span class="kw">try</span> resolveClaudeBinary()
+            : (envSnapshot[<span class="str">"SHELL"</span>] ?? <span class="str">"/bin/zsh"</span>)
+        <span class="kw">let</span> cwd: <span class="typ">String</span> = workspace.cwd  <span class="com">// 새 pane 의 cwd 는 항상 workspace.cwd (직전 pane 상속 금지)</span>
+
+        <span class="kw">let</span> handle = <span class="kw">try</span> spawnPTY(
+            command: command,
+            args: kind == .shell ? [<span class="str">"-l"</span>] : [],
+            cwd: cwd,
+            env: envSnapshot,   <span class="com">// dict copy by value</span>
+            rows: rows, cols: cols
+        )
+
+        <span class="kw">let</span> session = <span class="typ">Session</span>(
+            id: sessionId, kind: kind, ptyHandle: handle,
+            workspaceId: workspace.id, paneId: paneId,
+            cwd: cwd, env: envSnapshot,
+            createdAt: <span class="typ">Date</span>(), status: .running,
+            claudeSessionId: <span class="kw">nil</span>
+        )
+        sessions[session.id] = session
+
+        <span class="kw">if</span> activityScope == <span class="kw">nil</span> {
+            activityScope = <span class="typ">ActivityScope</span>(reason: <span class="str">"PTY sessions active"</span>)
+        }
+        <span class="kw">return</span> session
+    }
+
+    <span class="kw">func</span> <span class="fn">terminate</span>(id: <span class="typ">UUID</span>) <span class="kw">async throws</span> {
+        <span class="kw">guard var</span> session = sessions[id] <span class="kw">else</span> { <span class="kw">throw</span> <span class="typ">ManagerError</span>.notFound(id: id) }
+        kill(session.ptyHandle.childPID, <span class="num">SIGTERM</span>)
+        <span class="kw">try await</span> <span class="typ">Task</span>.sleep(nanoseconds: <span class="num">1_000_000_000</span>)
+        <span class="kw">if</span> kill(session.ptyHandle.childPID, <span class="num">0</span>) == <span class="num">0</span> {
+            kill(session.ptyHandle.childPID, <span class="num">SIGKILL</span>)
+        }
+        close(session.ptyHandle.masterFD)
+        <span class="kw">if let</span> claudeId = session.claudeSessionId {
+            lastClaudeSessionId[id] = claudeId
+        }
+        session = <span class="typ">Session</span>.with(session, status: .exited)
+        sessions[id] = session
+
+        <span class="kw">if</span> sessions.allSatisfy({ $0.value.status == .exited }) {
+            activityScope = <span class="kw">nil</span>
+        }
+    }
+
+    <span class="com">// M1 + N2: head-of-line stall 회피와 actor reentrancy 양립.</span>
+    <span class="com">// 직렬 1초 SIGTERM grace × N panes 대신 withTaskGroup 으로 병렬 wait.</span>
+    <span class="com">// N2: child task 가 actor 를 재진입하면 activityScope premature release 위험.</span>
+    <span class="com">// 해결: child task 는 actor 진입 없이 kill/waitpid 만 수행. 종료 정리는</span>
+    <span class="com">// 모든 child task await 완료 후 actor 안에서 단일 pass 로 수행.</span>
+    <span class="kw">func</span> <span class="fn">terminateAll</span>(inWorkspace workspaceId: <span class="typ">UUID</span>) <span class="kw">async throws</span> {
+        <span class="com">// Step 1 (in-actor): kill 대상 PTY 자원(masterFD, childPID, claudeSessionId) 을 추출.</span>
+        <span class="kw">let</span> targets: [(<span class="typ">UUID</span>, <span class="typ">Int32</span>, pid_t, <span class="typ">String</span>?)] = sessions
+            .filter { $0.value.workspaceId == workspaceId }
+            .map { ($0.key, $0.value.ptyHandle.masterFD,
+                    $0.value.ptyHandle.childPID, $0.value.claudeSessionId) }
+
+        <span class="com">// Step 2 (out-of-actor): child task 는 actor 재진입 없이 kill/waitpid 만 수행.</span>
+        <span class="kw">await withTaskGroup</span>(of: <span class="typ">UUID</span>.<span class="kw">self</span>) { group <span class="kw">in</span>
+            <span class="kw">for</span> (id, masterFD, childPID, _) <span class="kw">in</span> targets {
+                group.addTask {
+                    kill(childPID, <span class="num">SIGTERM</span>)
+                    <span class="kw">try</span>? <span class="kw">await</span> <span class="typ">Task</span>.sleep(nanoseconds: <span class="num">1_000_000_000</span>)
+                    <span class="kw">if</span> kill(childPID, <span class="num">0</span>) == <span class="num">0</span> {
+                        kill(childPID, <span class="num">SIGKILL</span>)
+                    }
+                    close(masterFD)
+                    <span class="kw">return</span> id
+                }
+            }
+            <span class="com">// 모든 child task 완료 대기 (reentrancy 발현 0건 보장)</span>
+            <span class="kw">for await</span> _ <span class="kw">in</span> group {}
+        }
+
+        <span class="com">// Step 3 (in-actor): 모든 PTY 정리 완료 후 단일 pass 로 상태 갱신 + activityScope 체크.</span>
+        <span class="kw">for</span> (id, _, _, claudeId) <span class="kw">in</span> targets {
+            <span class="kw">if let</span> claudeId = claudeId { lastClaudeSessionId[id] = claudeId }
+            <span class="kw">if var</span> s = sessions[id] {
+                s = <span class="typ">Session</span>.with(s, status: .exited)
+                sessions[id] = s
+            }
+        }
+        <span class="com">// Invariant: activityScope == nil iff sessions.allSatisfy { .exited }</span>
+        <span class="kw">if</span> sessions.allSatisfy({ $0.value.status == .exited }) {
+            activityScope = <span class="kw">nil</span>
+        }
+    }
+}
+</code></pre>
+
+<h3>5.3 Workspace JSON 영속화 (reserved fields, atomic write)</h3>
+
+<pre><code><span class="kw">struct</span> <span class="typ">WorkspaceFile</span>: <span class="typ">Codable</span> {
+    <span class="kw">let</span> version: <span class="typ">Int</span>                       <span class="com">// 현재 1, 향후 add-only 마이그레이션 anchor</span>
+    <span class="kw">let</span> workspaces: [<span class="typ">Workspace</span>]
+    <span class="kw">let</span> lastActiveWorkspaceId: <span class="typ">UUID</span>?
+}
+
+<span class="kw">final class</span> <span class="typ">WorkspaceStore</span> {
+    <span class="kw">static let</span> currentSchemaVersion: <span class="typ">Int</span> = <span class="num">1</span>
+
+    <span class="kw">private let</span> fileURL: <span class="typ">URL</span>
+    <span class="kw">private let</span> ioQueue = <span class="typ">DispatchQueue</span>(label: <span class="str">"workspace.store.io"</span>)
+
+    <span class="kw">init</span>() <span class="kw">throws</span> {
+        <span class="kw">let</span> appSupport = <span class="kw">try</span> <span class="typ">FileManager</span>.default.url(
+            for: .applicationSupportDirectory, in: .userDomainMask,
+            appropriateFor: <span class="kw">nil</span>, create: <span class="kw">true</span>)
+        <span class="kw">let</span> dir = appSupport.appendingPathComponent(<span class="str">"ClaudeAlarmTerminal"</span>, isDirectory: <span class="kw">true</span>)
+        <span class="kw">try</span> <span class="typ">FileManager</span>.default.createDirectory(at: dir, withIntermediateDirectories: <span class="kw">true</span>)
+        self.fileURL = dir.appendingPathComponent(<span class="str">"workspaces.json"</span>)
+    }
+
+    <span class="kw">func</span> <span class="fn">load</span>() <span class="kw">throws</span> -&gt; <span class="typ">WorkspaceFile</span> {
+        <span class="com">// M4: load 진입부에서 stale .tmp 파일 정리 + .bak 복구 후보 검토</span>
+        <span class="kw">let</span> tempURL = fileURL.appendingPathExtension(<span class="str">"tmp"</span>)
+        <span class="kw">if</span> <span class="typ">FileManager</span>.default.fileExists(atPath: tempURL.path) {
+            <span class="typ">KoreanLogger</span>.warn(<span class="str">"이전 저장이 미완료 상태로 종료되었습니다. 임시 파일을 정리합니다."</span>)
+            <span class="kw">try</span>? <span class="typ">FileManager</span>.default.removeItem(at: tempURL)
+        }
+        <span class="kw">guard</span> <span class="typ">FileManager</span>.default.fileExists(atPath: fileURL.path) <span class="kw">else</span> {
+            <span class="com">// .bak 이 존재하면 복구 후보로 검토</span>
+            <span class="kw">let</span> bakURL = fileURL.appendingPathExtension(<span class="str">"bak"</span>)
+            <span class="kw">if</span> <span class="typ">FileManager</span>.default.fileExists(atPath: bakURL.path) {
+                <span class="typ">KoreanLogger</span>.warn(<span class="str">"주 파일이 없어 백업(.bak)에서 복구를 시도합니다."</span>)
+                <span class="kw">try</span> <span class="typ">FileManager</span>.default.copyItem(at: bakURL, to: fileURL)
+            } <span class="kw">else</span> {
+                <span class="kw">return</span> <span class="typ">WorkspaceFile</span>(version: <span class="typ">Self</span>.currentSchemaVersion,
+                                     workspaces: [], lastActiveWorkspaceId: <span class="kw">nil</span>)
+            }
+        }
+        <span class="kw">let</span> data = <span class="kw">try</span> <span class="typ">Data</span>(contentsOf: fileURL)
+        <span class="kw">let</span> decoder = <span class="typ">JSONDecoder</span>()
+        decoder.dateDecodingStrategy = .iso8601
+        <span class="kw">var</span> file = <span class="kw">try</span> decoder.decode(<span class="typ">WorkspaceFile</span>.<span class="kw">self</span>, from: data)
+
+        <span class="com">// MED2: decode 후 agent-view invariant guard. 0개면 생성, 2개+ 면 첫 번째만 유지.</span>
+        <span class="kw">let</span> agentViews = file.workspaces.filter { $0.kind == .agentView }
+        <span class="kw">if</span> agentViews.isEmpty {
+            file = file.with(prepending: <span class="typ">Workspace</span>.makeAgentView())
+        } <span class="kw">else if</span> agentViews.count &gt; <span class="num">1</span> {
+            <span class="typ">KoreanLogger</span>.warn(<span class="str">"agent-view 워크스페이스가 \(agentViews.count)개 발견되었습니다. 첫 번째만 유지합니다."</span>)
+            file = file.dedupAgentViews()
+        }
+        <span class="kw">return</span> file
+    }
+
+    <span class="com">// H2 + M4: 3-파일 atomic write. workspaces.json (정상) / .tmp (in-progress) / .bak (직전 정상본).</span>
+    <span class="com">// replaceItem 실패는 silently swallow 금지 → throws 하여 호출부가 한국어 에러 dialog/log 로 surface.</span>
+    <span class="kw">func</span> <span class="fn">save</span>(_ file: <span class="typ">WorkspaceFile</span>) <span class="kw">throws</span> {
+        <span class="kw">let</span> encoder = <span class="typ">JSONEncoder</span>()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        <span class="com">// JSONEncoder default: 한글을 \uXXXX escape 하지 않음(Swift Foundation 기본 동작).</span>
+        <span class="kw">let</span> data = <span class="kw">try</span> encoder.encode(file)
+
+        <span class="kw">let</span> tempURL = fileURL.appendingPathExtension(<span class="str">"tmp"</span>)
+        <span class="kw">let</span> bakURL = fileURL.appendingPathExtension(<span class="str">"bak"</span>)
+
+        <span class="com">// Step 1: write to .tmp</span>
+        <span class="kw">try</span> data.write(to: tempURL, options: [.atomic])
+
+        <span class="com">// Step 2: 직전 정상 .json → .bak 으로 이동 (존재 시)</span>
+        <span class="kw">if</span> <span class="typ">FileManager</span>.default.fileExists(atPath: fileURL.path) {
+            <span class="kw">try</span>? <span class="typ">FileManager</span>.default.removeItem(at: bakURL)
+            <span class="kw">try</span> <span class="typ">FileManager</span>.default.moveItem(at: fileURL, to: bakURL)
+        }
+
+        <span class="com">// Step 3: .tmp → .json (rename atomic)</span>
+        <span class="kw">try</span> <span class="typ">FileManager</span>.default.moveItem(at: tempURL, to: fileURL)
+    }
+}
+</code></pre>
+
+<h3>5.4 PTY env/cwd 격리 (snapshot at spawn, no propagation)</h3>
+
+<pre><code><span class="kw">enum</span> <span class="typ">SessionSpawnEnv</span> {
+    <span class="com">// H6: workspace 생성 시점에 capture 하는 user env snapshot.</span>
+    <span class="com">// Workspace.envSnapshot 에 저장되어 같은 workspace 의 모든 pane spawn 에 사용.</span>
+    <span class="kw">static func</span> <span class="fn">captureUserEnv</span>() -&gt; [<span class="typ">String</span>: <span class="typ">String</span>] {
+        <span class="kw">return</span> <span class="typ">ProcessInfo</span>.processInfo.environment   <span class="com">// dict value-copy</span>
+    }
+
+    <span class="com">// 세션마다 독립 CLAUDE_CONFIG_DIR. 종료 후 디렉터리는 P2 에서 보존(P4 reconnect 활용 예약).</span>
+    <span class="com">// M2: 부팅 직후 stale dir cleanup (live sessions 미매칭 + mtime 7일 초과) 별도 수행.</span>
+    <span class="kw">static func</span> <span class="fn">claudeConfigDir</span>(forSession id: <span class="typ">UUID</span>) <span class="kw">throws</span> -&gt; <span class="typ">String</span> {
+        <span class="kw">let</span> appSupport = <span class="kw">try</span> <span class="typ">FileManager</span>.default.url(
+            for: .applicationSupportDirectory, in: .userDomainMask,
+            appropriateFor: <span class="kw">nil</span>, create: <span class="kw">true</span>)
+        <span class="kw">let</span> dir = appSupport
+            .appendingPathComponent(<span class="str">"ClaudeAlarmTerminal"</span>, isDirectory: <span class="kw">true</span>)
+            .appendingPathComponent(<span class="str">"claude-config"</span>, isDirectory: <span class="kw">true</span>)
+            .appendingPathComponent(id.uuidString, isDirectory: <span class="kw">true</span>)
+        <span class="kw">try</span> <span class="typ">FileManager</span>.default.createDirectory(
+            at: dir, withIntermediateDirectories: <span class="kw">true</span>)
+        <span class="kw">return</span> dir.path
+    }
+
+    <span class="com">// M3: pane 별 zsh HISTFILE 격리. Invariant 5 (HISTFILE 격리).</span>
+    <span class="kw">static func</span> <span class="fn">zshHistoryDir</span>(workspaceId: <span class="typ">UUID</span>, paneId: <span class="typ">UUID</span>) <span class="kw">throws</span> -&gt; <span class="typ">String</span> {
+        <span class="kw">let</span> caches = <span class="kw">try</span> <span class="typ">FileManager</span>.default.url(
+            for: .cachesDirectory, in: .userDomainMask,
+            appropriateFor: <span class="kw">nil</span>, create: <span class="kw">true</span>)
+        <span class="kw">let</span> dir = caches
+            .appendingPathComponent(<span class="str">"ClaudeAlarmTerminal"</span>, isDirectory: <span class="kw">true</span>)
+            .appendingPathComponent(<span class="str">"zsh_history"</span>, isDirectory: <span class="kw">true</span>)
+            .appendingPathComponent(workspaceId.uuidString, isDirectory: <span class="kw">true</span>)
+            .appendingPathComponent(paneId.uuidString, isDirectory: <span class="kw">true</span>)
+        <span class="kw">try</span> <span class="typ">FileManager</span>.default.createDirectory(
+            at: dir, withIntermediateDirectories: <span class="kw">true</span>)
+        <span class="kw">return</span> dir.path
+    }
+
+    <span class="com">// M2: 부팅 직후 1회 실행. live SessionManager.sessions 에 없고 mtime 7일+ 인 dir 삭제.</span>
+    <span class="kw">static func</span> <span class="fn">cleanupStaleClaudeConfigDirs</span>(liveSessionIds: <span class="typ">Set</span>&lt;<span class="typ">UUID</span>&gt;) <span class="kw">throws</span> {
+        <span class="kw">let</span> appSupport = <span class="kw">try</span> <span class="typ">FileManager</span>.default.url(
+            for: .applicationSupportDirectory, in: .userDomainMask,
+            appropriateFor: <span class="kw">nil</span>, create: <span class="kw">false</span>)
+        <span class="kw">let</span> root = appSupport
+            .appendingPathComponent(<span class="str">"ClaudeAlarmTerminal/claude-config"</span>, isDirectory: <span class="kw">true</span>)
+        <span class="kw">guard let</span> entries = <span class="kw">try</span>? <span class="typ">FileManager</span>.default.contentsOfDirectory(
+            at: root, includingPropertiesForKeys: [.contentModificationDateKey]) <span class="kw">else</span> { <span class="kw">return</span> }
+        <span class="kw">let</span> sevenDaysAgo = <span class="typ">Date</span>().addingTimeInterval(-<span class="num">7</span> * <span class="num">86400</span>)
+        <span class="kw">for</span> entry <span class="kw">in</span> entries {
+            <span class="kw">guard let</span> id = <span class="typ">UUID</span>(uuidString: entry.lastPathComponent),
+                  !liveSessionIds.contains(id),
+                  <span class="kw">let</span> mtime = <span class="kw">try</span>? entry.resourceValues(forKeys: [.contentModificationDateKey])
+                                          .contentModificationDate,
+                  mtime &lt; sevenDaysAgo <span class="kw">else</span> { <span class="kw">continue</span> }
+            <span class="kw">try</span>? <span class="typ">FileManager</span>.default.removeItem(at: entry)
+        }
+    }
+}
+
+<span class="com">// PTY env/cwd 격리 invariant 의 5가지 sub-조건 (Day 6 통합 테스트로 검증):</span>
+<span class="com">//</span>
+<span class="com"> // 1) env snapshot (H6 정정): workspace 생성 시점에 ProcessInfo.environment 를 dict copy</span>
+<span class="com"> //    하여 Workspace.envSnapshot 에 저장. SessionManager.create(workspace:) 가 본 snapshot 을</span>
+<span class="com"> //    base 로 사용. 같은 workspace 의 모든 pane 은 동일 base env 를 가지며, workspace 생성 후</span>
+<span class="com"> //    user shell rc 변경(예: export FOO=BAR)이 같은 workspace 의 후속 pane spawn 에 영향 없음.</span>
+<span class="com"> //</span>
+<span class="com"> // 2) cd/export 비전파: POSIX 격리에 의해 자연 보장됨. PTY 안의 child 가</span>
+<span class="com"> //    수행한 cd/export 는 parent process(= 우리 앱) 에 영향 없음.</span>
+<span class="com"> //    다른 pane 에 영향 없음. spawn(2)이 새 child process 를 만들기 때문.</span>
+<span class="com"> //</span>
+<span class="com"> // 3) 새 pane cwd: SessionManager.create(workspace:) 로 workspace.cwd 를 전달.</span>
+<span class="com"> //    직전 pane 의 cwd 를 상속하는 코드 경로가 존재하지 않음 (grep 검증).</span>
+<span class="com"> //</span>
+<span class="com"> // 4) claude CLAUDE_CONFIG_DIR 격리: 위 claudeConfigDir(forSession:) 가 sessionId 별</span>
+<span class="com"> //    독립 디렉터리를 제공하므로 두 claude pane 이 동일 config 를 공유하지 않음.</span>
+<span class="com"> //</span>
+<span class="com"> // 5) HISTFILE 격리 (M3 신규): shell pane 마다 zshHistoryDir(workspaceId:, paneId:) 가</span>
+<span class="com"> //    제공하는 독립 디렉터리에 history 저장. 두 셸 pane 의 명령 기록이 섞이지 않음.</span>
+</code></pre>
+
+<h3>5.5 libghostty surface lifecycle (ADR-I cmux 패턴)</h3>
+
+<pre><code><span class="com">// 핵심: hibernate/pause/release 코드는 0줄. 비가시 surface 도 그대로 alive.</span>
+<span class="com">// GPU idle 은 AppKit displayLayer 호출 부재로 자연 발생.</span>
+
+<span class="kw">final class</span> <span class="typ">PaneSurface</span> {
+    <span class="kw">let</span> sessionId: <span class="typ">UUID</span>
+    <span class="kw">private let</span> surface: <span class="typ">GhosttySurface</span>      <span class="com">// P1 wrapper 재사용</span>
+
+    <span class="kw">init</span>(sessionId: <span class="typ">UUID</span>, config: <span class="typ">GhosttyConfig</span>) {
+        self.sessionId = sessionId
+        self.surface = <span class="typ">GhosttySurface</span>(config: config)
+        <span class="com">// 명시적 hibernate/pause API 없음 — 의도된 invariant (ADR-I).</span>
+    }
+
+    <span class="kw">func</span> <span class="fn">feed</span>(_ data: <span class="typ">Data</span>) { surface.feed(data) }
+    <span class="kw">func</span> <span class="fn">setSize</span>(cols: <span class="typ">UInt32</span>, rows: <span class="typ">UInt32</span>) { surface.setSize(cols: cols, rows: rows) }
+
+    <span class="com">// destroy 는 세션 종료 시에만 호출 (workspace 전환 시 호출 금지).</span>
+    <span class="kw">deinit</span> { <span class="com">/* surface 의 deinit 이 ghostty_surface_destroy 수행 */</span> }
+}
+
+<span class="com">// Telemetry overlay (env CHAT_TERMINAL_DEBUG_SURFACE_STATS=1 일 때만 활성):</span>
+<span class="kw">final class</span> <span class="typ">DebugRenderStats</span> {
+    <span class="kw">private var</span> timer: <span class="typ">DispatchSourceTimer</span>?
+    <span class="kw">private let</span> logFile: <span class="typ">FileHandle</span>?
+
+    <span class="kw">init</span>?() {
+        <span class="kw">guard</span> <span class="typ">ProcessInfo</span>.processInfo.environment[<span class="str">"CHAT_TERMINAL_DEBUG_SURFACE_STATS"</span>] == <span class="str">"1"</span> <span class="kw">else</span> {
+            <span class="kw">return nil</span>
+        }
+        <span class="com">// ~/Library/Logs/ClaudeAlarmTerminal/surface-stats.log 에 1Hz 로깅</span>
+        self.logFile = <span class="typ">DebugRenderStats</span>.openLog()
+        startTimer()
+    }
+
+    <span class="kw">private func</span> <span class="fn">tick</span>() {
+        <span class="kw">let</span> memMB = <span class="typ">Self</span>.residentMemoryMB()
+        <span class="kw">let</span> surfCount = <span class="typ">PaneSurfaceRegistry</span>.shared.activeCount
+        <span class="kw">let</span> line = <span class="str">"\(Date().ISO8601Format()) mem=\(memMB)MB surf=\(surfCount)\n"</span>
+        logFile?.write(<span class="typ">Data</span>(line.utf8))
+    }
+
+    <span class="com">// task_info(TASK_VM_INFO) 로 resident memory 측정. 구현 디테일 생략.</span>
+    <span class="kw">private static func</span> <span class="fn">residentMemoryMB</span>() -&gt; <span class="typ">UInt64</span> { <span class="com">/* ... */</span> <span class="num">0</span> }
+}
+</code></pre>
+
+<!-- =================================================================== -->
+<h2 id="sec-6">6. ADR-I Operationalization (libghostty surface 자원 관리)</h2>
+
+<p>v4 마스터 계획 § 5 ADR-I는 P2에서 적용되는 핵심 ADR입니다. 본 절은 ADR-I의 추상 정책을 P2 코드 차원에서 운영화한 내역입니다.</p>
+
+<h4>6.1 정책 명세 (cmux 패턴 채택)</h4>
+<table>
+  <thead>
+    <tr><th>항목</th><th>P2 적용</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>채택 패턴</td><td>cmux <code>Sources/GhosttyTerminalView.swift</code> 정탐 결과 패턴 (hibernate 코드 0줄, <code>occlusionState</code> 사용 2건은 모두 디버그 telemetry)</td></tr>
+    <tr><td>surface 생성 정책</td><td>각 <code>Session</code>마다 독립 <code>ghostty_surface_t</code> 인스턴스. workspace 전환 시 surface 재사용/공유 없음.</td></tr>
+    <tr><td>hibernate / pause 로직</td><td><strong>0줄.</strong> grep 검증으로 invariant 보장 (Day 4 종료 조건).</td></tr>
+    <tr><td>비가시 surface 처리</td><td>PTY read 계속, scrollback/atlas texture 유지. AppKit <code>displayLayer</code> 호출 부재로 GPU 자원 idle.</td></tr>
+    <tr><td>destroy 시점</td><td>세션 종료(SIGTERM 후 EOF) 시점에만. workspace 전환/비가시 전환 시 destroy 금지.</td></tr>
+    <tr><td>occlusionState 사용</td><td>표준 동작에는 미사용. <code>DebugRenderStats</code> telemetry 안에서만 occlusion 변화를 로깅 목적으로 관찰 가능.</td></tr>
+  </tbody>
+</table>
+
+<h4>6.2 자원 사용량 추정</h4>
+<table>
+  <thead>
+    <tr><th>대상 머신</th><th>세션 개수</th><th>예상 메모리</th><th>근거</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Apple Silicon Mac (16GB+ RAM)</td>
+      <td>1 세션</td>
+      <td>약 20~30MB</td>
+      <td>P1 single-surface 측정 baseline</td>
+    </tr>
+    <tr>
+      <td>Apple Silicon Mac (16GB+ RAM)</td>
+      <td>10 세션</td>
+      <td>약 200~300MB</td>
+      <td>선형 추정 (atlas texture + scrollback)</td>
+    </tr>
+    <tr>
+      <td>Apple Silicon Mac (16GB+ RAM)</td>
+      <td>20 세션 (default max)</td>
+      <td>약 400~600MB</td>
+      <td>v4 § 5 ADR-I 명시 추정치. 16GB+ Mac 의 4~7% 영역, 수용 범위.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>실측은 <a href="#day-7">Day 7</a>의 <code>DebugRenderStats</code> telemetry로 수행하며, <code>surface-stats.log</code>에 1Hz 주기로 기록됩니다. 추정치 대비 +30% 이상 초과(예: 20 세션에서 800MB+) 발생 시 즉시 root cause 정탐을 시작합니다.</p>
+
+<h4>6.3 Trigger for Revisit (P4+ 에서 hibernate 재검토 조건)</h4>
+<div class="callout warn">
+  <div class="label">중요</div>
+  ADR-I는 P2 단계의 결정입니다. 다음 trigger 발생 시 P4 이후 단계에서 hibernate/pause/release 정책을 재검토합니다.
+</div>
+<ol>
+  <li><strong>실측 메모리 압박:</strong> 16GB+ Mac에서 20 세션 운영 시 메모리 사용량이 1GB를 초과하거나, 사용자 환경에서 "메모리 압박" 시스템 알림이 발생.</li>
+  <li><strong>GPU 자원 경합:</strong> 비가시 surface가 GPU draw call을 발생시키는 회귀가 발견되어 idle 보장이 깨짐.</li>
+  <li><strong>cmux 회귀:</strong> cmux 업스트림이 hibernate 패턴을 도입하면 그 시점에 우리도 alignment 검토.</li>
+  <li><strong>사용 패턴 변화:</strong> P9 chat-room↔pane 매트릭스 도입으로 동시 세션 수가 20을 초과하는 사용 사례가 spec에 추가될 경우.</li>
+</ol>
+
+<h4>6.4 Telemetry Hook</h4>
+<table>
+  <thead>
+    <tr><th>항목</th><th>값</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>활성화 방법</td><td><code>CHAT_TERMINAL_DEBUG_SURFACE_STATS=1</code> 환경 변수 설정 후 앱 실행</td></tr>
+    <tr><td>참고 패턴</td><td>cmux <code>DebugRenderStats</code> (정탐 결과 동일 명명)</td></tr>
+    <tr><td>로그 위치</td><td><code>~/Library/Logs/ClaudeAlarmTerminal/surface-stats.log</code></td></tr>
+    <tr><td>로그 주기</td><td>1Hz (DispatchSourceTimer 기반)</td></tr>
+    <tr><td>측정 항목</td><td>resident memory MB (<code>task_info(TASK_VM_INFO)</code>), active surface count, FPS (CADisplayLink), occlusionState 변화 이벤트</td></tr>
+    <tr><td>기본 상태(env 미설정)</td><td>DebugRenderStats <code>init?()</code>가 nil 반환 → 타이머/로깅 코드가 실행되지 않음 → CPU 부담 0</td></tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-7">7. JSON Persistence Schema</h2>
+
+<p>P2의 영속화는 P1의 "Build &amp; Sign Dry-run"에 해당하는 본 단계의 핵심 산출물입니다. 후속 단계(P5/P6a/P9/P10b)의 필드가 add-only로 추가될 수 있도록 reserved field와 version anchor를 설계합니다.</p>
+
+<h4>7.1 Schema Definition (v1)</h4>
+
+<pre><code>{
+  <span class="str">"version"</span>: 1,
+  <span class="str">"lastActiveWorkspaceId"</span>: <span class="str">"&lt;uuid&gt;"</span>,
+  <span class="str">"workspaces"</span>: [
+    {
+      <span class="str">"id"</span>: <span class="str">"&lt;uuid&gt;"</span>,
+      <span class="str">"name"</span>: <span class="str">"내 작업"</span>,
+      <span class="str">"cwd"</span>: <span class="str">"/Users/mscho/projA"</span>,
+      <span class="str">"createdAt"</span>: <span class="str">"2026-05-13T09:00:00Z"</span>,
+      <span class="str">"kind"</span>: <span class="str">"normal"</span>,
+      <span class="com">// H6: workspace 생성 시점의 user env snapshot (예시는 축약)</span>
+      <span class="str">"envSnapshot"</span>: {
+        <span class="str">"PATH"</span>: <span class="str">"/opt/homebrew/bin:/usr/bin:/bin"</span>,
+        <span class="str">"SHELL"</span>: <span class="str">"/bin/zsh"</span>,
+        <span class="str">"HOME"</span>: <span class="str">"/Users/mscho"</span>,
+        <span class="str">"LANG"</span>: <span class="str">"ko_KR.UTF-8"</span>
+      },
+      <span class="str">"panes"</span>: [
+        {
+          <span class="str">"id"</span>: <span class="str">"&lt;uuid&gt;"</span>,
+          <span class="str">"sessionId"</span>: null,
+          <span class="str">"kind"</span>: <span class="str">"claude"</span>,
+          <span class="str">"position"</span>: <span class="str">"top"</span>,
+          <span class="com">// H1: chatRoomId 는 pane level (P9 1:1 바인딩 명세)</span>
+          <span class="str">"chatRoomId"</span>: null,
+          <span class="str">"extraFields"</span>: null
+        },
+        {
+          <span class="str">"id"</span>: <span class="str">"&lt;uuid&gt;"</span>,
+          <span class="str">"sessionId"</span>: null,
+          <span class="str">"kind"</span>: <span class="str">"shell"</span>,
+          <span class="str">"position"</span>: <span class="str">"bottom"</span>,
+          <span class="str">"chatRoomId"</span>: null,
+          <span class="str">"extraFields"</span>: null
+        }
+      ],
+      <span class="com">// Workspace reserved fields (P2에서는 null, 후속 단계에서 add-only로 활용)</span>
+      <span class="str">"pushChannelHints"</span>: null,
+      <span class="str">"fetchHintMetadata"</span>: null,
+      <span class="str">"extraFields"</span>: null
+    },
+    {
+      <span class="str">"id"</span>: <span class="str">"&lt;agent-view-uuid&gt;"</span>,
+      <span class="str">"name"</span>: <span class="str">"에이전트 뷰"</span>,
+      <span class="str">"cwd"</span>: <span class="str">""</span>,
+      <span class="str">"createdAt"</span>: <span class="str">"2026-05-13T09:00:00Z"</span>,
+      <span class="str">"kind"</span>: <span class="str">"agentView"</span>,
+      <span class="str">"envSnapshot"</span>: {},
+      <span class="str">"panes"</span>: [],
+      <span class="str">"pushChannelHints"</span>: null,
+      <span class="str">"fetchHintMetadata"</span>: null,
+      <span class="str">"extraFields"</span>: null
+    }
+  ]
+}
+</code></pre>
+
+<h4>7.2 Migration Policy (add-only, never break)</h4>
+<ul>
+  <li><strong>버전 증가 규칙:</strong> 필드 추가만 허용 → version 유지 가능. 필드 제거/타입 변경/이름 변경 → version 증가 + 마이그레이션 코드 필요.</li>
+  <li><strong>P2 v1 ~ P12 까지의 예상 변화:</strong> P5에서 <code>pushChannelHints</code>(workspace level)가 nil→채워짐, P6a에서 <code>chatRoomId</code>(<strong>pane level</strong>, master § P9 line 351 1:1 바인딩)가 nil→실제 ID, P10b에서 <code>fetchHintMetadata</code>가 활용됨. 모두 reserved field를 채우는 형태이므로 v1 유지 가능.</li>
+  <li><strong>M6: unknown field 보존 정책 (forward-compatible):</strong> decode 시 알려지지 않은 필드는 <code>extraFields: [String: AnyCodable]?</code>에 보존됩니다(Workspace/Pane 양쪽). encode 시 그대로 직렬화하여 외부 도구가 추가한 키를 silently drop하지 않습니다. P5+에서 자기 단계의 unknown 필드를 만나더라도 round-trip이 보장됩니다.</li>
+  <li><strong>마이그레이션 실행 시점:</strong> <code>WorkspaceStore.load()</code> 호출 직후 <code>file.version</code>이 current보다 낮으면 migration 함수 체인 호출. P2에서는 v1이 첫 버전이므로 migration 함수가 없으나, hook 지점만 코드에 노출.</li>
+</ul>
+
+<h4>7.3 Reserved Fields for Future Phases</h4>
+<table>
+  <thead>
+    <tr><th>필드</th><th>Location (P2 v2 정정)</th><th>P2 값</th><th>활용 단계</th><th>예상 형식</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>pushChannelHints</code></td>
+      <td><code>Workspace</code></td>
+      <td><code>null</code></td>
+      <td>P5 (Push Sender)</td>
+      <td><code>{ "fcmDeviceId": "...", "apnsDeviceToken": "..." }</code></td>
+    </tr>
+    <tr>
+      <td><code>chatRoomId</code></td>
+      <td><strong><code>Pane</code></strong> (H1 정정: master § P9 line 351 "채팅룸은 데스크톱의 특정 pane에 1:1로 바인딩")</td>
+      <td><code>null</code></td>
+      <td>P6a (Pairing), P9 (chat-room↔pane)</td>
+      <td>String UUID — ADR-A에서 발급 주체 결정</td>
+    </tr>
+    <tr>
+      <td><code>fetchHintMetadata</code></td>
+      <td><code>Workspace</code></td>
+      <td><code>null</code></td>
+      <td>P10b (Deep link + fetchHint)</td>
+      <td><code>{ "lastSeqOnDevice": "...", "fetchEndpoint": "..." }</code></td>
+    </tr>
+    <tr>
+      <td><code>extraFields</code> (M6)</td>
+      <td>Workspace + Pane</td>
+      <td><code>null</code></td>
+      <td>P3~P12 (forward-compat)</td>
+      <td>Unknown JSON 필드 보존용 catch-all</td>
+    </tr>
+  </tbody>
+</table>
+
+<h4>7.4 Storage Location</h4>
+<p>저장 위치: <code>~/Library/Application Support/ClaudeAlarmTerminal/workspaces.json</code></p>
+<ul>
+  <li>경로 산출: <code>FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true).appendingPathComponent("ClaudeAlarmTerminal/workspaces.json")</code>.</li>
+  <li>App Sandbox OFF 상태(v4 § P1 결정)에서도 application support 디렉터리는 사용자별 정상 경로에 위치.</li>
+  <li>관련 파일들:
+    <ul>
+      <li><code>workspaces.json</code> — 메인 영속화</li>
+      <li><code>workspaces.json.tmp</code> — atomic write 중 사용되는 임시 파일</li>
+      <li><code>claude-config/&lt;sessionId&gt;/</code> — 세션별 격리 디렉터리 (Day 2 정책)</li>
+    </ul>
+  </li>
+</ul>
+
+<h4>7.5 Atomic Write — 3-파일 정책 (M4 격상)</h4>
+<p>P2 v2에서 단순 atomic write를 <strong>3-파일 정책</strong>으로 격상합니다: <code>workspaces.json</code>(정상), <code>workspaces.json.tmp</code>(write-in-progress), <code>workspaces.json.bak</code>(직전 정상본).</p>
+<ol>
+  <li><code>JSONEncoder</code>로 <code>WorkspaceFile</code>을 <code>Data</code>로 직렬화 (한국어는 escape 없이 UTF-8 그대로).</li>
+  <li><code>workspaces.json.tmp</code>에 <code>.atomic</code> 옵션으로 write — POSIX <code>write(2)</code> + <code>fsync(2)</code>에 해당.</li>
+  <li>직전 정상 <code>workspaces.json</code>이 존재하면 <code>workspaces.json.bak</code>으로 이동 (rename(2)).</li>
+  <li><code>workspaces.json.tmp → workspaces.json</code> rename — POSIX <code>rename(2)</code> atomic semantics.</li>
+  <li><strong>load() 진입부의 복구 로직 (M4):</strong>
+    <ul>
+      <li><code>.tmp</code> 잔존 시: 한국어 warn 로그("이전 저장이 미완료 상태로 종료되었습니다. 임시 파일을 정리합니다.") + <code>.tmp</code> 제거.</li>
+      <li><code>.json</code> 부재 + <code>.bak</code> 존재 시: 한국어 warn 로그("주 파일이 없어 백업(.bak)에서 복구를 시도합니다.") + <code>.bak → .json</code> 복원.</li>
+      <li>둘 다 부재 시: 빈 WorkspaceFile 반환 (첫 부팅 케이스).</li>
+    </ul>
+  </li>
+  <li><strong>save() error surface (H2):</strong> <code>replaceItem</code>/<code>moveItem</code> 실패는 silently swallow 금지. <code>throws</code>로 호출부에 전파되며 호출부가 한국어 에러 dialog 또는 log로 surface합니다.</li>
+</ol>
+
+<!-- =================================================================== -->
+<h2 id="sec-8">8. Acceptance Criteria</h2>
+
+<p>v4 마스터 계획 § P2의 수락 기준 6건을 본 문서의 검증 단계와 매핑합니다.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width: 28px;">#</th>
+      <th>v4 § P2 수락 기준</th>
+      <th>검증 일자</th>
+      <th>검증 절차</th>
+      <th>통과</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>A1</td>
+      <td>workspace A(cwd: ~/projA)에서 claude pane + shell pane → 둘 다 정상 동작 → workspace B(cwd: ~/projB) 생성 → 전환해도 A의 PTY는 유지</td>
+      <td>Day 4, Day 5, Day 9</td>
+      <td>(1) workspace A 생성, cwd ~/projA (2) claude pane spawn + shell pane spawn (Day 4 split UI) (3) <code>pwd</code> 결과 ~/projA 확인 (4) workspace B 생성 + 탭 전환 (5) A로 다시 전환 후 PTY 응답 확인(<code>echo "alive"</code>) — surface는 ADR-I에 의해 alive 유지</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A2</td>
+      <td>21번째 세션 생성 시도 → 한국어 에러 다이얼로그 + 기존 20개 세션 영향 없음</td>
+      <td>Day 2, Day 8</td>
+      <td><strong>11 workspace × 평균 2 pane으로 20 세션 생성 후 21번째 spawn 시 한국어 에러</strong> (agent-view 1개 [세션 없음] + normal 10개 × 2 pane = 20 세션). (1) 20 세션까지 생성 성공 (2) 21번째 spawn 시도 (3) 한국어 다이얼로그 "최대 세션 개수에 도달했습니다 (N=20). 기존 세션을 종료하세요." 표시 (4) 기존 20개 세션의 <code>kill(pid, 0) == 0</code> (모두 alive)</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A3</td>
+      <td>첫 번째 탭(agent-view)에 close 버튼 없음 (invariant)</td>
+      <td>Day 3, Day 8, Day 9</td>
+      <td>(1) UI 테스트 <code>AgentViewCloseInvariantTests</code> — 첫 탭 row에 close 버튼 hit-test 실패 (2) Cmd+W 단축키로도 close 시도 불가 (canClose=false) (3) menu validator로 close 메뉴 항목 비활성</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A4</td>
+      <td>앱 재시작 후 workspace 목록 복원 + 세션은 모두 사라진 상태</td>
+      <td>Day 1, Day 9</td>
+      <td>(1) workspace 2개 생성 + 한국어 이름 + 각 pane spawn (2) 정상 종료(Cmd+Q) (3) 재실행 (4) sidebar에 2개 workspace 한국어 이름 그대로 (5) terminal area는 "세션 없음" 표시, child process 0개</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A5</td>
+      <td>세 번째 pane split 시도 UI 차단</td>
+      <td>Day 4</td>
+      <td>(1) 2 pane 활성 상태 (2) split 버튼 disabled 표시 (3) ViewModel <code>canSplit == false</code> (4) menu/단축키 경로도 거부 (단위 테스트)</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A6</td>
+      <td>PTY env/cwd 격리 invariant 4종 (env snapshot / cd 비전파 / 새 pane cwd = workspace.cwd / claude CLAUDE_CONFIG_DIR 격리)</td>
+      <td>Day 2, Day 6</td>
+      <td><a href="#day-6">§3 Day 6</a>의 invariant 1~4 통합 테스트 4건 통과 + Day 2의 claude config 격리 단위 테스트 통과</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout ok">
+  <div class="label">단계 통과 정의</div>
+  위 6건 모두 통과(체크) + Day 1~9의 모든 일자 종료 조건이 통과 + verifier 패스 critical 0건. 한 건이라도 미통과면 컨틴전시 밴드로 우선 처리하고, 그래도 미통과면 ralplan 재소집을 요청합니다.
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-9">9. Risks &amp; Mitigations</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>위험</th>
+      <th>가능성</th>
+      <th>영향</th>
+      <th>완화</th>
+      <th>책임</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>SessionManager 동시성 (actor isolation 경계 위반, 여러 PTY 동시 read/write 시 race)</td>
+      <td>중</td>
+      <td>상 — 데이터 손상, 한국어 깨짐, 임의 crash</td>
+      <td>P1의 actor invariant 유지(<code>nonisolated</code> 진입점 0). Day 2에 21개 동시 create 단위 테스트 + Thread Sanitizer로 data race 0건 검증. v4 § P2 risk callout에 명시된 항목.</td>
+      <td>executor (opus) + verifier</td>
+    </tr>
+    <tr>
+      <td>JSON 영속화 스키마가 P5 push 채널 매핑과 충돌</td>
+      <td>중</td>
+      <td>중 — 마이그레이션 부담</td>
+      <td>v1 schema에 reserved field 사전 예약(§7.3): <code>pushChannelHints</code>/<code>fetchHintMetadata</code> (workspace level), <code>chatRoomId</code> (<strong>pane level, H1 정정</strong>). <strong>M6 forward-compat:</strong> Workspace/Pane 양쪽에 <code>extraFields: [String: AnyCodable]?</code> 추가로 unknown JSON field round-trip 보존. Day 1 round-trip 테스트로 preservation 검증.</td>
+      <td>Planner + executor (sonnet)</td>
+    </tr>
+    <tr>
+      <td><strong>M1 신규 — 글로벌 SessionManager actor 진입점 head-of-line stall</strong> (sequential terminateAll × 1s SIGTERM grace × N panes)</td>
+      <td>중</td>
+      <td>중 — UI 응답 지연, terminate 진행 중 다른 workspace의 create 정지</td>
+      <td><code>terminateAll</code>를 <code>withTaskGroup</code>으로 병렬화. Day 2에 fairness-stall 측정 게이트 추가 — 20-pane terminateAll wall-clock 5초 이내, 동시 create() 호출 suspension ≤ 200ms.</td>
+      <td>executor (opus) + verifier</td>
+    </tr>
+    <tr>
+      <td><strong>M2 신규 — claude-config 디렉터리 무한 누적</strong> (sessionId가 영속화 안 되므로 재시작마다 신규 UUID)</td>
+      <td>중</td>
+      <td>저~중 — 디스크 점유 점증 (월 단위)</td>
+      <td>부팅 직후 1회 <code>SessionSpawnEnv.cleanupStaleClaudeConfigDirs(liveSessionIds:)</code> 실행. live SessionManager.sessions 미매칭 AND mtime 7일+ 디렉터리만 삭제. Day 9 종료 조건에 검증 포함.</td>
+      <td>executor (sonnet)</td>
+    </tr>
+    <tr>
+      <td><strong>terminateAll의 withTaskGroup reentrancy로 activityScope premature release</strong> (M1 패턴의 부작용: child task가 actor 재진입하여 <code>terminate()</code>를 호출할 때 마지막 세션이 종료되기 전에 <code>sessions.allSatisfy { .exited } → activityScope = nil</code> 분기가 발동할 위험)</td>
+      <td>저~중</td>
+      <td>중 (App Nap/Power Nap이 일찍 진입하여 잔여 SIGKILL 송신이 지연되거나 좀비 process 발생)</td>
+      <td><code>terminateAll</code>를 <code>[weak self] + try? await self?.terminate(id:)</code> 직접 호출 대신, <code>withTaskGroup</code> 안에서 PTY 자원(<code>masterFD</code>, <code>childPID</code>, <code>claudeSessionId</code>)을 actor에서 추출 후 child task는 <strong>actor 진입 없이</strong> <code>kill/waitpid/close</code>만 수행. 종료 정리(<code>sessions[id].status = .exited</code>, <code>activityScope</code> nil 체크)는 모든 child task <code>await</code> 완료 후 actor 안에서 <strong>단일 pass</strong>로 수행하여 reentrancy 발현 0건 보장. (§5.2 코드 참조)</td>
+      <td>executor (opus) + verifier</td>
+    </tr>
+    <tr>
+      <td>libghostty 다중 surface 메모리 사용량 폭증</td>
+      <td>저~중</td>
+      <td>중 — 사용자 환경 응답성 저하</td>
+      <td>ADR-I cmux 패턴 채택(§6). Day 7에 DebugRenderStats telemetry로 실측. 20 세션 800MB+ 발견 시 컨틴전시 1d 투입 후 P4+로 hibernate 재검토 권고.</td>
+      <td>executor (opus) + verifier</td>
+    </tr>
+    <tr>
+      <td>Pane lifecycle 누수 (workspace close 시 일부 PTY 살아남기)</td>
+      <td>저~중</td>
+      <td>중 — 좀비 process, fd leak</td>
+      <td>Day 5 lifecycle wiring + 100회 close/open 반복 fd leak 검증. <code>terminateAll(inWorkspace:)</code>가 모든 pane을 순차 terminate. verifier 패스에서 RAII invariant 4축 검토.</td>
+      <td>executor (opus) + verifier</td>
+    </tr>
+    <tr>
+      <td>21번째 세션 한국어 에러 다이얼로그 다바이트 깨짐</td>
+      <td>저</td>
+      <td>중 — UX 차단 + spec 위반</td>
+      <td>i18n 카탈로그 <code>ko.lproj/Errors.strings</code>를 UTF-8로 직접 저장(escape 없음). UI 테스트의 accessibilityLabel 비교로 텍스트 검증. Day 8 종료 조건에 포함.</td>
+      <td>executor (sonnet)</td>
+    </tr>
+    <tr>
+      <td>PTY env/cwd 격리 누설 (export/cd가 다른 pane으로 전파)</td>
+      <td>저~중</td>
+      <td>상 — 수락 기준 A6 차단, 보안 의미 (workspace 간 비밀 leak)</td>
+      <td>SessionSpawnEnv가 env dict copy (value semantics). Day 6에 invariant 1~4 통합 테스트. verifier 패스에서 reference 전달 가능 경로 추가 정탐.</td>
+      <td>executor (opus) + verifier</td>
+    </tr>
+    <tr>
+      <td>First tab close UI 우회 경로 (메뉴, 단축키, accessibility automation)</td>
+      <td>저</td>
+      <td>중 — invariant A3 차단</td>
+      <td>ViewModel <code>canClose: Bool</code>을 single source of truth로 두고 UI/menu/단축키/accessibility 모든 경로가 동일 분기 사용. Day 3 + Day 8 + Day 9에 UI 테스트.</td>
+      <td>executor (sonnet) + verifier</td>
+    </tr>
+    <tr>
+      <td>JSON 영속화 동시성 (여러 workspace 변경 이벤트가 동시 save 호출)</td>
+      <td>저</td>
+      <td>중 — race로 인한 빈 파일 또는 일부 손실</td>
+      <td>WorkspaceStore의 <code>save()</code>를 single serial queue(<code>ioQueue</code>)에서 실행. write-to-temp + rename atomic write로 손상 방지.</td>
+      <td>executor (sonnet)</td>
+    </tr>
+    <tr>
+      <td>한국어 IME 회귀 (Day 8 단축키 wiring이 keyDown 흐름을 가로채면서 IME composition 깨짐)</td>
+      <td>저</td>
+      <td>중</td>
+      <td>P1 IME 처리(NSTextInputClient) 흐름이 keyDown보다 먼저 호출되도록 책임 순서 유지. Day 8 단축키 등록은 <code>NSEvent.modifierFlags</code> 검사로 modifier 조합만 처리하고, 일반 키 입력은 모두 IME → 터미널로 흐르도록.</td>
+      <td>executor (opus)</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-10">10. Exit Gate to P3</h2>
+
+<p>다음 모든 항목이 충족될 때 P2를 종료하고 P3 (agent-view 대시보드) 로 진입합니다.</p>
+
+<ul class="exit-criteria">
+  <li><input type="checkbox" disabled> <a href="#sec-8">§8</a> 수락 기준 A1~A6 모두 통과</li>
+  <li><input type="checkbox" disabled> Day 1~9의 모든 일자별 종료 조건 통과</li>
+  <li><input type="checkbox" disabled> verifier 패스에서 critical / high 이슈 0건</li>
+  <li><input type="checkbox" disabled> SessionManager v2 (max=N) 동시성 측정 가능: (a) 모든 public 메서드 <code>async</code> grep 검증 (b) <code>nonisolated</code> 0개 grep 검증 (c) 21개 동시 <code>create()</code> 단위 테스트 (d) Thread Sanitizer 활성화 통합 테스트 data race 0건</li>
+  <li><input type="checkbox" disabled> libghostty surface ADR-I 정책 적용 코드 확인: <code>grep -rE '(hibernate|pause|releaseSurface)' Sources/UI/Pane/ Sources/Session/</code> 결과 (telemetry 외) 0건</li>
+  <li><input type="checkbox" disabled> JSON 영속화 멱등성 단위 테스트 통과 (round-trip + reserved field preservation + atomic write)</li>
+  <li><input type="checkbox" disabled> PTY env/cwd 격리 invariant 4종 통합 테스트 통과 (Day 6의 invariant 1~4)</li>
+  <li><input type="checkbox" disabled> <code>docs/p2/workspace-schema-v1.md</code>, <code>docs/p2/env-isolation-policy.md</code>, <code>docs/p2/adr-i-application.md</code>, <code>docs/p2-acceptance-log.md</code>, <code>docs/p2/handoff-to-p3.md</code>, <code>docs/p2/verifier-report.md</code> 6개 문서 작성됨</li>
+  <li><input type="checkbox" disabled> P1의 libghostty <code>PINNED_COMMIT</code>이 P2에서도 동일하게 빌드 통과 (commit drift 없음)</li>
+  <li><input type="checkbox" disabled> 컨틴전시 밴드(+2일)가 2일 이하로 사용되어 P2 총 일수가 11일 이하</li>
+</ul>
+
+<div class="callout">
+  <div class="label">P3로의 인계 사항</div>
+  P3에서는 <code>Workspace.kind == .agentView</code>인 workspace의 main content area를 placeholder에서 실데이터 카드 그리드로 교체합니다. P2에서 노출된 <code>SessionManager.lifecycleHooks</code> Combine publisher가 P3의 <code>SessionStatusObserver</code>의 입력원이 됩니다. P2의 <code>AgentViewPlaceholder</code>는 P3 Day 1에 삭제되고 <code>AgentViewDashboard</code>로 대체됩니다. 첫 탭 invariant(close-proof)는 P3에서도 그대로 유지됩니다. SessionManager의 max=20은 그대로 유지되며 P3에서 변경하지 않습니다.
+</div>
+
+<!-- =================================================================== -->
+<h2 id="app-a">부록 A. 환경 변수</h2>
+
+<table>
+  <thead>
+    <tr><th>변수</th><th>P2 값</th><th>설명</th><th>후속 단계</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>CHAT_TERMINAL_MAX_SESSIONS</code></td>
+      <td>기본 <code>20</code> (P2에서 실효 활성화)</td>
+      <td>SessionManager v2가 허용하는 동시 세션 개수. P1의 1에서 P2에서 N으로 풀림. 21번째 spawn 시 한국어 에러.</td>
+      <td>변동 없음 (P3 이후 유지)</td>
+    </tr>
+    <tr>
+      <td><code>CHAT_TERMINAL_WORKSPACE_ROOT</code></td>
+      <td>workspace별 cwd로 확장</td>
+      <td>P1에서는 process cwd 전체였으나 P2에서는 workspace.cwd 가 spawn의 cwd. 본 env는 default 시작 cwd로 사용.</td>
+      <td>변동 없음</td>
+    </tr>
+    <tr>
+      <td><code>CLAUDE_CONFIG_DIR</code></td>
+      <td>세션마다 격리 — <code>~/Library/Application Support/ClaudeAlarmTerminal/claude-config/&lt;sessionId&gt;/</code></td>
+      <td>P1에서는 default였으나 P2에서 세션별 격리 디렉터리로 설정. claude pane 격리 invariant (수락 기준 A6).</td>
+      <td>P4 reconnect 시 동일 디렉터리 재사용 정책 결정</td>
+    </tr>
+    <tr>
+      <td><code>CHAT_TERMINAL_DEBUG_SURFACE_STATS</code></td>
+      <td><code>0</code> (기본 비활성, <code>1</code> 시 활성)</td>
+      <td>ADR-I telemetry hook. 활성 시 <code>surface-stats.log</code>에 1Hz로 메모리/surface 개수/FPS 기록 (cmux DebugRenderStats 패턴).</td>
+      <td>P4+에서 hibernate revisit 결정 시 본 telemetry 데이터 활용</td>
+    </tr>
+    <tr>
+      <td><code>SHELL</code></td>
+      <td>시스템 env 값, 없으면 <code>/bin/zsh</code></td>
+      <td>shell pane spawn 대상. spawn 시점에 env snapshot에 포함되어 child에 전달.</td>
+      <td>변동 없음</td>
+    </tr>
+    <tr>
+      <td><code>CHAT_TERMINAL_LOG_LEVEL</code></td>
+      <td>기본 <code>info</code> (v4 § 4.3)</td>
+      <td>로깅 레벨. P1부터 활성, P2에서 동시성/lifecycle 이벤트 로깅 추가.</td>
+      <td>변동 없음</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <div class="label">L2 master § 4.3 갱신 hand-off</div>
+  본 v2 적용 후 master § 4.3 환경 변수 표에 <code>CHAT_TERMINAL_DEBUG_SURFACE_STATS</code> 신규 등록을 다음 master plan ralplan 사이클에 hand-off합니다. (P2에서 도입되었으나 master plan에는 아직 등록되지 않은 항목)
+</div>
+
+<!-- =================================================================== -->
+<h2 id="app-b">부록 B. 참고 문헌</h2>
+
+<ul>
+  <li>마스터 계획: <code>/Users/mscho/development/claude-research/claude-alarm-terminal/docs/plans/work-plan-v4.md</code> § P2 (lines 87~122), § 4.7 Effort Calendar (lines 580~600), § 5 ADR-lite 특히 ADR-I (lines 637)</li>
+  <li>P1 상세 계획서: <code>/Users/mscho/development/claude-research/claude-alarm-terminal/docs/plans/p1/p1-detailed.html</code> (SessionManager actor 패턴, ActivityScope, PTYHandle 정의 재사용)</li>
+  <li>ADR-I 근거: cmux <code>Sources/GhosttyTerminalView.swift</code> — hibernate 코드 0줄, <code>occlusionState</code> 디버그 telemetry 2건</li>
+  <li>cmux repo: <a href="https://github.com/manaflow-ai/cmux">github.com/manaflow-ai/cmux</a> (특히 DebugRenderStats 패턴)</li>
+  <li>Ghostty: <a href="https://github.com/ghostty-org/ghostty">github.com/ghostty-org/ghostty</a> (libghostty embed API)</li>
+  <li>Apple — <a href="https://developer.apple.com/documentation/swift/concurrency">Swift Concurrency / actor isolation reference</a></li>
+  <li>Apple — <a href="https://developer.apple.com/documentation/foundation/filemanager/2293376-replaceitem">FileManager.replaceItem(at:withItemAt:...)</a> (atomic write)</li>
+  <li>Apple — <a href="https://developer.apple.com/documentation/foundation/processinfo/1411131-environment">ProcessInfo.environment</a> (env snapshot)</li>
+  <li>Apple — <a href="https://developer.apple.com/documentation/appkit/nstextinputclient">NSTextInputClient</a> (한국어 IME)</li>
+  <li>POSIX — <a href="https://pubs.opengroup.org/onlinepubs/9699919799/functions/rename.html">rename(2)</a> (atomic file replacement)</li>
+  <li>cross-cutting concerns: v4 § 4.1 한국어 i18n, § 4.2 에러 카탈로그, § 4.3 환경 변수, § 4.4 로깅/관측성, § 4.5 보안</li>
+</ul>
+
+</main>
+</div>
+</body>
+</html>
