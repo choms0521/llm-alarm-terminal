@@ -68,7 +68,8 @@ public actor SessionManager {
     // MARK: - Create (P2 path: workspace-aware)
 
     /// P2: workspace.envSnapshot 을 base 로 한 PTY spawn.
-    /// kind 별 override(CLAUDE_CONFIG_DIR / HISTFILE) 적용 후 PTYSpawner 위임.
+    /// kind 별 override(shell: HISTFILE) 적용 후 PTYSpawner 위임.
+    /// P3.5 REQ-3: claude pane 의 CLAUDE_CONFIG_DIR 격리 override 는 폐지됐다.
     public func create(
         workspace: Workspace,
         paneId: UUID,

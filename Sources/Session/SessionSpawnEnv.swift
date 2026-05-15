@@ -2,13 +2,17 @@ import Foundation
 
 /// PTY spawn 시 사용되는 env / cwd / 격리 디렉터리 helper.
 ///
-/// 다음 5개 sub-invariant 를 운영화한다(Day 6 통합 테스트로 검증):
+/// 운영 중인 sub-invariant:
 /// 1. env snapshot: workspace 생성 시점에 `captureUserEnv()` 로 한 번 캡처 →
 ///    `Workspace.envSnapshot` 에 저장. 같은 workspace 의 모든 pane spawn 에 base 로 사용.
 /// 2. cd/export 비전파: POSIX 격리에 의해 자연 보장 (PTY child 의 변경은 parent / 다른 pane 에 영향 없음).
 /// 3. 새 pane cwd: 항상 `workspace.cwd` (직전 pane cwd 상속 금지).
-/// 4. claude `CLAUDE_CONFIG_DIR` 격리: session 마다 독립 디렉터리.
-/// 5. HISTFILE 격리: shell pane 마다 독립 디렉터리.
+/// 4. HISTFILE 격리: shell pane 마다 독립 디렉터리.
+///
+/// P3.5 REQ-3 (격리 폐지): 이전 P2 invariant 4("claude 세션마다 독립 config 디렉터리") 는
+/// 폐지되었다. claude pane 은 사용자 기본 config (`~/.claude`) 를 공유하여 매번 재로그인
+/// 문제를 해소한다. `claudeConfigDir(forSession:)` / `cleanupStaleClaudeConfigDirs(...)`
+/// 두 helper 는 deprecated 마커로 보존 (호출 site 부재) — 향후 사용자 opt-in 격리 모드 도입 시 복원 후보.
 public enum SessionSpawnEnv {
 
     /// H6: workspace 생성 시점에 capture 하는 user env snapshot.
@@ -16,9 +20,9 @@ public enum SessionSpawnEnv {
         ProcessInfo.processInfo.environment
     }
 
-    /// 세션마다 독립 `CLAUDE_CONFIG_DIR` 디렉터리를 생성하고 path 반환.
-    /// 종료된 session 의 디렉터리는 P2 에서 보존(P4 reconnect 단계에서 활용 가능).
-    /// 부팅 직후 stale 디렉터리 청소는 `cleanupStaleClaudeConfigDirs(liveSessionIds:)` 가 별도 수행.
+    /// (deprecated, P3.5 REQ-3) 세션별 격리 config 디렉터리 path 반환.
+    /// 호출 site 부재 — 사용자 opt-in 격리 모드 도입 시 복원 후보로 보존.
+    @available(*, deprecated, message: "P3.5 REQ-3: 격리 폐지. 사용자 ~/.claude 공유.")
     public static func claudeConfigDir(forSession id: UUID) throws -> String {
         let appSupport = try FileManager.default.url(
             for: .applicationSupportDirectory,
@@ -50,7 +54,9 @@ public enum SessionSpawnEnv {
         return dir.path
     }
 
-    /// 부팅 직후 1회 실행. live SessionManager.sessions 에 없고 mtime 7일 이상인 dir 삭제.
+    /// (deprecated, P3.5 REQ-3) 부팅 직후 stale 격리 config 디렉터리 청소.
+    /// 호출 site 부재. 1회용 마이그레이션은 `scripts/cleanup-legacy-claude-config-dirs.sh` 가 담당.
+    @available(*, deprecated, message: "P3.5 REQ-3: 격리 폐지. cleanup 은 1회용 스크립트로 일임.")
     public static func cleanupStaleClaudeConfigDirs(liveSessionIds: Set<UUID>) throws {
         let appSupport = try FileManager.default.url(
             for: .applicationSupportDirectory,
@@ -67,7 +73,7 @@ public enum SessionSpawnEnv {
     }
 
     /// 테스트 가능한 generic 변종 — rootDir / threshold 주입 가능.
-    /// rootDir 부재 시 silent return.
+    /// rootDir 부재 시 silent return. 1회용 cleanup 스크립트 + deprecated wrapper 가 공통 사용.
     public static func cleanupStaleConfigDirs(
         rootDir: URL,
         liveSessionIds: Set<UUID>,
@@ -89,9 +95,8 @@ public enum SessionSpawnEnv {
 
     /// workspace.envSnapshot 을 base 로 kind 별 override 를 적용한 spawn env dict 반환.
     ///
-    /// claude → `CLAUDE_CONFIG_DIR` 추가.
     /// shell  → `HISTFILE` 추가.
-    /// 둘 다 base env 위에 추가만 하며, 기존 키를 제거하지 않는다.
+    /// claude → 추가 키 없음. 사용자 base env (`~/.claude` 공유) 그대로 사용.
     public static func buildSpawnEnv(
         workspace: Workspace,
         paneId: UUID,
@@ -101,7 +106,8 @@ public enum SessionSpawnEnv {
         var env = workspace.envSnapshot
         switch kind {
         case .claude:
-            env["CLAUDE_CONFIG_DIR"] = try claudeConfigDir(forSession: sessionId)
+            // P3.5 REQ-3: 격리 폐지. 사용자 base env (~/.claude 공유) 그대로 사용.
+            break
         case .shell:
             let dir = try zshHistoryDir(workspaceId: workspace.id, paneId: paneId)
             env["HISTFILE"] = dir + "/history"

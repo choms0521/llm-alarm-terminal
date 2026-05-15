@@ -113,12 +113,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         Task { @MainActor in
             await coordinator.attachSessionsForPersistedWorkspaces()
         }
-        // M2: stale claude-config dir cleanup hook (live sessions 미매칭 + mtime 7d+).
-        // 부팅 직후 1회만 실행. 실패는 비-critical (cleanup 없이도 동작).
-        Task.detached {
-            let live: Set<UUID> = []
-            try? SessionSpawnEnv.cleanupStaleClaudeConfigDirs(liveSessionIds: live)
-        }
+        // P3.5 REQ-3: CLAUDE_CONFIG_DIR 격리 폐지. 부팅 시 stale 격리 디렉터리 청소
+        // hook 은 제거됐다. 기존 격리 디렉터리 정리는 1회용 스크립트
+        // (scripts/cleanup-legacy-claude-config-dirs.sh) 가 담당.
 
         let contentRect = NSRect(x: 0, y: 0, width: 1024, height: 640)
         let styleMask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]

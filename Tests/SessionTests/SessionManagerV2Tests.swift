@@ -71,7 +71,9 @@ final class SessionManagerV2Tests: XCTestCase {
 
     // MARK: - 2. SessionSpawnEnv
 
-    func test_buildSpawnEnv_claude_addsClaudeConfigDir_overWorkspaceEnvBase() throws {
+    /// P3.5 REQ-3: claude pane 은 base env 위에 어떤 키도 추가하지 않는다.
+    /// 사용자 ~/.claude 공유로 재로그인 문제를 해소.
+    func test_buildSpawnEnv_claude_passesWorkspaceEnvWithoutOverride() throws {
         let ws = Workspace(
             name: "ws",
             cwd: "/tmp",
@@ -84,8 +86,7 @@ final class SessionManagerV2Tests: XCTestCase {
         )
         XCTAssertEqual(env["PATH"], "/usr/bin", "workspace.envSnapshot 의 PATH 가 base 로 유지")
         XCTAssertEqual(env["LANG"], "ko_KR.UTF-8")
-        XCTAssertNotNil(env["CLAUDE_CONFIG_DIR"])
-        XCTAssertTrue(env["CLAUDE_CONFIG_DIR"]!.contains("claude-config"))
+        XCTAssertNil(env["CLAUDE_CONFIG_DIR"], "P3.5 REQ-3: 격리 폐지, override 추가 없음")
         XCTAssertNil(env["HISTFILE"])
     }
 

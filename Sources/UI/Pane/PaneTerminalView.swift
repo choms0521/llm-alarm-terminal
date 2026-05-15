@@ -11,9 +11,11 @@ import AppKit
 /// 재구성되어도 surface 가 destroy 되지 않는다. makeNSView 는 registry 에서 기존 인스턴스
 /// 를 acquire 하거나 새로 생성.
 ///
-/// 환경 변수 격리(`HISTFILE`, `CLAUDE_CONFIG_DIR`)는 `/usr/bin/env` prefix 로
-/// command line 에 직접 주입한다. libghostty 가 명령을 spawn 할 때 prefix env 가
-/// 적용된다(POSIX `env(1)` 동작).
+/// 환경 변수 격리(`HISTFILE`)는 `/usr/bin/env` prefix 로 command line 에 직접
+/// 주입한다. libghostty 가 명령을 spawn 할 때 prefix env 가 적용된다(POSIX `env(1)` 동작).
+///
+/// P3.5 REQ-3: claude pane 의 config 디렉터리 격리는 폐지됐다. 사용자 기본
+/// `~/.claude` 를 공유하므로 prefix env 없이 claude 바이너리를 직접 실행한다.
 struct PaneTerminalView: NSViewRepresentable {
     let workspace: Workspace
     let pane: Pane
@@ -49,9 +51,8 @@ struct PaneTerminalView: NSViewRepresentable {
     static func buildCommand(workspace: Workspace, pane: Pane) -> String {
         switch pane.kind {
         case .claude:
-            let configDir = (try? SessionSpawnEnv.claudeConfigDir(forSession: pane.id)) ?? ""
-            let claude = (try? resolveClaudeBinary()) ?? "claude"
-            return "/usr/bin/env CLAUDE_CONFIG_DIR=\(shellQuote(configDir)) \(claude)"
+            // P3.5 REQ-3: 사용자 ~/.claude 공유. env prefix 없이 직접 실행.
+            return (try? resolveClaudeBinary()) ?? "claude"
         case .shell:
             let dir = (try? SessionSpawnEnv.zshHistoryDir(workspaceId: workspace.id, paneId: pane.id)) ?? ""
             let histFile = dir + "/history"

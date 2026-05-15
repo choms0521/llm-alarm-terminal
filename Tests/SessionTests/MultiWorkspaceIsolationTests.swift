@@ -148,21 +148,16 @@ final class MultiWorkspaceIsolationTests: XCTestCase {
 
     // MARK: - Invariant 4: claude config dir per session
 
-    func test_invariant4_claudeConfigDir_perSession_distinct() throws {
-        let wsA_session = UUID()
-        let wsB_session = UUID()
-        let aDir = try SessionSpawnEnv.claudeConfigDir(forSession: wsA_session)
-        let bDir = try SessionSpawnEnv.claudeConfigDir(forSession: wsB_session)
-        XCTAssertNotEqual(aDir, bDir)
-        XCTAssertTrue(aDir.contains(wsA_session.uuidString))
-        XCTAssertTrue(bDir.contains(wsB_session.uuidString))
-
-        // buildSpawnEnv 도 동일하게 분리.
+    /// P3.5 REQ-3: claude config 디렉터리 격리 invariant 폐기.
+    /// 두 workspace 의 claude pane 이 동일한 사용자 ~/.claude 를 공유한다.
+    /// buildSpawnEnv 는 claude case 에서 CLAUDE_CONFIG_DIR 을 추가하지 않는다.
+    func test_invariant4_claudeConfigDir_sharedAcrossWorkspaces() throws {
         let wsA = Workspace(name: "a", cwd: "/tmp", createdAt: Date(timeIntervalSince1970: 1_700_000_000), kind: .normal, envSnapshot: [:])
         let wsB = Workspace(name: "b", cwd: "/tmp", createdAt: Date(timeIntervalSince1970: 1_700_000_001), kind: .normal, envSnapshot: [:])
-        let envA = try SessionSpawnEnv.buildSpawnEnv(workspace: wsA, paneId: UUID(), sessionId: wsA_session, kind: .claude)
-        let envB = try SessionSpawnEnv.buildSpawnEnv(workspace: wsB, paneId: UUID(), sessionId: wsB_session, kind: .claude)
-        XCTAssertNotEqual(envA["CLAUDE_CONFIG_DIR"], envB["CLAUDE_CONFIG_DIR"])
+        let envA = try SessionSpawnEnv.buildSpawnEnv(workspace: wsA, paneId: UUID(), sessionId: UUID(), kind: .claude)
+        let envB = try SessionSpawnEnv.buildSpawnEnv(workspace: wsB, paneId: UUID(), sessionId: UUID(), kind: .claude)
+        XCTAssertNil(envA["CLAUDE_CONFIG_DIR"], "REQ-3: 격리 폐지")
+        XCTAssertNil(envB["CLAUDE_CONFIG_DIR"], "REQ-3: 격리 폐지")
     }
 
     // MARK: - Invariant 5 (M3): HISTFILE per pane
