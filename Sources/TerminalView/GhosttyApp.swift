@@ -32,6 +32,19 @@ final class GhosttyApp {
     /// libghostty stays valid for the app's lifetime. Released on deinit.
     private var selfRetain: Unmanaged<GhosttyApp>?
 
+    /// Coalesces wakeup_cb → ghostty_app_tick dispatches. The I/O thread can
+    /// fire wakeup_cb hundreds of times per second during heavy PTY output
+    /// (claude streaming). Each wakeup means "main thread, please drain the
+    /// event queue". Without coalescing we would enqueue N main-queue blocks
+    /// per second; with coalescing we enqueue at most one pending tick at any
+    /// time. cmux uses the same pattern (GhosttyTerminalView.swift:1680, 3033).
+    ///
+    /// Guarded by `tickStateLock` because the flag is checked/set on the I/O
+    /// thread but cleared on main thread. NSLock keeps the critical section
+    /// trivially small.
+    private let tickStateLock = NSLock()
+    private var tickPending: Bool = false
+
     init?() {
         // Step 1: ghostty_init must be called once per process before any other
         // API. Day 2's GhostBridgeVerifier already proved this works.
@@ -62,9 +75,18 @@ final class GhosttyApp {
         var runtime_cfg = ghostty_runtime_config_s(
             userdata: retained.toOpaque(),
             supports_selection_clipboard: false,
-            wakeup_cb: { _ in
-                // Day 3: render-tick wakeup is no-op. Day 5+ will dispatch
-                // a CADisplayLink/CVDisplayLink callback here.
+            wakeup_cb: { userdata in
+                // R2 fix: libghostty's I/O thread fires wakeup_cb whenever
+                // the embedded event queue has pending work (PTY output,
+                // size updates, actions, render dispatches). Skipping it
+                // (the prior no-op) caused events to accumulate, leading
+                // to delayed/duplicated frames and the "TUI rendered twice"
+                // corruption visible after a few minutes of streaming.
+                // We hop to main and call ghostty_app_tick, coalescing
+                // multiple wakeups into one pending tick.
+                guard let userdata = userdata else { return }
+                let app = Unmanaged<GhosttyApp>.fromOpaque(userdata).takeUnretainedValue()
+                app.requestTick()
             },
             action_cb: { _, target, action in
                 // P3 Day 4: action_cb 는 libghostty 의 read/write/render thread 중
@@ -181,5 +203,27 @@ final class GhosttyApp {
     /// after surface input is delivered.
     func tick() {
         ghostty_app_tick(cValue)
+    }
+
+    /// Schedule a coalesced `ghostty_app_tick` on the main queue. Safe to call
+    /// from any thread (typically libghostty's I/O thread via wakeup_cb).
+    /// While a tick is pending, additional requests are dropped — the pending
+    /// tick will drain all queued events.
+    func requestTick() {
+        tickStateLock.lock()
+        if tickPending {
+            tickStateLock.unlock()
+            return
+        }
+        tickPending = true
+        tickStateLock.unlock()
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.tickStateLock.lock()
+            self.tickPending = false
+            self.tickStateLock.unlock()
+            ghostty_app_tick(self.cValue)
+        }
     }
 }

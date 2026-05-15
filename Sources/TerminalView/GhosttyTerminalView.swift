@@ -66,13 +66,17 @@ final class GhosttyTerminalView: NSView {
     ///     resolved `claude` path). When non-nil the surface owns the PTY.
     ///   - cwd: optional working directory for the spawned command.
     ///   - frame: initial frame for the view.
-    init(app: GhosttyApp, command: String?, cwd: String?, frame: NSRect) {
+    init(app: GhosttyApp, paneId: UUID? = nil, command: String?, cwd: String?, frame: NSRect) {
         self.ghosttyApp = app
+        self.paneId = paneId
         super.init(frame: frame)
 
         self.wantsLayer = true
         self.layerContentsRedrawPolicy = .duringViewResize
         self.translatesAutoresizingMaskIntoConstraints = false
+
+        let viewPtr = Unmanaged.passUnretained(self).toOpaque()
+        Self.logger.info("[R2-DIAG] init paneId=\(paneId?.uuidString.prefix(8) ?? "nil", privacy: .public) viewPtr=\(String(describing: viewPtr), privacy: .public) command=\(command ?? "<nil>", privacy: .public)")
 
         createSurface(command: command, cwd: cwd)
     }
@@ -82,6 +86,8 @@ final class GhosttyTerminalView: NSView {
     }
 
     deinit {
+        let viewPtr = Unmanaged.passUnretained(self).toOpaque()
+        Self.logger.info("[R2-DIAG] deinit paneId=\(self.paneId?.uuidString.prefix(8) ?? "nil", privacy: .public) viewPtr=\(String(describing: viewPtr), privacy: .public) surface=\(String(describing: self.surface), privacy: .public)")
         if let s = surface {
             ghostty_surface_free(s)
         }
@@ -139,7 +145,8 @@ final class GhosttyTerminalView: NSView {
             return
         }
         self.surface = s
-        Self.logger.debug("ghostty_surface_new succeeded command=\(command ?? "<nil>", privacy: .public)")
+        let viewPtr = Unmanaged.passUnretained(self).toOpaque()
+        Self.logger.info("[R2-DIAG] surface_new paneId=\(self.paneId?.uuidString.prefix(8) ?? "nil", privacy: .public) viewPtr=\(String(describing: viewPtr), privacy: .public) surface=\(String(describing: s), privacy: .public)")
     }
 
     /// Replace the active surface with one running the new command. Used by
@@ -156,39 +163,133 @@ final class GhosttyTerminalView: NSView {
         createSurface(command: command, cwd: cwd)
         // Re-apply the current bounds so the new surface receives a correct
         // initial size (libghostty surfaces default to 80x24 cells otherwise).
-        applySurfaceSize()
+        applySurfaceSize(for: bounds.size)
     }
 
     // MARK: - Resize
+    //
+    // R2 fix (cmux 정도): SwiftUI NSViewRepresentable routes size changes via
+    // `layout()` (not `setFrameSize`). cmux's `GhosttyTerminalView.swift`
+    // hooks both `layout()` and `viewDidChangeBackingProperties` and applies
+    // FOUR things in one atomic pass:
+    //   ① layer.contentsScale            — AppKit pixel scale
+    //   ② metalLayer.drawableSize        — Metal framebuffer pixel size
+    //   ③ ghostty_surface_set_content_scale — libghostty cell-pixel calibration
+    //   ④ ghostty_surface_set_size       — libghostty grid + PTY winsize
+    //
+    // Missing ② caused the Metal drawable to lag bounds → visible corruption.
+    // Missing ③ caused libghostty's cell measurement to drift from layer
+    // pixels → cursor escapes (ESC[r;cH) landed at wrong cells → claude TUI
+    // box drawing fragmented + stale cells retained.
+    //
+    // Dedup gates (`lastAppliedSize`, `lastContentScale`, `lastDrawableSize`)
+    // prevent SIGWINCH storms during `layout()` invalidation churn.
+
+    private var lastAppliedSize: CGSize?
+    private var lastContentScale: CGFloat?
+    private var lastDrawableSize: CGSize?
+
+    /// Pixel dimensions whose `ghostty_surface_set_size` was deferred because
+    /// AppKit was in live resize. Flushed by `viewDidEndLiveResize`. Storing
+    /// only the final pending size (overwritten on each layout pass) means
+    /// claude receives at most one SIGWINCH per resize gesture instead of
+    /// hundreds — preventing duplicated alt-screen redraws that previously
+    /// littered the primary screen scrollback as W₁-wrap + W₂-wrap artifacts.
+    private var pendingPixelSize: (UInt32, UInt32)?
 
     override func layout() {
         super.layout()
-        applySurfaceSize()
+        applySurfaceSize(for: bounds.size)
+    }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        applySurfaceSize(for: newSize)
     }
 
     override func viewDidEndLiveResize() {
         super.viewDidEndLiveResize()
-        applySurfaceSize()
+        flushPendingResizeIfAny()
     }
 
     override func viewDidChangeBackingProperties() {
         super.viewDidChangeBackingProperties()
-        if let metalLayer = self.layer as? CAMetalLayer {
-            metalLayer.contentsScale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
-        }
-        applySurfaceSize()
+        // Backing scale change invalidates pixel mapping; force a re-apply.
+        lastAppliedSize = nil
+        lastContentScale = nil
+        lastDrawableSize = nil
+        applySurfaceSize(for: bounds.size)
     }
 
-    private func applySurfaceSize() {
+    /// Apply the final size saved during live resize. Called when AppKit
+    /// finishes its live-resize gesture so claude only sees one SIGWINCH.
+    private func flushPendingResizeIfAny() {
         guard let surface = surface else { return }
-        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
-        let pixelWidth = UInt32(max(1, bounds.width * scale))
-        let pixelHeight = UInt32(max(1, bounds.height * scale))
-        // libghostty's set_size expects pixels for the macOS apprt. When the
-        // surface owns its own PTY (Day 5b model), libghostty propagates the
-        // new size to its internal PTY via TIOCSWINSZ — verified on Day 6 via
-        // `tput cols`/`tput lines` reflecting window resizes.
-        ghostty_surface_set_size(surface, pixelWidth, pixelHeight)
+        guard let pending = pendingPixelSize else { return }
+        pendingPixelSize = nil
+        Self.logger.info("[R2-DIAG] set_size FLUSH (post-live) paneId=\(self.paneId?.uuidString.prefix(8) ?? "nil", privacy: .public) px=\(pending.0, privacy: .public)x\(pending.1, privacy: .public)")
+        ghostty_surface_set_size(surface, pending.0, pending.1)
+    }
+
+    private func applySurfaceSize(for size: CGSize) {
+        guard let surface = surface else {
+            Self.logger.info("[R2-DIAG] applySurfaceSize SKIP (no surface) paneId=\(self.paneId?.uuidString.prefix(8) ?? "nil", privacy: .public)")
+            return
+        }
+        // Dedup gate: skip when size has not actually changed.
+        if let last = lastAppliedSize, last == size {
+            return
+        }
+        guard size.width > 0, size.height > 0 else { return }
+        lastAppliedSize = size
+
+        // Pixel conversion — vendor cmux pattern (GhosttyTerminalView.swift:6653).
+        let layerScale = max(1.0, window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0)
+        let backing: CGSize
+        if window != nil {
+            backing = convertToBacking(NSRect(origin: .zero, size: size)).size
+        } else {
+            backing = CGSize(width: size.width * layerScale, height: size.height * layerScale)
+        }
+        guard backing.width > 0, backing.height > 0 else { return }
+
+        let xScale = backing.width / max(1, size.width)
+        let yScale = backing.height / max(1, size.height)
+        let drawable = CGSize(width: floor(backing.width), height: floor(backing.height))
+
+        // ① + ② Layer/drawable pixel sync — atomic, no implicit animation.
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        self.layer?.contentsScale = layerScale
+        if let metal = self.layer as? CAMetalLayer {
+            if lastDrawableSize != drawable || metal.drawableSize != drawable {
+                metal.drawableSize = drawable
+                lastDrawableSize = drawable
+            }
+        }
+        CATransaction.commit()
+
+        // ③ libghostty cell-pixel calibration — only on scale change.
+        if lastContentScale != layerScale {
+            ghostty_surface_set_content_scale(surface, xScale, yScale)
+            lastContentScale = layerScale
+        }
+
+        // ④ libghostty grid + PTY winsize.
+        let wpx = UInt32(max(1, drawable.width))
+        let hpx = UInt32(max(1, drawable.height))
+        let live = self.inLiveResize || (self.window?.inLiveResize == true)
+        if live {
+            // Defer to viewDidEndLiveResize. Layer + drawableSize already
+            // updated above so the visible rendering remains smooth during
+            // drag; only the PTY-bound size is held back.
+            pendingPixelSize = (wpx, hpx)
+            Self.logger.info("[R2-DIAG] set_size DEFER (live) paneId=\(self.paneId?.uuidString.prefix(8) ?? "nil", privacy: .public) px=\(wpx, privacy: .public)x\(hpx, privacy: .public)")
+            return
+        }
+        pendingPixelSize = nil
+        Self.logger.info("[R2-DIAG] set_size paneId=\(self.paneId?.uuidString.prefix(8) ?? "nil", privacy: .public) size=\(size.width, privacy: .public)x\(size.height, privacy: .public) px=\(wpx, privacy: .public)x\(hpx, privacy: .public) scale=\(layerScale, privacy: .public)")
+        ghostty_surface_set_size(surface, wpx, hpx)
     }
 
     // MARK: - Tracking area (mouse moved/entered/exited)

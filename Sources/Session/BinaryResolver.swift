@@ -39,6 +39,15 @@ public func resolveClaudeBinary() throws -> String {
 /// Lists candidate absolute paths for the `claude` binary without verifying
 /// them. Exposed for unit tests; production callers should use
 /// `resolveClaudeBinary()` which combines enumeration + verification.
+///
+/// P3.5 Day 1 fix: when launched from Xcode (or Finder), the macOS GUI app
+/// PATH is restricted to `/usr/bin:/bin:...` and skips the user's shell PATH
+/// additions (`~/.local/bin`, `/opt/homebrew/bin`, custom installs in
+/// `/Applications/cmux.app/...`, etc). To handle this we also enumerate:
+/// 1. Common user-local install paths.
+/// 2. The login-shell PATH (`/bin/zsh -lic 'echo $PATH'`) which evaluates
+///    `~/.zprofile` / `~/.zshrc` / homebrew shellenv. Cached so we only pay
+///    the shell spawn cost once per process.
 public func enumerateClaudeCandidates(searched: inout [String]) -> [String] {
     var seen: Set<String> = []
     var result: [String] = []
@@ -53,13 +62,72 @@ public func enumerateClaudeCandidates(searched: inout [String]) -> [String] {
         }
     }
 
+    // 1) Process PATH (GUI-restricted on Xcode launches but still useful when
+    //    the app is opened from a terminal that exported its full env).
     let pathVar = ProcessInfo.processInfo.environment["PATH"] ?? ""
     for dir in pathVar.split(separator: ":", omittingEmptySubsequences: true) {
         consider("\(dir)/claude")
     }
+
+    // 2) Login-shell PATH — covers `~/.zprofile`, brew shellenv, cmux installs.
+    if let loginShellPath = readLoginShellPath() {
+        for dir in loginShellPath.split(separator: ":", omittingEmptySubsequences: true) {
+            consider("\(dir)/claude")
+        }
+    }
+
+    // 3) Common absolute fallbacks that may not appear in either PATH listing.
+    let home = NSHomeDirectory()
+    consider("\(home)/.local/bin/claude")
+    consider("\(home)/.bin/claude")
     consider("/opt/homebrew/bin/claude")
     consider("/usr/local/bin/claude")
+    consider("/Applications/cmux.app/Contents/Resources/bin/claude")
     return result
+}
+
+/// Cached login-shell PATH. nil until `readLoginShellPath` runs the first
+/// time; sentinel empty string after a failed lookup to avoid retry storms.
+private var cachedLoginShellPath: String?
+private var loginShellPathLookupTried = false
+
+/// Spawn `/bin/zsh -lic 'echo $PATH'` to recover the user's interactive
+/// login PATH. Result is cached for the process lifetime.
+private func readLoginShellPath() -> String? {
+    if loginShellPathLookupTried { return cachedLoginShellPath }
+    loginShellPathLookupTried = true
+
+    let shellPath = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: shellPath)
+    process.arguments = ["-lic", "echo $PATH"]
+    let pipe = Pipe()
+    process.standardOutput = pipe
+    process.standardError = Pipe()
+
+    do {
+        try process.run()
+    } catch {
+        return nil
+    }
+
+    let deadline = Date().addingTimeInterval(2.0)
+    while process.isRunning && Date() < deadline {
+        usleep(20_000)
+    }
+    if process.isRunning {
+        process.terminate()
+        usleep(200_000)
+        if process.isRunning { kill(process.processIdentifier, SIGKILL) }
+        return nil
+    }
+    guard process.terminationStatus == 0 else { return nil }
+
+    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+    guard let text = String(data: data, encoding: .utf8) else { return nil }
+    let path = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    cachedLoginShellPath = path.isEmpty ? nil : path
+    return cachedLoginShellPath
 }
 
 /// Runs `path --version` with a 2-second hard timeout. Returns true iff the

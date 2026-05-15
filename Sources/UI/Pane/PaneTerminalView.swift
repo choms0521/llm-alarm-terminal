@@ -1,5 +1,10 @@
 import SwiftUI
 import AppKit
+import os
+
+extension Logger {
+    static let r2 = Logger(subsystem: "com.choms0521.ClaudeAlarmTerminal", category: "R2-DIAG")
+}
 
 /// libghostty surface 를 하나 호스팅하는 NSViewRepresentable.
 ///
@@ -30,10 +35,14 @@ struct PaneTerminalView: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSView {
-        registry.acquire(paneId: pane.id) {
+        let pid = pane.id
+        let wid = workspace.id
+        return registry.acquire(paneId: pid) {
             let command = Self.buildCommand(workspace: workspace, pane: pane)
+            Logger.r2.info("[R2-DIAG] PaneTerminalView.factory wsId=\(wid.uuidString.prefix(8), privacy: .public) paneId=\(pid.uuidString.prefix(8), privacy: .public) kind=\(String(describing: pane.kind), privacy: .public)")
             return GhosttyTerminalView(
                 app: ghosttyApp,
+                paneId: pid,
                 command: command,
                 cwd: workspace.cwd,
                 frame: .zero
@@ -48,11 +57,22 @@ struct PaneTerminalView: NSViewRepresentable {
 
     /// kind 별 env 격리 prefix + 실제 실행 binary 를 합성한 command 문자열.
     /// 형태: `/usr/bin/env KEY=VAL /bin/zsh -l` (POSIX env(1) 호환).
+    ///
+    /// R2 fix: claude pane 도 login+interactive shell 을 거쳐 spawn 한다.
+    /// 이유 — 장군님 환경의 `node` 가 fnm 으로 관리되어 shell init 시점에만
+    /// PATH 가 set 됨. claude 의 hook (SessionStart/PreToolUse/PostToolUse 등)
+    /// 이 `node ./hook.mjs` 를 spawn 할 때 PATH 에 node 가 없으면
+    /// "node: command not found" 가 매 prompt 마다 발생하여 hook stderr
+    /// 가 TUI 화면을 침범 + cursor positioning 충돌 → 화면 corruption.
+    /// `zsh -lic 'exec claude'` 가 .zprofile + .zshrc 를 모두 source 해
+    /// fnm/nvm/asdf 류 모든 shell-managed 런타임을 정상 init 한 뒤 claude
+    /// 가 zsh 를 대체한다.
     static func buildCommand(workspace: Workspace, pane: Pane) -> String {
         switch pane.kind {
         case .claude:
-            // P3.5 REQ-3: 사용자 ~/.claude 공유. env prefix 없이 직접 실행.
-            return (try? resolveClaudeBinary()) ?? "claude"
+            let claudePath = (try? resolveClaudeBinary()) ?? "claude"
+            let shell = workspace.envSnapshot["SHELL"] ?? "/bin/zsh"
+            return "\(shell) -lic 'exec \(shellQuote(claudePath))'"
         case .shell:
             let dir = (try? SessionSpawnEnv.zshHistoryDir(workspaceId: workspace.id, paneId: pane.id)) ?? ""
             let histFile = dir + "/history"
