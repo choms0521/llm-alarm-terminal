@@ -44,11 +44,12 @@ final class ViewportPollingTimerTests: XCTestCase {
             let pId = UUID()
             sessionIds.append(sId)
             paneIds.append(pId)
+            let tab = Tab(sessionId: sId, kind: .shell, name: Tab.defaultName(for: .shell))
             panes.append(Pane(
                 id: pId,
-                sessionId: sId,
-                kind: .shell,
-                position: i % 2 == 0 ? .top : .bottom
+                position: i % 2 == 0 ? .left : .right,
+                tabs: [tab],
+                activeTabId: tab.id
             ))
             observer.register(sessionId: sId, kind: .shell, at: baseDate)
         }

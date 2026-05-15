@@ -72,7 +72,11 @@ public final class AgentDashboardViewModel: ObservableObject {
         for entry in sessionIndex.entries {
             guard let snap = snapshots[entry.sessionId] else { continue }
             guard let ws = workspaces.first(where: { $0.id == entry.workspaceId }) else { continue }
-            let paneKind = ws.panes.first(where: { $0.id == entry.paneId })?.kind ?? .shell
+            // P3.5 schema v2: pane 의 tab 중 entry.sessionId 와 일치하는 tab.kind 를 사용.
+            let paneKind: PaneKind = ws.panes
+                .first(where: { $0.id == entry.paneId })?
+                .tabs.first(where: { $0.sessionId == entry.sessionId })?
+                .kind ?? .shell
 
             switch filter {
             case .all: break

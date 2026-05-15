@@ -70,7 +70,7 @@ public enum WorkspaceStoreError: Error, CustomStringConvertible, Equatable {
 /// `workspaces.json.tmp`(write-in-progress) / `workspaces.json.bak`(직전 정상본).
 /// `load()` 진입부에서 stale `.tmp` 정리와 `.bak` 복구를 수행한다.
 public final class WorkspaceStore {
-    public static let currentSchemaVersion: Int = 1
+    public static let currentSchemaVersion: Int = 2
 
     public let fileURL: URL
 

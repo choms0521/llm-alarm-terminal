@@ -51,11 +51,12 @@ final class AgentJumpActionTests: XCTestCase {
                 let pId = UUID()
                 sessionIds.append(sId)
                 paneIds.append(pId)
+                let tab = Tab(sessionId: sId, kind: .shell, name: Tab.defaultName(for: .shell))
                 panes.append(Pane(
                     id: pId,
-                    sessionId: sId,
-                    kind: .shell,
-                    position: pIdx == 0 ? .top : .bottom
+                    position: pIdx == 0 ? .left : .right,
+                    tabs: [tab],
+                    activeTabId: tab.id
                 ))
             }
             normalWorkspaces.append(Workspace(

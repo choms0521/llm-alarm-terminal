@@ -21,11 +21,12 @@ final class SessionIndexTests: XCTestCase {
                 let pId = UUID()
                 sessionIds.append(sId)
                 paneIds.append(pId)
+                let tab = Tab(sessionId: sId, kind: .shell, name: Tab.defaultName(for: .shell))
                 panes.append(Pane(
                     id: pId,
-                    sessionId: sId,
-                    kind: .shell,
-                    position: pIdx == 0 ? .top : .bottom
+                    position: pIdx == 0 ? .left : .right,
+                    tabs: [tab],
+                    activeTabId: tab.id
                 ))
             }
             workspaces.append(Workspace(
@@ -81,11 +82,13 @@ final class SessionIndexTests: XCTestCase {
         XCTAssertNil(index.locate(sessionId: UUID()))
     }
 
-    // MARK: - 5. pane.sessionId nil 제외
+    // MARK: - 5. tab.sessionId nil 제외 (P3.5 schema v2)
 
     func test_paneWithNilSessionId_excludedFromIndex() {
-        let pNil = Pane(sessionId: nil, kind: .claude, position: .top)
-        let pHas = Pane(sessionId: UUID(), kind: .shell, position: .bottom)
+        let tabNil = Tab(sessionId: nil, kind: .claude, name: "Claude")
+        let tabHas = Tab(sessionId: UUID(), kind: .shell, name: "셸")
+        let pNil = Pane(position: .left, tabs: [tabNil], activeTabId: tabNil.id)
+        let pHas = Pane(position: .right, tabs: [tabHas], activeTabId: tabHas.id)
         let ws = Workspace(
             name: "ws",
             cwd: "/tmp",
@@ -95,7 +98,7 @@ final class SessionIndexTests: XCTestCase {
         )
         let index = SessionIndex(workspaces: [ws])
         XCTAssertEqual(index.size, 1)
-        XCTAssertNotNil(index.locate(sessionId: pHas.sessionId!))
+        XCTAssertNotNil(index.locate(sessionId: tabHas.sessionId!))
     }
 
     // MARK: - 6. workspace 가 비어 있는 경우 (panes == [])

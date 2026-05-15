@@ -86,7 +86,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 guard let mgr = self?.workspaceManager else { return nil }
                 for ws in mgr.workspaces {
                     if let pane = ws.panes.first(where: { $0.id == paneId }) {
-                        return pane.sessionId
+                        // P3.5 schema v2: pane 의 active tab 의 sessionId 사용.
+                        return pane.activeTab?.sessionId
                     }
                 }
                 return nil

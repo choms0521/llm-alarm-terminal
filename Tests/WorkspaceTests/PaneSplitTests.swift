@@ -16,7 +16,7 @@ final class PaneSplitTests: XCTestCase {
     func test_canSplit_normalWorkspace_twoPanes_false() throws {
         let manager = try freshManager()
         let ws = manager.addWorkspace(cwd: "/tmp/b", name: "b")
-        manager.addPane(workspaceId: ws.id, kind: .claude)  // .bottom 으로 자동 할당
+        manager.addPane(workspaceId: ws.id, kind: .claude)  // .right 으로 자동 할당
         // 두 pane 확보 후 canSplit == false (3rd block)
         XCTAssertFalse(manager.canSplit(workspaceId: ws.id))
     }
@@ -32,9 +32,9 @@ final class PaneSplitTests: XCTestCase {
 
     // MARK: - addPane
 
-    func test_addPane_firstPane_assignedTop() throws {
+    func test_addPane_firstPane_assignedLeft() throws {
         let manager = try freshManager()
-        // addWorkspace 가 자동 생성하는 기본 .top shell pane 을 제거해 빈 워크스페이스 상태 확보.
+        // addWorkspace 가 자동 생성하는 기본 .left shell pane 을 제거해 빈 워크스페이스 상태 확보.
         let ws = manager.addWorkspace(cwd: "/tmp/empty", name: "empty")
         guard let defaultPaneId = ws.panes.first?.id else {
             XCTFail("기본 pane 부재"); return
@@ -45,18 +45,18 @@ final class PaneSplitTests: XCTestCase {
 
         let updated = manager.workspaces.first(where: { $0.id == ws.id })
         XCTAssertEqual(updated?.panes.count, 1)
-        XCTAssertEqual(updated?.panes.first?.position, .top,
-                       "첫 pane 은 자동으로 .top 위치 할당")
+        XCTAssertEqual(updated?.panes.first?.position, .left,
+                       "첫 pane 은 자동으로 .left 위치 할당")
     }
 
-    func test_addPane_secondPane_assignedBottom() throws {
+    func test_addPane_secondPane_assignedRight() throws {
         let manager = try freshManager()
-        let ws = manager.addWorkspace(cwd: "/tmp/c", name: "c")  // 기본 .top shell pane 1개
+        let ws = manager.addWorkspace(cwd: "/tmp/c", name: "c")  // 기본 .left shell pane 1개
         manager.addPane(workspaceId: ws.id, kind: .claude)
 
         let updated = manager.workspaces.first(where: { $0.id == ws.id })
         XCTAssertEqual(updated?.panes.count, 2)
-        XCTAssertEqual(updated?.panes.first(where: { $0.position == .bottom })?.kind, .claude)
+        XCTAssertEqual(updated?.panes.first(where: { $0.position == .right })?.activeTab?.kind, .claude)
     }
 
     func test_addPane_thirdPane_rejected() throws {
@@ -83,20 +83,20 @@ final class PaneSplitTests: XCTestCase {
 
     // MARK: - removePane
 
-    func test_removePane_topRemoval_promotesBottomToTop() throws {
+    func test_removePane_leftRemoval_promotesRightToLeft() throws {
         let manager = try freshManager()
         let ws = manager.addWorkspace(cwd: "/tmp/e", name: "e")
-        manager.addPane(workspaceId: ws.id, kind: .claude)  // .bottom
+        manager.addPane(workspaceId: ws.id, kind: .claude)  // .right
         let updated1 = manager.workspaces.first(where: { $0.id == ws.id })!
-        let topId = updated1.panes.first(where: { $0.position == .top })!.id
+        let leftId = updated1.panes.first(where: { $0.position == .left })!.id
 
-        manager.removePane(workspaceId: ws.id, paneId: topId)
+        manager.removePane(workspaceId: ws.id, paneId: leftId)
 
         let updated2 = manager.workspaces.first(where: { $0.id == ws.id })!
         XCTAssertEqual(updated2.panes.count, 1)
-        XCTAssertEqual(updated2.panes.first?.position, .top,
-                       "남은 pane(.bottom) 이 .top 으로 승격")
-        XCTAssertEqual(updated2.panes.first?.kind, .claude)
+        XCTAssertEqual(updated2.panes.first?.position, .left,
+                       "남은 pane(.right) 이 .left 으로 승격")
+        XCTAssertEqual(updated2.panes.first?.activeTab?.kind, .claude)
     }
 
     // MARK: - MED3 ADR-I grep invariant

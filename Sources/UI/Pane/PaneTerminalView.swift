@@ -39,7 +39,8 @@ struct PaneTerminalView: NSViewRepresentable {
         let wid = workspace.id
         return registry.acquire(paneId: pid) {
             let command = Self.buildCommand(workspace: workspace, pane: pane)
-            Logger.r2.info("[R2-DIAG] PaneTerminalView.factory wsId=\(wid.uuidString.prefix(8), privacy: .public) paneId=\(pid.uuidString.prefix(8), privacy: .public) kind=\(String(describing: pane.kind), privacy: .public)")
+            let kindDesc = pane.activeTab.map { String(describing: $0.kind) } ?? "no-active-tab"
+            Logger.r2.info("[R2-DIAG] PaneTerminalView.factory wsId=\(wid.uuidString.prefix(8), privacy: .public) paneId=\(pid.uuidString.prefix(8), privacy: .public) kind=\(kindDesc, privacy: .public)")
             return GhosttyTerminalView(
                 app: ghosttyApp,
                 paneId: pid,
@@ -68,7 +69,10 @@ struct PaneTerminalView: NSViewRepresentable {
     /// fnm/nvm/asdf 류 모든 shell-managed 런타임을 정상 init 한 뒤 claude
     /// 가 zsh 를 대체한다.
     static func buildCommand(workspace: Workspace, pane: Pane) -> String {
-        switch pane.kind {
+        // P3.5 schema v2: pane 의 active tab 의 kind 로 command 결정.
+        // active tab 이 없는 비정상 상태에서는 shell fallback (UI 가 빈 화면으로 죽지 않도록).
+        let kind = pane.activeTab?.kind ?? .shell
+        switch kind {
         case .claude:
             let claudePath = (try? resolveClaudeBinary()) ?? "claude"
             let shell = workspace.envSnapshot["SHELL"] ?? "/bin/zsh"

@@ -67,10 +67,16 @@ public final class WorkspaceManager: ObservableObject {
     }
 
     /// 새 normal workspace 를 추가하고 선택. envSnapshot 은 호출 시점 user env 를 캡처 (H6).
-    /// 기본으로 shell pane 1개(`position: .top`)를 같이 생성한다(Day 4 acceptance: 선택 시 단일 pane 표시).
+    /// 기본으로 shell pane 1개(`position: .left`)를 같이 생성한다(Day 4 acceptance: 선택 시 단일 pane 표시).
+    /// pane 안에는 단일 shell Tab 1개가 들어가며 activeTabId 는 그 tab.
     @discardableResult
     public func addWorkspace(cwd: String, name: String) -> Workspace {
-        let defaultPane = Pane(kind: .shell, position: .top)
+        let defaultTab = Tab(kind: .shell, name: Tab.defaultName(for: .shell))
+        let defaultPane = Pane(
+            position: .left,
+            tabs: [defaultTab],
+            activeTabId: defaultTab.id
+        )
         let ws = Workspace(
             name: name,
             cwd: cwd,
@@ -85,8 +91,9 @@ public final class WorkspaceManager: ObservableObject {
     }
 
     /// workspace 에 새 pane 추가. panes.count >= 2 면 무시(invariant: pane 최대 2개).
-    /// position 미지정 시 첫 pane 은 `.top`, 두 번째는 `.bottom` 으로 자동 할당.
-    /// 추가된 Pane 을 반환하거나, 거부 시 nil 반환 (호출부가 후속 작업 분기 가능).
+    /// position 미지정 시 첫 pane 은 `.left`, 두 번째는 `.right` 으로 자동 할당.
+    /// pane 안에는 인자 kind 의 단일 Tab 1개가 자동 생성된다(Day 3 에서 멀티탭 API 확장 예정).
+    /// 추가된 Pane 을 반환하거나, 거부 시 nil 반환.
     @discardableResult
     public func addPane(workspaceId: UUID, kind: PaneKind, position: PanePosition? = nil) -> Pane? {
         guard let idx = workspaces.firstIndex(where: { $0.id == workspaceId }) else { return nil }
@@ -103,48 +110,60 @@ public final class WorkspaceManager: ObservableObject {
         if let position = position {
             pos = position
         } else {
-            pos = current.panes.isEmpty ? .top : .bottom
+            pos = current.panes.isEmpty ? .left : .right
         }
         guard !current.panes.contains(where: { $0.position == pos }) else {
             KoreanLogger.warn("이미 \(pos.rawValue) 위치에 pane 이 존재합니다.")
             return nil
         }
-        let pane = Pane(kind: kind, position: pos)
+        let tab = Tab(kind: kind, name: Tab.defaultName(for: kind))
+        let pane = Pane(
+            position: pos,
+            tabs: [tab],
+            activeTabId: tab.id
+        )
         workspaces[idx] = current.with(panes: current.panes + [pane])
         persistCurrent()
         return pane
     }
 
-    /// 특정 pane 에 session id 를 부착(또는 clear). lifecycle coordinator 가 호출한다.
+    /// 특정 pane 의 active tab 에 session id 를 부착(또는 clear). lifecycle coordinator 가 호출한다.
+    /// Day 2 transitional: Day 3 의 멀티탭 API 가 들어오기 전까지는 pane 당 1개 tab 가정.
     public func assignSession(workspaceId: UUID, paneId: UUID, sessionId: UUID?) {
         guard let wsIdx = workspaces.firstIndex(where: { $0.id == workspaceId }) else { return }
         let ws = workspaces[wsIdx]
         guard let paneIdx = ws.panes.firstIndex(where: { $0.id == paneId }) else { return }
-        let updated = ws.panes[paneIdx].with(sessionId: .some(sessionId))
+        let pane = ws.panes[paneIdx]
+        let targetTabId = pane.activeTabId ?? pane.tabs.first?.id
+        guard let targetTabId = targetTabId,
+              let tabIdx = pane.tabs.firstIndex(where: { $0.id == targetTabId }) else { return }
+        var newTabs = pane.tabs
+        newTabs[tabIdx] = pane.tabs[tabIdx].with(sessionId: .some(sessionId))
+        let newPane = pane.with(tabs: newTabs)
         var newPanes = ws.panes
-        newPanes[paneIdx] = updated
+        newPanes[paneIdx] = newPane
         workspaces[wsIdx] = ws.with(panes: newPanes)
         persistCurrent()
     }
 
-    /// pane 제거. 첫 번째 pane(.top) 제거 시 두 번째 pane(.bottom) 이 `.top` 으로 승격.
+    /// pane 제거. 첫 번째 pane(.left) 제거 시 두 번째 pane(.right) 이 `.left` 으로 승격.
     public func removePane(workspaceId: UUID, paneId: UUID) {
         guard let idx = workspaces.firstIndex(where: { $0.id == workspaceId }) else { return }
         let current = workspaces[idx]
         var newPanes = current.panes
         guard let paneIdx = newPanes.firstIndex(where: { $0.id == paneId }) else { return }
         let removed = newPanes.remove(at: paneIdx)
-        // 첫 pane(.top) 이 제거되었고 .bottom 이 남아있으면 .top 으로 승격.
-        if removed.position == .top,
-           let bottomIdx = newPanes.firstIndex(where: { $0.position == .bottom }) {
-            let bottom = newPanes[bottomIdx]
-            newPanes[bottomIdx] = Pane(
-                id: bottom.id,
-                sessionId: bottom.sessionId,
-                kind: bottom.kind,
-                position: .top,
-                chatRoomId: bottom.chatRoomId,
-                extraFields: bottom.extraFields
+        // 첫 pane(.left) 이 제거되었고 .right 이 남아있으면 .left 으로 승격.
+        if removed.position == .left,
+           let rightIdx = newPanes.firstIndex(where: { $0.position == .right }) {
+            let rightPane = newPanes[rightIdx]
+            newPanes[rightIdx] = Pane(
+                id: rightPane.id,
+                position: .left,
+                tabs: rightPane.tabs,
+                activeTabId: rightPane.activeTabId,
+                chatRoomId: rightPane.chatRoomId,
+                extraFields: rightPane.extraFields
             )
         }
         workspaces[idx] = current.with(panes: newPanes)

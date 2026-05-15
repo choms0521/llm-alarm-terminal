@@ -27,14 +27,17 @@ public struct SessionIndex: Sendable, Equatable {
         var entries: [SessionIndexEntry] = []
         for workspace in workspaces {
             for pane in workspace.panes {
-                guard let sessionId = pane.sessionId else { continue }
-                let entry = SessionIndexEntry(
-                    sessionId: sessionId,
-                    workspaceId: workspace.id,
-                    paneId: pane.id
-                )
-                table[sessionId] = entry
-                entries.append(entry)
+                // P3.5 schema v2: pane 의 모든 tab 의 sessionId 를 색인.
+                for tab in pane.tabs {
+                    guard let sessionId = tab.sessionId else { continue }
+                    let entry = SessionIndexEntry(
+                        sessionId: sessionId,
+                        workspaceId: workspace.id,
+                        paneId: pane.id
+                    )
+                    table[sessionId] = entry
+                    entries.append(entry)
+                }
             }
         }
         self.table = table
@@ -49,6 +52,6 @@ public struct SessionIndex: Sendable, Equatable {
     /// 등록된 entry 의 개수. 시나리오 C (>20 세션 위반) 의 detect 신호.
     public var size: Int { entries.count }
 
-    /// 모든 entry 가 비어 있는지(workspace 가 비었거나 모든 pane.sessionId 가 nil).
+    /// 모든 entry 가 비어 있는지(workspace 가 비었거나 모든 tab.sessionId 가 nil).
     public var isEmpty: Bool { entries.isEmpty }
 }

@@ -55,8 +55,8 @@ final class RestartPersistenceTests: XCTestCase {
 
         XCTAssertNotNil(restored)
         XCTAssertEqual(restored?.panes.count, 1)
-        XCTAssertEqual(restored?.panes.first?.sessionId, fakeSessionId,
-                       "pane.sessionId 가 영속화 (orphan 형태로 보존 — Day 1 결정)")
+        XCTAssertEqual(restored?.panes.first?.activeTab?.sessionId, fakeSessionId,
+                       "pane.activeTab.sessionId 가 영속화 (orphan 형태로 보존 — P3.5 schema v2)")
         // SessionManager 입장에서는 해당 sessionId 가 존재하지 않음 — UI 가 'session 없음' 으로 처리.
     }
 

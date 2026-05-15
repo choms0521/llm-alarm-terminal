@@ -27,16 +27,18 @@ final class SchemaCodecTests: XCTestCase {
         XCTAssertEqual(restored.envSnapshot["LANG"], "ko_KR.UTF-8")
     }
 
-    func test_roundTrip_twoPanesTopBottom_preservesOrderAndPosition() throws {
-        let top = Pane(kind: .claude, position: .top)
-        let bottom = Pane(kind: .shell, position: .bottom)
-        let ws = Workspace(name: "양분할", cwd: "/work", panes: [top, bottom], kind: .normal)
+    func test_roundTrip_twoPanesLeftRight_preservesOrderAndPosition() throws {
+        let leftTab = Tab(kind: .claude, name: "Claude")
+        let rightTab = Tab(kind: .shell, name: "셸")
+        let left = Pane(position: .left, tabs: [leftTab], activeTabId: leftTab.id)
+        let right = Pane(position: .right, tabs: [rightTab], activeTabId: rightTab.id)
+        let ws = Workspace(name: "양분할", cwd: "/work", panes: [left, right], kind: .normal)
         let restored = try roundTrip(ws)
         XCTAssertEqual(restored.panes.count, 2)
-        XCTAssertEqual(restored.panes[0].position, .top)
-        XCTAssertEqual(restored.panes[0].kind, .claude)
-        XCTAssertEqual(restored.panes[1].position, .bottom)
-        XCTAssertEqual(restored.panes[1].kind, .shell)
+        XCTAssertEqual(restored.panes[0].position, .left)
+        XCTAssertEqual(restored.panes[0].activeTab?.kind, .claude)
+        XCTAssertEqual(restored.panes[1].position, .right)
+        XCTAssertEqual(restored.panes[1].activeTab?.kind, .shell)
     }
 
     func test_roundTrip_agentView_emptyCwdAndPanes() throws {
@@ -64,7 +66,8 @@ final class SchemaCodecTests: XCTestCase {
     }
 
     func test_reservedField_chatRoomId_onPane_preserved() throws {
-        let pane = Pane(kind: .claude, position: .top, chatRoomId: "room-uuid-1234")
+        let tab = Tab(kind: .claude, name: "Claude")
+        let pane = Pane(position: .left, tabs: [tab], activeTabId: tab.id, chatRoomId: "room-uuid-1234")
         let ws = Workspace(name: "p9", cwd: "/tmp", panes: [pane], kind: .normal)
         let restored = try roundTrip(ws)
         XCTAssertEqual(restored.panes.first?.chatRoomId, "room-uuid-1234")
@@ -116,12 +119,13 @@ final class SchemaCodecTests: XCTestCase {
     }
 
     func test_forwardCompat_unknownField_onPane_preservedToExtraFields() throws {
+        // P3.5 schema v2: position 은 .left/.right, sessionId/kind 는 Tab 으로 이동.
         let json = """
         {
             "id": "22222222-2222-2222-2222-222222222222",
-            "sessionId": null,
-            "kind": "shell",
-            "position": "bottom",
+            "position": "right",
+            "tabs": [],
+            "activeTabId": null,
             "chatRoomId": null,
             "experimentalFlag": true
         }

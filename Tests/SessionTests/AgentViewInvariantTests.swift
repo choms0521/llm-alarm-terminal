@@ -50,7 +50,7 @@ final class AgentViewInvariantTests: XCTestCase {
             normals.append(Workspace(
                 name: "ws-\(wIdx)",
                 cwd: "/tmp",
-                panes: [Pane(sessionId: sId, kind: .shell, position: .top)],
+                panes: { let tab = Tab(sessionId: sId, kind: .shell, name: "셸"); return [Pane(position: .left, tabs: [tab], activeTabId: tab.id)] }(),
                 createdAt: baseDate,
                 kind: .normal
             ))

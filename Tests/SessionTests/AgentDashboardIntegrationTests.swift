@@ -21,10 +21,12 @@ final class AgentDashboardIntegrationTests: XCTestCase {
             for pIdx in 0..<2 {
                 let sId = UUID()
                 sessionIds.append(sId)
+                let kind: PaneKind = pIdx == 0 ? .claude : .shell
+                let tab = Tab(sessionId: sId, kind: kind, name: Tab.defaultName(for: kind))
                 panes.append(Pane(
-                    sessionId: sId,
-                    kind: pIdx == 0 ? .claude : .shell,
-                    position: pIdx == 0 ? .top : .bottom
+                    position: pIdx == 0 ? .left : .right,
+                    tabs: [tab],
+                    activeTabId: tab.id
                 ))
                 let total = wIdx * 2 + pIdx
                 snapshots[sId] = SessionStatusSnapshot(

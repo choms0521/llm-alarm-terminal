@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// normal workspace 의 메인 컨텐츠. 최대 2개의 pane 을 가로(VStack) 분할로 표시한다.
+/// normal workspace 의 메인 컨텐츠. 최대 2개의 pane 을 좌우(HStack) 분할로 표시한다.
 ///
-/// 단일 pane 일 때는 전체 영역, 두 pane 일 때는 top/bottom 50:50 (drag resize 는 out of scope).
+/// P3.5 schema v2 (REQ-1): 상하 분할에서 좌우 분할로 전환. 단일 pane 일 때는 전체 영역,
+/// 두 pane 일 때는 left/right 50:50 (drag resize 는 out of scope).
 /// pane 없는 빈 workspace 는 사용자가 직접 종류를 선택해 첫 pane 을 생성하도록 한다.
 struct WorkspacePaneContentView: View {
     let workspace: Workspace
@@ -41,7 +42,7 @@ struct WorkspacePaneContentView: View {
                         await coordinator.addPane(
                             workspaceId: workspace.id,
                             kind: kind,
-                            position: wantFirst ? .top : .bottom
+                            position: wantFirst ? .left : .right
                         )
                     }
                 },
@@ -55,19 +56,20 @@ struct WorkspacePaneContentView: View {
 
     @ViewBuilder
     private var paneStack: some View {
-        let top = workspace.panes.first(where: { $0.position == .top })
-        let bottom = workspace.panes.first(where: { $0.position == .bottom })
+        let left = workspace.panes.first(where: { $0.position == .left })
+        let right = workspace.panes.first(where: { $0.position == .right })
 
-        if top == nil && bottom == nil {
+        if left == nil && right == nil {
             emptyState
         } else {
-            VStack(spacing: 0) {
-                if let top = top {
-                    paneSlot(pane: top)
+            // P3.5 schema v2 (REQ-1): VStack → HStack (좌/우 분할).
+            HStack(spacing: 0) {
+                if let left = left {
+                    paneSlot(pane: left)
                 }
-                if let bottom = bottom {
+                if let right = right {
                     Divider()
-                    paneSlot(pane: bottom)
+                    paneSlot(pane: right)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

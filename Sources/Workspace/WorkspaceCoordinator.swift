@@ -32,7 +32,9 @@ public final class WorkspaceCoordinator {
         let snapshot = manager.workspaces
         for ws in snapshot where ws.kind == .normal {
             for pane in ws.panes {
-                let paneKind = paneKindFromSession(pane.kind)
+                // Day 2 transitional: 단일 Tab 가정. Day 3 에서 tab 별 attach 로 확장.
+                guard let activeTab = pane.activeTab else { continue }
+                let paneKind = paneKindFromSession(activeTab.kind)
                 do {
                     let session = try await sessionManager.createInternal(
                         workspace: ws, paneId: pane.id, kind: paneKind
@@ -84,9 +86,12 @@ public final class WorkspaceCoordinator {
         guard let ws = manager.workspaces.first(where: { $0.id == workspaceId }),
               let pane = ws.panes.first(where: { $0.id == paneId }) else { return }
 
-        if let sessionId = pane.sessionId {
-            try? await sessionManager.terminate(id: sessionId)
-            await sessionManager.remove(id: sessionId)
+        // Day 2 transitional: pane 의 모든 tab 의 session 을 종료. Day 3 에서 closeTab cascade 와 분리.
+        for tab in pane.tabs {
+            if let sessionId = tab.sessionId {
+                try? await sessionManager.terminate(id: sessionId)
+                await sessionManager.remove(id: sessionId)
+            }
         }
         surfaceRegistry.release(paneId: paneId)
         manager.removePane(workspaceId: workspaceId, paneId: paneId)
@@ -111,7 +116,12 @@ public final class WorkspaceCoordinator {
     // MARK: - Helpers
 
     private func attachSession(workspace: Workspace, pane: Pane) async {
-        let kind = paneKindFromSession(pane.kind)
+        // Day 2 transitional: pane.activeTab 의 kind 를 사용. Day 3 에서 tab 별 attach 로 확장.
+        guard let activeTab = pane.activeTab else {
+            KoreanLogger.warn("attachSession: pane 에 active tab 이 없습니다 (paneId=\(pane.id))")
+            return
+        }
+        let kind = paneKindFromSession(activeTab.kind)
         do {
             let session = try await sessionManager.createInternal(
                 workspace: workspace, paneId: pane.id, kind: kind
@@ -122,7 +132,7 @@ public final class WorkspaceCoordinator {
         }
     }
 
-    /// `Pane.kind` 가 `PaneKind` 이므로 그대로 반환. 명시적 conversion 인터페이스를
+    /// `Tab.kind` 가 `PaneKind` 이므로 그대로 반환. 명시적 conversion 인터페이스를
     /// 추후 변경 가능성에 대비해 단일 helper 로 둔다.
     private func paneKindFromSession(_ kind: PaneKind) -> PaneKind { kind }
 }

@@ -1,5 +1,8 @@
 import XCTest
-@testable import ClaudeAlarmTerminal
+// SessionTests target re-compiles Sources/Session into the test bundle's own
+// module (bundle.unit-test type). 별도 @testable import 가 필요하지 않다 —
+// 모든 internal/public 심볼이 같은 모듈 안에서 직접 접근 가능.
+import Foundation
 
 /// P3.5 REQ-3 — CLAUDE_CONFIG_DIR 격리 폐지 회귀 방지.
 ///

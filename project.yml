@@ -133,6 +133,7 @@ targets:
       - path: Sources/UI
         excludes:
           - "Pane/**"
+          - "**/GhosttyViewportProvider.swift"
       - path: Sources/SessionVerifier
     dependencies:
       - package: AnyCodable
@@ -194,6 +195,7 @@ targets:
       - path: Sources/UI
         excludes:
           - "Pane/**"
+          - "**/GhosttyViewportProvider.swift"
       - path: Tests/WorkspaceTests
     dependencies:
       - package: AnyCodable
@@ -224,7 +226,7 @@ targets:
       - path: Sources/UI
         excludes:
           - "Pane/**"
-          - "AgentView/GhosttyViewportProvider.swift"
+          - "**/GhosttyViewportProvider.swift"
       - path: Tests/SessionTests
     dependencies:
       - package: AnyCodable
