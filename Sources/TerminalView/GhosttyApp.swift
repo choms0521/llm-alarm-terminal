@@ -96,16 +96,63 @@ final class GhosttyApp {
                 }
                 return true
             },
-            read_clipboard_cb: { _, _, _ in
-                // Day 3: clipboard not supported. Return false so libghostty
-                // treats reads as failed/empty.
-                return false
+            read_clipboard_cb: { userdata, _, state in
+                // P3.5 R-1: libghostty passes the surface userdata (not the app
+                // userdata) to clipboard callbacks — same convention as vendor
+                // Ghostty.App.surfaceUserdata. We extract the GhosttyTerminalView,
+                // pull the current string from NSPasteboard, then deliver it
+                // back via ghostty_surface_complete_clipboard_request.
+                guard let userdata = userdata else { return false }
+                let view = Unmanaged<GhosttyTerminalView>.fromOpaque(userdata).takeUnretainedValue()
+                guard let surface = view.surfaceHandle else { return false }
+                guard let str = NSPasteboard.general.string(forType: .string),
+                      !str.isEmpty else { return false }
+                str.withCString { ptr in
+                    ghostty_surface_complete_clipboard_request(surface, ptr, state, false)
+                }
+                return true
             },
             confirm_read_clipboard_cb: { _, _, _, _ in
-                // Day 3: no confirmation flow.
+                // Read confirmation flow (OSC52 read-from-app) not surfaced in
+                // P3.5 — silently no-op. libghostty falls back to the unconfirmed
+                // path. Add a confirmation dialog in P4+ if OSC52 read support
+                // becomes a security requirement.
             },
-            write_clipboard_cb: { _, _, _, _, _ in
-                // Day 3: writes are dropped.
+            write_clipboard_cb: { _, _, content, len, _ in
+                // P3.5 R-1: forward libghostty's clipboard writes (Copy / OSC52
+                // write / selection copy) into NSPasteboard.general with proper
+                // MIME → NSPasteboardType mapping. Pattern mirrors vendor
+                // Ghostty.App.writeClipboard. libghostty emits both text/plain
+                // and text/html for the same selection so rich-text destinations
+                // get formatting while terminals get raw text. Without the
+                // mapping, all entries collapse to .string and the last one
+                // (HTML markup) overwrites the plain text — surfaced 2026-05-15
+                // as `<div style=...>` pasted into TextEdit.
+                guard let content = content, len > 0 else { return }
+                var collected: [(NSPasteboard.PasteboardType, String)] = []
+                for i in 0..<len {
+                    let entry = content[i]
+                    guard let dataPtr = entry.data, let mimePtr = entry.mime else { continue }
+                    let mime = String(cString: mimePtr)
+                    let data = String(cString: dataPtr)
+                    let pbType: NSPasteboard.PasteboardType?
+                    switch mime {
+                    case "text/plain": pbType = .string
+                    case "text/html": pbType = .html
+                    case "text/rtf": pbType = .rtf
+                    default: pbType = nil
+                    }
+                    if let pbType = pbType {
+                        collected.append((pbType, data))
+                    }
+                }
+                guard !collected.isEmpty else { return }
+                let pb = NSPasteboard.general
+                pb.clearContents()
+                pb.declareTypes(collected.map { $0.0 }, owner: nil)
+                for (type, data) in collected {
+                    pb.setString(data, forType: type)
+                }
             },
             close_surface_cb: { _, processAlive in
                 GhosttyApp.logger.debug("close_surface_cb processAlive=\(processAlive, privacy: .public)")

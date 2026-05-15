@@ -1,0 +1,1723 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P3.5 상세 계획서 — 데스크톱 일상 사용 견고화 (Pane 좌우 + 멀티탭 + agent-view 재설계) (2026-05-14)</title>
+<style>
+  :root {
+    --bg: #fbfaf7;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d8dee4;
+    --accent: #0550ae;
+    --accent-soft: #ddf4ff;
+    --warn: #9a6700;
+    --warn-soft: #fff8c5;
+    --danger: #cf222e;
+    --danger-soft: #ffebe9;
+    --ok: #1a7f37;
+    --ok-soft: #dafbe1;
+    --code-bg: #f3f0ea;
+    --code-fg: #24292f;
+    --table-stripe: #f6f3ec;
+    --table-head: #eceae3;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Helvetica, Arial, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 32px;
+    padding: 32px 24px;
+  }
+
+  aside.toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    border-right: 1px solid var(--border);
+    padding-right: 16px;
+    font-size: 13.5px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+  }
+
+  aside.toc h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin: 0 0 12px 0;
+  }
+
+  aside.toc ol {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+  }
+
+  aside.toc ol li {
+    margin: 4px 0;
+  }
+
+  aside.toc ol ol {
+    padding-left: 14px;
+    margin-top: 4px;
+  }
+
+  aside.toc a {
+    color: var(--fg);
+    text-decoration: none;
+  }
+
+  aside.toc a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+
+  main {
+    max-width: 900px;
+    min-width: 0;
+  }
+
+  h1 {
+    font-size: 28px;
+    margin: 0 0 8px 0;
+    line-height: 1.3;
+  }
+
+  h2 {
+    font-size: 22px;
+    margin-top: 40px;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h3 {
+    font-size: 18px;
+    margin-top: 28px;
+    margin-bottom: 8px;
+  }
+
+  h4 {
+    font-size: 15px;
+    margin-top: 20px;
+    margin-bottom: 6px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  p { margin: 8px 0; }
+
+  .meta {
+    color: var(--muted);
+    font-size: 13.5px;
+    margin-bottom: 24px;
+  }
+
+  .meta strong { color: var(--fg); }
+
+  code {
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+
+  pre {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 14px 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    border: 1px solid var(--border);
+  }
+
+  pre code {
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+  }
+
+  .kw { color: #cf222e; font-weight: 600; }
+  .str { color: #0a3069; }
+  .com { color: #6e7781; font-style: italic; }
+  .num { color: #0550ae; }
+  .typ { color: #953800; }
+  .fn { color: #8250df; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13.5px;
+  }
+
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    background: var(--table-head);
+    font-weight: 600;
+  }
+
+  tbody tr:nth-child(even) {
+    background: var(--table-stripe);
+  }
+
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin: 16px 0;
+  }
+
+  .callout.warn {
+    border-left-color: var(--warn);
+    background: var(--warn-soft);
+  }
+
+  .callout.danger {
+    border-left-color: var(--danger);
+    background: var(--danger-soft);
+  }
+
+  .callout.ok {
+    border-left-color: var(--ok);
+    background: var(--ok-soft);
+  }
+
+  .callout .label {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    margin-bottom: 4px;
+  }
+
+  .day-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin: 18px 0;
+    background: #fff;
+  }
+
+  .day-card h3 {
+    margin-top: 0;
+  }
+
+  .day-card dl {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 6px 16px;
+    margin: 8px 0 12px 0;
+    font-size: 14px;
+  }
+
+  .day-card dt {
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .day-card dd {
+    margin: 0;
+  }
+
+  ul.exit-criteria {
+    list-style: none;
+    padding-left: 0;
+    margin: 8px 0 0 0;
+  }
+
+  ul.exit-criteria li {
+    margin: 4px 0;
+    font-size: 14px;
+  }
+
+  ul.exit-criteria input[type="checkbox"] {
+    margin-right: 8px;
+  }
+
+  .ascii {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.45;
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    background: var(--accent-soft);
+    color: var(--accent);
+    margin-right: 4px;
+  }
+
+  .tag.warn { background: var(--warn-soft); color: var(--warn); }
+  .tag.danger { background: var(--danger-soft); color: var(--danger); }
+  .tag.ok { background: var(--ok-soft); color: var(--ok); }
+
+  .pending {
+    color: var(--warn);
+    font-style: italic;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 28px 0;
+  }
+
+  @media print {
+    aside.toc { display: none; }
+    .layout { display: block; max-width: 100%; padding: 0; }
+    main { max-width: 100%; }
+    .day-card { page-break-inside: avoid; }
+    pre, .ascii { page-break-inside: avoid; }
+    body { font-size: 11pt; }
+    h2 { page-break-after: avoid; }
+  }
+
+  @media (max-width: 900px) {
+    .layout {
+      grid-template-columns: 1fr;
+    }
+    aside.toc {
+      position: static;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      padding-right: 0;
+      padding-bottom: 16px;
+      max-height: none;
+    }
+    .day-card dl {
+      grid-template-columns: 1fr;
+    }
+    .day-card dt {
+      margin-top: 4px;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <h2>목차</h2>
+  <ol>
+    <li><a href="#sec-1">1. 개요</a></li>
+    <li><a href="#sec-2">2. RALPLAN-DR Summary</a></li>
+    <li><a href="#sec-3">3. 핵심 설계 결정 7건</a>
+      <ol>
+        <li><a href="#d3-1">D3-1. PanePosition .left/.right + schema v2</a></li>
+        <li><a href="#d3-2">D3-2. Tab 모델 신설 + Pane.tabs 전이</a></li>
+        <li><a href="#d3-3">D3-3. schema v1 → v2 backward-compat migration</a></li>
+        <li><a href="#d3-4">D3-4. Tab/Pane/Workspace 자동 정리 cascade</a></li>
+        <li><a href="#d3-5">D3-5. CLAUDE_CONFIG_DIR 격리 폐지</a></li>
+        <li><a href="#d3-6">D3-6. agent-view 2-pane split + 3단 트리</a></li>
+        <li><a href="#d3-7">D3-7. P3 자산 보존/폐기 매핑</a></li>
+      </ol>
+    </li>
+    <li><a href="#sec-4">4. Day-by-Day Work Package</a>
+      <ol>
+        <li><a href="#day-0">Day 0 — P3.5 진입 게이트 (R-1 회귀 검증 only)</a></li>
+        <li><a href="#day-1">Day 1 — CLAUDE_CONFIG_DIR 격리 폐지 + manual UX walkthrough 정착</a></li>
+        <li><a href="#day-2">Day 2 — schema v2 모델 + migration</a></li>
+        <li><a href="#day-3">Day 3 — WorkspaceManager API + 자동 정리 cascade</a></li>
+        <li><a href="#day-4">Day 4 — agent-view 2-pane split + 3단 트리</a></li>
+        <li><a href="#day-5">Day 5 — AgentTreeRow + status 인프라 wiring</a></li>
+        <li><a href="#day-6">Day 6 — P3 카드 그리드 폐기 + dangling reference 정리</a></li>
+        <li><a href="#day-7">Day 7 — 키보드 navigation (H-1)</a></li>
+        <li><a href="#day-8">Day 8 — leaks/TSan 실측 (H-4/H-5) + acceptance walkthrough + P4 인계</a></li>
+      </ol>
+    </li>
+    <li><a href="#sec-5">5. Architecture Diagram (ASCII art)</a></li>
+    <li><a href="#sec-6">6. Critical Code Specs</a></li>
+    <li><a href="#sec-7">7. ADR 운영화</a></li>
+    <li><a href="#sec-8">8. Acceptance Criteria</a></li>
+    <li><a href="#sec-9">9. Risks &amp; Mitigations</a></li>
+    <li><a href="#sec-10">10. Exit Gate to P4</a></li>
+    <li><a href="#sec-11">11. 결정자 추가 청취 항목</a></li>
+    <li><a href="#app-a">부록 A. 환경 변수</a></li>
+    <li><a href="#app-b">부록 B. 참고 문헌</a></li>
+  </ol>
+</aside>
+
+<main>
+
+<h1>P3.5 상세 계획서 — 데스크톱 일상 사용 견고화 (Pane 좌우 분할 + 멀티탭 + agent-view 재설계)</h1>
+<p class="meta">
+  <strong>대상 단계</strong>: v4 마스터 계획 § P3.5 (신설 예정 row, P3 row line 124~155 후속)<br>
+  <strong>문서 버전</strong>: P3.5-detail (RALPLAN APPROVE 통과 최종안, 합의 이력은 <code>p3.5-history.md</code> 분리)<br>
+  <strong>문서 작성일</strong>: 2026-05-14<br>
+  <strong>예상 작업 일수</strong>: 8.5일 + 컨틴전시 2일 = 최대 10.5일 (Day 0 게이트 0.5일 + Day 1~Day 8 본 작업 8일)<br>
+  <strong>승인 경로</strong>: ralplan 합의 (Planner v1 → Architect → Critic → APPROVE)<br>
+  <strong>입력 사양</strong>: <code>docs/specs/desktop-improvement-requirements.md</code> (v2, 2026-05-14)
+</p>
+
+<!-- =================================================================== -->
+<h2 id="sec-1">1. 개요</h2>
+
+<h4>Goal</h4>
+<p>P3 시연 직후 결정자가 새로 하명한 데스크톱 5대 요구사항(REQ-1~5)을 한 wave에 통합 적용하여 데스크톱 앱을 <strong>일상 사용 가능한 baseline</strong>으로 견고화한다. P3에서 구축한 status 인프라(observer/policy/parser/store)는 보존하되 카드 그리드 UI는 폐기하고, agent-view를 <strong>2-pane horizontal split</strong> (좌측 SwiftUI 3단 트리 + 우측 GhosttyTerminalView)으로 재설계한다.</p>
+
+<h4>Side</h4>
+<p>desktop (macOS, Apple Silicon)</p>
+
+<h4>Scope (in) — 이번 단계에서 반드시 끝낸다</h4>
+<ul>
+  <li><strong>R-1 회귀 검증 정착</strong>: 이미 패치된 D-1~D-4 (special key 라우팅, 한글 IME, HSplitView, agent-view 우선 선택)에 대한 사용자 walkthrough 체크리스트 통과</li>
+  <li><strong>REQ-1</strong>: <code>PanePosition</code> <code>.top</code>/<code>.bottom</code> → <code>.left</code>/<code>.right</code>, 분할 layout <code>VStack</code> → <code>HStack</code></li>
+  <li><strong>REQ-2</strong>: <code>Tab { id, sessionId, kind, name, createdAt, extraFields }</code> 모델 신설, <code>Pane.sessionId</code> → <code>Pane.tabs: [Tab] + activeTabId</code>, <code>SurfaceRegistry</code>를 tab 단위로 전환</li>
+  <li><strong>REQ-3</strong>: <code>SessionSpawnEnv.cleanupStaleClaudeConfigDirs(...)</code> 호출 제거 및 <code>CLAUDE_CONFIG_DIR</code> 강제 격리 폐지. 사용자 <code>~/.claude</code> 공유</li>
+  <li><strong>REQ-4</strong>: 탭 close 시 <code>pane.tabs.isEmpty</code> → pane 제거, <code>workspace.panes.isEmpty</code> → workspace 제거 cascade. <code>Cmd+W</code> = 탭 close, <code>Cmd+Shift+W</code> = workspace close 재매핑</li>
+  <li><strong>REQ-5</strong>: agent-view를 2-pane horizontal split으로 재설계. 좌측 <code>OutlineGroup</code> 3단 트리 (workspace - pane - tab) + 우측 선택된 tab의 <code>GhosttyTerminalView</code>. 기본 선택은 첫 세션</li>
+  <li><strong>schema v1 → v2 backward-compat migration</strong>: 기존 workspaces.json 자동 변환 (<code>.bak</code> 백업)</li>
+  <li><strong>H-1 keyboard navigation</strong>: 좌측 트리 ←/→ 네비, Enter attach, Tab 사이 이동</li>
+  <li><strong>H-4 leaks + H-5 TSan</strong> 실측 (P3 hand-off 이월 항목)</li>
+  <li><strong>manual UX walkthrough 정착</strong>: master plan v5 진화 시 박을 "검증 부실 재발 방지" lessons learned 체크리스트</li>
+</ul>
+
+<h4>Scope (out) — 이번 단계에서 절대 손대지 않는다</h4>
+<ul>
+  <li>P4 WebSocket 채널 / claude session 자체의 영속화/resume (P4+ deferred)</li>
+  <li>한 workspace당 pane 3개 이상 허용 (P2 invariant 보존)</li>
+  <li>좌측 트리 사용자 드래그 정렬 / 풀스크린 모드 (post-MVP)</li>
+  <li>좌측 트리 노드의 컨텍스트 메뉴 (rename, duplicate 등 — post-MVP)</li>
+  <li>모바일 (P9), Push (P5)</li>
+</ul>
+
+<h4>Key Deliverables</h4>
+<p>
+  신규 파일: <code>Sources/Workspace/Tab.swift</code>, <code>Sources/Workspace/WorkspaceSchemaV1.swift</code> (v1 read-only decoder), <code>Sources/Workspace/WorkspaceSchemaMigration.swift</code>, <code>Sources/UI/AgentView/AgentSplitView.swift</code>, <code>Sources/UI/AgentView/AgentTreeView.swift</code>, <code>Sources/UI/AgentView/AgentTreeNode.swift</code>, <code>Sources/UI/AgentView/AgentTreeRow.swift</code>, <code>Sources/UI/AgentView/AgentTreeSelection.swift</code>, <code>Sources/UI/Pane/TabBarView.swift</code>, <code>Sources/UI/Pane/PaneTabContainer.swift</code>, <code>docs/adr/F-pane-tab-hierarchy.md</code>, <code>docs/adr/G-claude-config-dir-policy.md</code>, <code>docs/p3.5/manual-ux-walkthrough.md</code>
+</p>
+<p>
+  수정 파일: <code>Sources/Workspace/Pane.swift</code> (PanePosition, tabs 도입), <code>Sources/Workspace/Workspace.swift</code> (schema v2 catch-all 갱신), <code>Sources/Workspace/WorkspaceManager.swift</code> (addTab/closeTab/selectTab + cascade), <code>Sources/Workspace/WorkspaceStore.swift</code> (migration 진입), <code>Sources/Session/SessionSpawnEnv.swift</code> (CLAUDE_CONFIG_DIR 폐지), <code>Sources/UI/RootView.swift</code> (agent-view 분기 갱신), <code>Sources/UI/WorkspaceContentView.swift</code> (HStack + 탭바), <code>Sources/UI/Sidebar/*</code> (단축키 재매핑), <code>Sources/ClaudeAlarmTerminal/AppDelegate.swift</code> (메뉴 단축키)
+</p>
+<p>
+  폐기 파일: <code>Sources/UI/AgentView/AgentDashboardView.swift</code>, <code>Sources/UI/AgentView/AgentCardView.swift</code>, <code>Sources/UI/AgentView/AgentSortFilterControls.swift</code>, <code>Sources/UI/AgentView/AgentViewSettings.swift</code>, <code>Sources/UI/AgentView/AgentJumpAction.swift</code>, <code>Sources/UI/AgentView/AgentDashboardViewModel.swift</code>
+</p>
+<p>
+  신규 테스트: <code>TabModelTests</code>, <code>PanePositionMigrationTests</code>, <code>WorkspaceSchemaV1DecoderTests</code>, <code>WorkspaceSchemaMigrationTests</code>, <code>WorkspaceManagerCascadeTests</code> (closeTab → pane 제거 → workspace 제거), <code>SessionSpawnEnvSharedConfigTests</code> (CLAUDE_CONFIG_DIR 미설정 확인), <code>AgentTreeNodeTests</code>, <code>AgentTreeSelectionTests</code>, <code>AgentTreeKeyboardNavigationTests</code> (H-1)
+</p>
+<p>
+  보존되는 P3 자산: <code>SessionStatusObserver</code>, <code>NeedsInputPolicyV1</code>, <code>SessionStatusCoordinator</code>, <code>AnsiSGRParser</code>, <code>ShellPreviewExtractor</code>, <code>Utf8BoundaryTruncator</code>, <code>FocusedPaneStore</code>, <code>ViewportPollingTimer</code>, <code>GhosttyViewportProvider</code>, <code>AgentStatusBadge</code> (트리 row의 상태 아이콘 컴포넌트로 재활용)
+</p>
+
+<h4>Dependencies</h4>
+<p>P1 (libghostty 통합), P2 (workspace 탭 + 다중 pane + lifecycle wiring), P3 (status 인프라). 모두 main 머지 완료. R-1 패치는 별도 commit 7865d97 이후 적용됨.</p>
+
+<h4>Effort 추정</h4>
+<table>
+  <thead><tr><th>구분</th><th>일수</th><th>비고</th></tr></thead>
+  <tbody>
+    <tr><td>게이트 (Day 0, R-1 회귀 검증 only)</td><td>0.5일</td><td>통과 시 P3.5 정식 진입, 실패 시 R-1 재패치로 회귀 (phase budget 외)</td></tr>
+    <tr><td>P0 (REQ-3 + manual UX walkthrough 정착)</td><td>1.0일</td><td>Day 1 — CLAUDE_CONFIG_DIR 폐지 + 동시 claude tab walkthrough</td></tr>
+    <tr><td>P0 (REQ-1+REQ-2+REQ-4 schema 재설계)</td><td>3일</td><td>Day 2~Day 3 — 모델 + migration + WorkspaceManager API + UI 탭바</td></tr>
+    <tr><td>P0 (REQ-5 agent-view 재설계)</td><td>2.5일</td><td>Day 4~Day 5 — 2-pane split + 트리 + status wiring + 중간 walkthrough</td></tr>
+    <tr><td>P1 (P3 카드 그리드 폐기)</td><td>0.5~1.0일</td><td>Day 6 — refactor-cleaner 패턴</td></tr>
+    <tr><td>P2 (H-1 keyboard nav)</td><td>1.0일</td><td>Day 7</td></tr>
+    <tr><td>P2 (H-4 leaks + H-5 TSan + acceptance)</td><td>1.0일</td><td>Day 8</td></tr>
+    <tr><td>본 문서 기본 분배</td><td><strong>8.5일</strong></td><td>Day 0 게이트 0.5 + Day 1~Day 8 본 작업 8일</td></tr>
+    <tr><td>컨틴전시</td><td>+2일</td><td>schema migration risk +0.5 / surface lifecycle risk +0.5 / UI redesign risk +0.5 / 동시 claude session detection risk +0.5</td></tr>
+    <tr><td>총 estimate</td><td><strong>최대 10.5일</strong></td><td>8.5 + 2 컨틴전시</td></tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-2">2. RALPLAN-DR Summary</h2>
+
+<h4>Principles (5)</h4>
+<ol>
+  <li><strong>영속 schema 무결성 우선</strong>. workspaces.json은 사용자의 작업 상태가 그대로 영속화된 파일이므로 v1 → v2 migration은 backward-compat 자동 변환 + <code>.bak</code> 보관을 의무로 한다. hard cut으로 빈 상태 시작은 금지(P2 lessons learned).</li>
+  <li><strong>TUI 영감 자체 구현</strong>. agent-view는 Anthropic 공식 <code>claude agents</code> TUI의 카드 그리드 패러다임을 SwiftUI로 옮긴 것이었으나, 결정자 원의도는 <strong>TUI 영감을 받은 자체 2-pane 통합 콘솔</strong>. <code>OutlineGroup</code> 3단 트리 + <code>GhosttyTerminalView</code>로 SwiftUI 네이티브 구현하되, status 시각화 디테일은 TUI에서 차용.</li>
+  <li><strong>P3 인프라 최대 재사용</strong>. SessionStatusObserver/NeedsInputPolicy/AnsiSGRParser/ShellPreviewExtractor/Utf8BoundaryTruncator/FocusedPaneStore/ViewportPollingTimer/GhosttyViewportProvider는 데이터 인프라이며 UI와 독립적이므로 그대로 보존. 폐기는 <code>AgentDashboardView</code>/<code>AgentCardView</code>/<code>AgentSortFilterControls</code>/<code>AgentViewSettings</code>/<code>AgentJumpAction</code> UI 5건만. <strong>P3 6일 작업 중 데이터 인프라 60%는 보존, UI 40%만 폐기.</strong></li>
+  <li><strong>검증 부실 재발 방지</strong>. P3 시연에서 D-1~D-4가 드러난 원인은 manual UX walkthrough 부재. P3.5에서는 Day 1과 Day 8에 각각 walkthrough 체크리스트를 명시적으로 통과시키고, master plan v5 진화 시 phase 종료 의무 조항으로 박는다.</li>
+  <li><strong>사용자 자료 손실 zero</strong>. P3.5의 본질은 (i) workspaces.json schema 진화에서 사용자 작업 상태 손실 금지, (ii) <code>CLAUDE_CONFIG_DIR</code> 격리 폐지 시 사용자 <code>~/.claude</code> credentials/projects 보존, (iii) P3 카드 그리드 폐기 시 누적된 사용자 sort/filter 선호도(<code>"agentView.settings"</code>) cleanup 시 1회 OSLog 기록 의무. 세 영역 모두 사용자 자료 보호가 본 wave의 무조건 invariant이며, 본 principle은 R1/R3/R6 risk 전체를 회수한다. (Day별 commit 1건 이상 생성은 P2/P3 패턴 계승 operational pattern으로 본 문서 § 4 day-by-day 본문에 적시.)</li>
+</ol>
+
+<h4>Decision Drivers (Top 3)</h4>
+<table>
+  <thead><tr><th>우선순위</th><th>Driver</th><th>근거</th></tr></thead>
+  <tbody>
+    <tr><td>D1</td><td>데스크톱 baseline의 일상 사용 가능성</td><td>P3 시연에서 (i) claude 매번 재로그인 (ii) Backspace 미동작 (iii) 한글 IME 자모 분리 (iv) pane 상하 분할이 IDE 패러다임 미달 — 네 항목 모두 일상 사용 자체를 막음. P4 진입 전 반드시 baseline 견고화 필요.</td></tr>
+    <tr><td>D2</td><td>P3 검증 누락 lessons learned 박기</td><td>P3 acceptance를 자동 테스트로만 통과시키고 사용자 walkthrough가 빠진 채 commit 7865d97 머지됨. master plan v5 진화 의무 항목으로 정착.</td></tr>
+    <tr><td>D3</td><td>P4 진입 전 견고화</td><td>P4 (WebSocket 채널)는 SessionManager + Pane 모델 위에 얹히는 wave. 모델이 변할 예정인데(REQ-2 Tab 모델 신설) P4 먼저 진입하면 protocol freeze 충돌. P3.5에서 모델을 v2로 완료한 뒤 P4 진입이 안전.</td></tr>
+  </tbody>
+</table>
+
+<h4>Viable Options Considered (3)</h4>
+<p>핵심 architectural choice: schema v1 → v2 migration 전략.</p>
+<table>
+  <thead><tr><th>옵션</th><th>방식</th><th>Pros</th><th>Cons</th><th>판정</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>A. 일괄 schema 재설계 (hard cut)</strong></td>
+      <td>v2 schema로 빈 workspaces.json 시작. 사용자의 기존 workspace 전부 폐기.</td>
+      <td>구현 단순, migration 코드 0줄</td>
+      <td>사용자 작업 상태 손실, lessons learned 위반</td>
+      <td><span class="tag danger">거부</span></td>
+    </tr>
+    <tr>
+      <td><strong>B. 점진 migration (필드 추가 only)</strong></td>
+      <td>v2 신규 필드만 추가, v1 필드 (.top/.bottom, sessionId) 그대로 유지. 두 표현 동시 지원.</td>
+      <td>backward-compat 자동</td>
+      <td>이중 표현 영구 유지, code path 2배, P4 protocol freeze 시 혼란</td>
+      <td><span class="tag danger">거부</span></td>
+    </tr>
+    <tr>
+      <td><strong>C. v2 schema + v1 read-only decoder + 1회 자동 migration</strong></td>
+      <td>v2를 정식 schema로. P2 v1은 이미 <code>WorkspaceFile.version = 1</code>로 stamp되어 있으므로 부팅 시 <code>(version ?? 1) &lt; 2</code> + pane shape (<code>position</code> in {<code>"top"</code>,<code>"bottom"</code>} 또는 <code>tabs</code> 부재 + <code>sessionId</code> 존재) 감지 → <code>WorkspaceSchemaV1Decoder</code>로 읽기 → v2 모델로 변환 → <code>workspaces.json.v1-pre-migration-&lt;ISO8601&gt;</code>로 백업 후 <code>version: 2</code> stamp하여 overwrite. 이후 v1 decoder는 read-only로 잠금.</td>
+      <td>v2가 정식 표현, v1 사용자도 손실 없이 전이, P2 schema versioning 패턴 (M6 forward-compat) 계승, P2 atomic write의 <code>.bak</code> (직전 정상본)과 backup 파일명 분리하여 충돌 회피</td>
+      <td>1회 migration 코드 +1일 작업 (WorkspaceSchemaV1.swift 약 200 lines)</td>
+      <td><span class="tag ok">선택</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout ok">
+  <div class="label">선택 근거</div>
+  <p>D1 + D2 + D3 모두 충족. P2 lessons learned (사용자 상태 손실 금지) 정합. <code>workspaces.json.v1-pre-migration-&lt;ISO8601&gt;</code> 영속 백업으로 사용자가 수동 복구 가능 (P2 atomic write의 <code>.bak</code>은 직전 정상본 의미로 이미 사용 중이므로 별도 명명). v2 schema 자체는 P4 protocol freeze 전에 모델 안정화를 마침. 1회 migration이 끝나면 v1 decoder는 코드베이스에서 read-only로 잠그고 P4 이후로는 v2만 read/write.</p>
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-3">3. 핵심 설계 결정 7건</h2>
+
+<h3 id="d3-1">D3-1. PanePosition .left/.right + schema v2 (REQ-1)</h3>
+
+<pre><code><span class="com">// Sources/Workspace/Pane.swift 수정</span>
+<span class="kw">public enum</span> <span class="typ">PanePosition</span>: <span class="typ">String</span>, <span class="typ">Codable</span>, <span class="typ">Sendable</span>, <span class="typ">Equatable</span> {
+    <span class="kw">case</span> left
+    <span class="kw">case</span> right
+}</code></pre>
+
+<ul>
+  <li>분할 layout: <code>VStack</code> → <code>HStack</code> (WorkspaceContentView 수정)</li>
+  <li>schema migration 1:1 매핑: <code>"top"</code> → <code>"left"</code>, <code>"bottom"</code> → <code>"right"</code></li>
+  <li>단축키 "Pane 분할" 텍스트는 그대로 유지하되 시각적 분할 방향만 변경</li>
+  <li>P2 invariant 보존: 한 workspace당 pane 최대 2개 (Q-δ default 채택)</li>
+</ul>
+
+<h3 id="d3-2">D3-2. Tab 모델 신설 + Pane.tabs 전이 (REQ-2)</h3>
+
+<pre><code><span class="com">// Sources/Workspace/Tab.swift (신규)</span>
+<span class="kw">public struct</span> <span class="typ">Tab</span>: <span class="typ">Codable</span>, <span class="typ">Identifiable</span>, <span class="typ">Equatable</span>, <span class="typ">@unchecked Sendable</span> {
+    <span class="kw">public let</span> id: <span class="typ">UUID</span>
+    <span class="kw">public let</span> sessionId: <span class="typ">UUID</span>?
+    <span class="kw">public let</span> kind: <span class="typ">PaneKind</span>          <span class="com">// .claude | .shell</span>
+    <span class="kw">public let</span> name: <span class="typ">String</span>           <span class="com">// 사용자 표시명, default = kind localized</span>
+    <span class="kw">public let</span> createdAt: <span class="typ">Date</span>
+    <span class="kw">public let</span> extraFields: [<span class="typ">String</span>: <span class="typ">AnyCodable</span>]?  <span class="com">// forward-compat</span>
+
+    <span class="com">// immutable builder, UUID?? 이중 옵셔널 패턴은 Pane.with 와 정합</span>
+    <span class="kw">public func</span> with(sessionId: <span class="typ">UUID</span>?? = <span class="kw">nil</span>, name: <span class="typ">String</span>? = <span class="kw">nil</span>) -> <span class="typ">Tab</span> { ... }
+}
+
+<span class="com">// Sources/Workspace/Pane.swift 변경</span>
+<span class="kw">public struct</span> <span class="typ">Pane</span>: <span class="typ">Codable</span>, ... {
+    <span class="kw">public let</span> id: <span class="typ">UUID</span>
+    <span class="com">// 제거: public let sessionId: UUID?</span>
+    <span class="com">// 제거: public let kind: PaneKind  (kind 는 Tab.kind 로 이동)</span>
+    <span class="kw">public let</span> position: <span class="typ">PanePosition</span>
+    <span class="kw">public let</span> tabs: [<span class="typ">Tab</span>]               <span class="com">// 신설</span>
+    <span class="kw">public let</span> activeTabId: <span class="typ">UUID</span>?         <span class="com">// 신설</span>
+    <span class="kw">public let</span> chatRoomId: <span class="typ">String</span>?         <span class="com">// 유지</span>
+    <span class="kw">public let</span> extraFields: [<span class="typ">String</span>: <span class="typ">AnyCodable</span>]?
+}</code></pre>
+
+<ul>
+  <li>Pane의 <code>kind</code>는 Tab으로 이동 — pane은 더 이상 단일 kind를 갖지 않음 (claude 탭과 shell 탭이 한 pane에 공존 가능)</li>
+  <li>SurfaceRegistry: <code>[paneId: SurfaceRef]</code> → <code>[tabId: SurfaceRef]</code></li>
+  <li>activeTabId는 pane의 어떤 tab이 표시 중인지 — surface lifecycle은 active tab만 attach, inactive tab은 detach (mem leak 방지)</li>
+  <li>"+ 새 탭" default kind는 사용자 sheet (Q-ε default 채택, P2 패턴 계승)</li>
+</ul>
+
+<h3 id="d3-3">D3-3. schema v1 → v2 backward-compat migration</h3>
+
+<pre><code><span class="com">// Sources/Workspace/WorkspaceSchemaV1.swift (신규, read-only)</span>
+<span class="kw">internal enum</span> <span class="typ">WorkspaceSchemaV1</span> {
+    <span class="kw">struct</span> <span class="typ">V1Pane</span>: <span class="typ">Decodable</span> {
+        <span class="kw">let</span> id: <span class="typ">UUID</span>
+        <span class="kw">let</span> sessionId: <span class="typ">UUID</span>?
+        <span class="kw">let</span> kind: <span class="typ">PaneKind</span>
+        <span class="kw">let</span> position: <span class="typ">String</span>         <span class="com">// "top" | "bottom"</span>
+        <span class="kw">let</span> chatRoomId: <span class="typ">String</span>?
+        <span class="kw">let</span> extraFields: [<span class="typ">String</span>: <span class="typ">AnyCodable</span>]?
+    }
+    <span class="kw">struct</span> <span class="typ">V1Workspace</span>: <span class="typ">Decodable</span> { ... }
+}
+
+<span class="com">// Sources/Workspace/WorkspaceSchemaMigration.swift (신규)</span>
+<span class="kw">public enum</span> <span class="typ">WorkspaceSchemaMigration</span> {
+    <span class="com">/// 부팅 시 1회 실행. v1 감지 시 v2 로 변환하고 v1 원본은 별도 backup 파일로 보존.</span>
+    <span class="com">/// backup 파일명을 .bak 와 분리하는 이유: P2 atomic write 가 .bak 를 직전 정상본 의미로</span>
+    <span class="com">/// 이미 사용 중. migration backup 은 영속 보존이 목적이므로 의미가 다름.</span>
+    <span class="kw">public static func</span> migrateIfNeeded(at url: <span class="typ">URL</span>) <span class="kw">throws</span> -> <span class="typ">Bool</span> {
+        <span class="kw">let</span> data = <span class="kw">try</span> <span class="typ">Data</span>(contentsOf: url)
+        <span class="kw">guard</span> isV1(data: data) <span class="kw">else</span> { <span class="kw">return false</span> }  <span class="com">// version >= 2 면 no-op</span>
+        <span class="kw">let</span> v1 = <span class="kw">try</span> decodeV1(data: data)
+        <span class="kw">let</span> v2 = convert(v1: v1)
+        <span class="com">// 1. v1 원본 backup (실패 시 abort, migration 미수행 → 사용자 다이얼로그 표시)</span>
+        <span class="kw">let</span> ts = <span class="typ">ISO8601DateFormatter</span>().string(from: <span class="typ">Date</span>())
+        <span class="kw">let</span> backupURL = url.deletingLastPathComponent()
+            .appendingPathComponent(<span class="str">"workspaces.json.v1-pre-migration-\(ts)"</span>)
+        <span class="kw">try</span> <span class="typ">FileManager</span>.default.copyItem(at: url, to: backupURL)
+        <span class="com">// 2. v2 overwrite (WorkspaceFile.version = 2 stamp)</span>
+        <span class="kw">try</span> encodeV2(v2: v2, to: url)
+        <span class="kw">return true</span>  <span class="com">// 사용자에게 성공 알림 (한국어 다이얼로그)</span>
+    }
+
+    <span class="kw">private static func</span> convert(v1: [<span class="typ">V1Workspace</span>]) -> [<span class="typ">Workspace</span>] {
+        v1.map { v1Ws <span class="kw">in</span>
+            <span class="kw">let</span> v2Panes = v1Ws.panes.map { v1Pane <span class="kw">in</span>
+                <span class="kw">let</span> position: <span class="typ">PanePosition</span> = (v1Pane.position == <span class="str">"top"</span>) ? .left : .right
+                <span class="com">// v1 의 단일 sessionId → 단일 Tab 으로 wrap</span>
+                <span class="kw">let</span> tab = <span class="typ">Tab</span>(
+                    id: <span class="typ">UUID</span>(),
+                    sessionId: v1Pane.sessionId,
+                    kind: v1Pane.kind,
+                    name: defaultName(<span class="kw">for</span>: v1Pane.kind),
+                    createdAt: <span class="typ">Date</span>()
+                )
+                <span class="kw">return</span> <span class="typ">Pane</span>(
+                    id: v1Pane.id,
+                    position: position,
+                    tabs: [tab],
+                    activeTabId: tab.id,
+                    chatRoomId: v1Pane.chatRoomId,
+                    extraFields: v1Pane.extraFields
+                )
+            }
+            <span class="kw">return</span> <span class="typ">Workspace</span>(... panes: v2Panes, ...)
+        }
+    }
+}</code></pre>
+
+<div class="callout">
+  <div class="label">migration 안전 invariant</div>
+  <p>v1 → v2 변환은 (i) 백업 파일 <code>workspaces.json.v1-pre-migration-&lt;ISO8601&gt;</code> 생성이 먼저 성공해야 v2 overwrite 진행 (P2 atomic write의 <code>.bak</code>은 직전 정상본 의미이므로 별도 명명으로 충돌 회피), (ii) backup copy 실패 시 abort + 사용자에게 한국어 다이얼로그 "워크스페이스 스키마를 v2로 변환하려 했으나 백업 생성에 실패했습니다. 원본 파일을 보존합니다." 표시 후 v1 파일 그대로 보존, (iii) migration 성공 시 사용자에게 "워크스페이스 스키마를 v2로 안전하게 변환했습니다. 이전 버전은 <code>workspaces.json.v1-pre-migration-...</code>에 보관됩니다." 알림, (iv) overwrite된 파일은 <code>WorkspaceFile.version = 2</code>로 stamp되어 두 번째 부팅 시 <code>(version ?? 1) &lt; 2</code> 검사가 false 반환 → migration no-op (idempotent).</p>
+</div>
+
+<h3 id="d3-4">D3-4. Tab/Pane/Workspace 자동 정리 cascade (REQ-4)</h3>
+
+<pre><code><span class="com">// Sources/Workspace/WorkspaceManager.swift 확장</span>
+<span class="kw">extension</span> <span class="typ">WorkspaceManager</span> {
+
+    <span class="kw">@MainActor</span>
+    <span class="kw">public func</span> closeTab(workspaceId: <span class="typ">UUID</span>, paneId: <span class="typ">UUID</span>, tabId: <span class="typ">UUID</span>) <span class="kw">async throws</span> {
+        <span class="com">// 1. 해당 tab 의 session terminate (lifecycle hook 발동)</span>
+        <span class="kw">if let</span> sessionId = findTab(workspaceId: workspaceId, paneId: paneId, tabId: tabId)?.sessionId {
+            <span class="kw">try await</span> sessionManager.terminate(id: sessionId)
+        }
+        <span class="com">// 2. tab 제거 + activeTabId 갱신</span>
+        removeTab(workspaceId: workspaceId, paneId: paneId, tabId: tabId)
+        <span class="com">// 3. cascade: pane.tabs.isEmpty → pane 제거</span>
+        <span class="kw">if let</span> pane = findPane(workspaceId: workspaceId, paneId: paneId), pane.tabs.isEmpty {
+            removePane(workspaceId: workspaceId, paneId: paneId)
+        }
+        <span class="com">// 4. cascade: workspace.panes.isEmpty && workspace.canClose → workspace 제거</span>
+        <span class="kw">if let</span> ws = findWorkspace(id: workspaceId), ws.panes.isEmpty, ws.canClose {
+            removeWorkspace(id: workspaceId)
+        }
+    }
+}</code></pre>
+
+<ul>
+  <li>cascade 순서: tab → pane → workspace. 각 단계는 invariant 점검 후 다음 단계 진입</li>
+  <li><code>workspace.canClose == false</code> (agent-view) 인 경우 마지막 pane이 비어도 workspace는 제거되지 않음 (자연 보호, 추가 분기 불필요)</li>
+  <li>agent-view 자체는 pane/tab 구조를 가지지 않으므로 본 정책에서 제외 (invariant: agent-view는 영구)</li>
+  <li>단축키 재매핑: <code>Cmd+W</code> = 활성 탭 close (cascade 발동), <code>Cmd+Shift+W</code> = workspace close (직접 호출, agent-view는 메뉴에서도 비활성)</li>
+</ul>
+
+<h3 id="d3-5">D3-5. CLAUDE_CONFIG_DIR 격리 폐지 (REQ-3)</h3>
+
+<pre><code><span class="com">// Sources/Session/SessionSpawnEnv.swift 수정</span>
+<span class="kw">public enum</span> <span class="typ">SessionSpawnEnv</span> {
+    <span class="kw">public static func</span> captureUserEnv() -> [<span class="typ">String</span>: <span class="typ">String</span>] {
+        <span class="com">// 변경 없음: 사용자의 CLAUDE_CONFIG_DIR 이 있으면 그대로 propagate</span>
+        <span class="typ">ProcessInfo</span>.processInfo.environment
+    }
+
+    <span class="com">// 제거: claudeConfigDir(forSession:) → 더 이상 호출되지 않음 (코드 보존, deprecation 마커 추가)</span>
+    <span class="com">// 제거: cleanupStaleClaudeConfigDirs(liveSessionIds:) → 호출 site 삭제 (AppDelegate 부팅 시퀀스)</span>
+
+    <span class="kw">public static func</span> buildSpawnEnv(
+        workspace: <span class="typ">Workspace</span>, paneId: <span class="typ">UUID</span>, sessionId: <span class="typ">UUID</span>, kind: <span class="typ">PaneKind</span>
+    ) <span class="kw">throws</span> -> [<span class="typ">String</span>: <span class="typ">String</span>] {
+        <span class="kw">var</span> env = workspace.envSnapshot
+        <span class="kw">switch</span> kind {
+        <span class="kw">case</span> .claude:
+            <span class="com">// 변경: CLAUDE_CONFIG_DIR 을 강제 설정하지 않음.</span>
+            <span class="com">// 사용자 env 에 있으면 그대로 사용, 없으면 claude CLI 가 ~/.claude 사용.</span>
+            <span class="kw">break</span>
+        <span class="kw">case</span> .shell:
+            <span class="kw">let</span> dir = <span class="kw">try</span> zshHistoryDir(workspaceId: workspace.id, paneId: paneId)
+            env[<span class="str">"HISTFILE"</span>] = dir + <span class="str">"/history"</span>
+        }
+        <span class="kw">return</span> env
+    }
+}</code></pre>
+
+<div class="callout warn">
+  <div class="label">stale dir cleanup 처리</div>
+  <p>이전에 격리 생성된 <code>~/Library/Application Support/ClaudeAlarmTerminal/claude-config/*</code>는 Day 1 종료 시 1회 cleanup 스크립트로 정리한다. 사용자 자료 보호를 위해 7일 이상 mtime old + UUID 디렉터리 형태만 삭제 (기존 <code>cleanupStaleConfigDirs</code> generic 변종 재활용, liveSessionIds 인자에 빈 set 전달).</p>
+</div>
+
+<h3 id="d3-6">D3-6. agent-view 2-pane split + 3단 트리 (REQ-5)</h3>
+
+<pre><code><span class="com">// Sources/UI/AgentView/AgentSplitView.swift (신규)</span>
+<span class="kw">struct</span> <span class="typ">AgentSplitView</span>: <span class="typ">View</span> {
+    <span class="kw">@StateObject var</span> selection = <span class="typ">AgentTreeSelection</span>()
+    <span class="kw">@EnvironmentObject var</span> manager: <span class="typ">WorkspaceManager</span>
+    <span class="kw">@EnvironmentObject var</span> statusStore: <span class="typ">SessionStatusStore</span>
+
+    <span class="kw">var</span> body: <span class="kw">some</span> <span class="typ">View</span> {
+        <span class="typ">HSplitView</span> {
+            <span class="typ">AgentTreeView</span>(selection: selection)
+                .frame(minWidth: <span class="num">240</span>, idealWidth: <span class="num">280</span>, maxWidth: <span class="num">360</span>)
+            <span class="kw">if let</span> tabId = selection.selectedTabId,
+               <span class="kw">let</span> ref = surfaceRegistry.surface(forTabId: tabId) {
+                <span class="typ">GhosttyTerminalView</span>(surfaceRef: ref)
+            } <span class="kw">else</span> {
+                <span class="typ">EmptyAgentRightPane</span>()  <span class="com">// 첫 부팅 (세션 없음) 만 표시</span>
+            }
+        }
+        .onAppear {
+            <span class="com">// Q-α 기본 선택: 트리의 첫 세션</span>
+            selection.selectFirstAvailable(manager: manager)
+        }
+    }
+}
+
+<span class="com">// Sources/UI/AgentView/AgentTreeView.swift (신규)</span>
+<span class="kw">struct</span> <span class="typ">AgentTreeView</span>: <span class="typ">View</span> {
+    <span class="kw">@ObservedObject var</span> selection: <span class="typ">AgentTreeSelection</span>
+    <span class="kw">@EnvironmentObject var</span> manager: <span class="typ">WorkspaceManager</span>
+    <span class="kw">@EnvironmentObject var</span> statusStore: <span class="typ">SessionStatusStore</span>
+
+    <span class="kw">var</span> body: <span class="kw">some</span> <span class="typ">View</span> {
+        <span class="typ">List</span>(selection: $selection.selectedTabId) {
+            <span class="typ">OutlineGroup</span>(treeNodes(), children: \.children) { node <span class="kw">in</span>
+                <span class="typ">AgentTreeRow</span>(node: node, statusStore: statusStore)
+                    .tag(node.tabId)  <span class="com">// pane/workspace node tag = nil (선택 불가)</span>
+            }
+        }
+        .listStyle(.sidebar)
+    }
+}
+
+<span class="com">// Sources/UI/AgentView/AgentTreeNode.swift (신규)</span>
+<span class="kw">enum</span> <span class="typ">AgentTreeNode</span>: <span class="typ">Identifiable</span> {
+    <span class="kw">case</span> workspace(<span class="typ">Workspace</span>, children: [<span class="typ">AgentTreeNode</span>])
+    <span class="kw">case</span> pane(<span class="typ">Pane</span>, parent: <span class="typ">UUID</span>, children: [<span class="typ">AgentTreeNode</span>])
+    <span class="kw">case</span> tab(<span class="typ">Tab</span>, parentPane: <span class="typ">UUID</span>, parentWorkspace: <span class="typ">UUID</span>)
+}</code></pre>
+
+<ul>
+  <li>Q-β 좌측 트리 정렬: <strong>workspace 추가순 default</strong> (사용자가 만든 순서대로). 최근 활동순 정렬은 post-MVP 토글.</li>
+  <li>Q-γ 우측 surface 교체: <strong>즉시</strong> (SurfaceRegistry 재사용으로 zero-flicker, 페이드 transition 없음).</li>
+  <li>Q-α 기본 선택: 트리의 첫 sessionId 보유 tab. 모든 workspace가 비어 있으면 EmptyAgentRightPane placeholder (첫 부팅 onboarding 한정).</li>
+</ul>
+
+<h4>사이드바 ↔ 좌측 트리 navigation 의미 분기 (R8 회수)</h4>
+<p>agent-view 활성 시 두 가지 navigation 표현(좌측 사이드바 workspace 목록, 좌측 트리 workspace/pane/tab 3단)이 한 화면에 공존한다. 정보 아키텍처 중복으로 인한 사용자 혼란을 막기 위해 다음 동기화 규칙을 정착한다.</p>
+<ul>
+  <li><strong>사이드바 클릭 시</strong>: (1) workspace 선택 변경(<code>selectedWorkspaceId</code> 갱신), (2) 좌측 트리에서 해당 workspace 노드 자동 expand(<code>AgentTreeSelection.expandedNodeIds</code>에 추가), (3) <code>selectedTabId</code>는 변경하지 않음(우측 surface 유지).</li>
+  <li><strong>좌측 트리 클릭 시</strong>: (1) 클릭한 노드가 tab leaf면 <code>selectedTabId</code> 갱신 → 우측 surface 즉시 교체, (2) 클릭한 tab의 부모 workspace가 사이드바 <code>selectedWorkspaceId</code>와 다르면 사이드바 selection도 동기화(왜: 사용자가 다른 workspace의 tab으로 점프할 때 사이드바가 stale하면 혼란), (3) workspace/pane 노드 클릭은 expand/collapse만 토글(<code>selectedTabId</code> 변경 없음).</li>
+  <li><strong>agent-view 외 normal workspace 활성 시</strong>: 좌측 트리는 hidden(<code>AgentSplitView</code> 자체가 dismiss됨). 사이드바만 navigation 책임.</li>
+  <li><strong>사이드바 폭(240px) 유지</strong>: agent-view 활성 시에도 default 240px 유지. 좌측 트리 폭(<code>idealWidth: 280</code>)과의 시각 균형은 Day 4 walkthrough에서 결정자가 평가. 사이드바 축소/collapse 옵션은 Q-α-1로 § 11 결정자 추가 청취 항목에 추가하여 다음 ralplan 사이클에서 결정.</li>
+</ul>
+
+<h3 id="d3-7">D3-7. P3 자산 보존/폐기 매핑</h3>
+
+<table>
+  <thead><tr><th>분류</th><th>P3 산출물</th><th>P3.5 운명</th><th>재활용 방식</th></tr></thead>
+  <tbody>
+    <tr><td>데이터 인프라</td><td>SessionStatusObserver</td><td><span class="tag ok">보존</span></td><td>tree row의 status 아이콘/색상 source</td></tr>
+    <tr><td>데이터 인프라</td><td>NeedsInputPolicyV1</td><td><span class="tag ok">보존</span></td><td>tree row의 needsInput 강신호</td></tr>
+    <tr><td>데이터 인프라</td><td>SessionStatusCoordinator</td><td><span class="tag ok">보존</span></td><td>tree row publisher (throttle 100ms / fast-lane)</td></tr>
+    <tr><td>데이터 인프라</td><td>AnsiSGRParser</td><td><span class="tag ok">보존</span></td><td>tree row 한 줄 요약 (AttributedString)</td></tr>
+    <tr><td>데이터 인프라</td><td>ShellPreviewExtractor</td><td><span class="tag ok">보존</span></td><td>tree row 한 줄 요약 (shell tab)</td></tr>
+    <tr><td>데이터 인프라</td><td>Utf8BoundaryTruncator</td><td><span class="tag ok">보존</span></td><td>한 줄 요약 grapheme 단위 truncation</td></tr>
+    <tr><td>데이터 인프라</td><td>FocusedPaneStore</td><td><span class="tag ok">보존</span></td><td>focused 판정 (Pane → Tab level 확장 검토)</td></tr>
+    <tr><td>데이터 인프라</td><td>ViewportPollingTimer</td><td><span class="tag ok">보존</span></td><td>polling 단위만 paneId → tabId 로 변경</td></tr>
+    <tr><td>데이터 인프라</td><td>GhosttyViewportProvider</td><td><span class="tag ok">보존</span></td><td>alloc/free 1:1 invariant 유지</td></tr>
+    <tr><td>UI 컴포넌트</td><td>AgentStatusBadge</td><td><span class="tag ok">보존</span></td><td>tree row의 leading 아이콘 (∙/✻/!/✓/✗)</td></tr>
+    <tr><td>UI 컴포넌트</td><td>AgentDashboardView</td><td><span class="tag danger">폐기</span></td><td>—</td></tr>
+    <tr><td>UI 컴포넌트</td><td>AgentDashboardViewModel</td><td><span class="tag danger">폐기</span></td><td>—</td></tr>
+    <tr><td>UI 컴포넌트</td><td>AgentCardView</td><td><span class="tag danger">폐기</span></td><td>—</td></tr>
+    <tr><td>UI 컴포넌트</td><td>AgentSortFilterControls</td><td><span class="tag danger">폐기</span></td><td>—</td></tr>
+    <tr><td>UI 컴포넌트</td><td>AgentViewSettings</td><td><span class="tag danger">폐기</span></td><td>extraFields["agentView.settings"] 키도 함께 cleanup</td></tr>
+    <tr><td>UI 컴포넌트</td><td>AgentJumpAction</td><td><span class="tag danger">폐기</span></td><td>트리 클릭이 곧 선택이므로 jump action 불필요</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <div class="label">P3 6일 작업 회수율</div>
+  <p>P3 산출물 중 <strong>데이터 인프라 9개 + AgentStatusBadge 1개 = 10건 보존</strong>, <strong>UI 5건 폐기</strong>. P3 work 결과의 약 60%가 P3.5에서 그대로 재활용된다.</p>
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-4">4. Day-by-Day Work Package</h2>
+
+<p>본 단계는 Day 0 게이트(0.5일) + Day 1~Day 8 본 작업(8일) + 컨틴전시(2일) = 최대 10.5일이 master plan v5 진화 시 § P3.5 예산으로 할당된다. P2/P3 패턴(Day별 commit)을 계승하여 Day 1~Day 8 각 종료 시 commit 1건 이상 생성. Day 0는 게이트이므로 통과 시에만 commit이 의미를 가진다(walkthrough 결과 캡처 commit).</p>
+
+<!-- Day 0 -->
+<section class="day-card" id="day-0">
+  <h3>Day 0 — P3.5 진입 게이트 (R-1 회귀 검증 only)</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>이미 patch 7865d97 + 후속 R-1 패치(D-1~D-4)로 회복된 special key 라우팅, 한글 IME, HSplitView sidebar, agent-view 자동 선택이 실제 사용자 walkthrough에서도 100% 통과하는지 검증한다. 통과 시 P3.5 정식 진입, 실패 시 본 wave 진행 보류 + R-1 재패치로 회귀하여 본 wave에서 분리된 D-1~D-4 회귀 commit을 추가.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>docs/p3.5/manual-ux-walkthrough.md</code> 초안 — 사용자 검증 체크리스트 (Backspace, Enter, Tab, Arrow key, 한글 IME 자모 결합, HSplitView sidebar 가시성, 부팅 시 agent-view 자동 선택)</li>
+        <li><code>docs/p3.5/day-0-gate-report.md</code> — 8개 walkthrough 항목 통과/실패 표기 + 진입 가능 판정</li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>verifier (sonnet) — 사용자가 직접 수행하되 결과 기록은 verifier 보조</dd>
+    <dt>예상 소요</dt>
+    <dd>0.5일 (게이트, phase budget 외 +0.5일)</dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li>본 게이트는 R-1 패치가 main 머지된 후 사용자 가시 회복을 확인하는 의무 단계. 자동 테스트 통과만으로는 P3 시연에서 D-1~D-4가 surfacing되지 않았던 lessons learned 직접 대응.</li>
+        <li>실패 시: P3.5 본 wave를 진행하지 않고 R-1 재패치 후 다시 Day 0 진입. 재진입 횟수는 최대 2회로 제한 (3회 이상 실패 시 master plan v5에서 R-1 자체를 별도 phase로 격상).</li>
+        <li>본 Day의 manual-ux-walkthrough.md 초안은 Day 1에서 동시 claude tab 시나리오 + 격리 폐지 검증 항목을 추가하여 정착한다.</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> shell tab에서 <code>cat &gt; /tmp/keytest</code> 후 Backspace 입력 → <code>hexdump /tmp/keytest</code>에 <strong>0x7F byte 1건</strong> 포함</li>
+    <li><input type="checkbox" disabled> 동일 절차로 Enter → <strong>0x0D</strong>, Tab → <strong>0x09</strong>, Arrow Up → <strong>0x1B 0x5B 0x41</strong> 3-byte sequence 검증</li>
+    <li><input type="checkbox" disabled> claude tab에서 "안녕하세요" IME 입력 후 echo line에 <strong>자모 분리 없는</strong> 완성형 6 grapheme cluster 표시 (Utf8BoundaryTruncator 미적용 raw 입력)</li>
+    <li><input type="checkbox" disabled> 앱 launch 직후 sidebar 폭 측정 — minWidth 200px 가시 (Accessibility Inspector 또는 NSView.bounds로 확인, &gt;= 200pt)</li>
+    <li><input type="checkbox" disabled> 첫 launch 시 selected workspace == agent-view (RootView state inspector 확인, 자동 테스트로 1회 검증된 사항이지만 사용자 실제 환경에서 재확인)</li>
+    <li><input type="checkbox" disabled> 본 wave 진행 가능 판정 — 위 5개 항목 전부 통과 시 <code>docs/p3.5/day-0-gate-report.md</code>에 "PASS, P3.5 본 wave 진행 가능" 표기 + Day 1로 진입</li>
+    <li><input type="checkbox" disabled> (선택) 게이트 통과 commit 1건 (<code>chore(P3.5 Day 0): R-1 회귀 게이트 통과 walkthrough 보고</code>)</li>
+  </ul>
+  <div class="callout warn">
+    <div class="label">진입 게이트 실패 시 분기</div>
+    <p>위 5개 종료 조건 중 1건이라도 실패하면 P3.5 본 wave 진입을 중단하고, 실패 항목에 대한 R-1 재패치를 별도 commit으로 적용한 뒤 Day 0를 재실행한다. 재실행은 최대 2회 (총 3회 시도). 3회 이상 실패 시 master plan v5 진화에서 R-1을 P3.5와 분리된 별도 mini-phase로 격상.</p>
+  </div>
+</section>
+
+<!-- Day 1 -->
+<section class="day-card" id="day-1">
+  <h3>Day 1 — CLAUDE_CONFIG_DIR 격리 폐지 (REQ-3) + manual UX walkthrough 정착</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd><code>CLAUDE_CONFIG_DIR</code> 격리를 폐지하여 claude 재로그인 문제를 해소하고, 격리 폐지 부작용(R6 동시 두 claude tab의 file lock 충돌)을 walkthrough로 1차 평가한다. Day 0 walkthrough 초안에 격리 폐지 검증 + 동시 claude tab 검증 항목을 추가하여 manual UX walkthrough 카탈로그를 정착한다.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>docs/p3.5/manual-ux-walkthrough.md</code> 정착본 — Day 0 항목 + claude 재로그인 부재 + 동시 두 claude tab 5분 idle walkthrough</li>
+        <li><code>Sources/Session/SessionSpawnEnv.swift</code> — <code>buildSpawnEnv</code>의 <code>.claude</code> case에서 <code>CLAUDE_CONFIG_DIR</code> 강제 설정 라인 제거</li>
+        <li><code>Sources/ClaudeAlarmTerminal/AppDelegate.swift</code> — 부팅 시퀀스에서 <code>cleanupStaleClaudeConfigDirs(liveSessionIds:)</code> 호출 제거</li>
+        <li>1회용 cleanup 스크립트: <code>scripts/cleanup-legacy-claude-config-dirs.sh</code> — 기존 격리 디렉터리 7일 이상 old + UUID 형태만 삭제</li>
+        <li><code>Tests/SessionTests/SessionSpawnEnvSharedConfigTests.swift</code> — buildSpawnEnv가 .claude 케이스에서 <code>CLAUDE_CONFIG_DIR</code> 키를 추가하지 않음을 검증</li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (sonnet) — 표준 patch + 테스트 작성, walkthrough 카탈로그는 writer 보조</dd>
+    <dt>예상 소요</dt>
+    <dd>1.0일</dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li>사용자 <code>~/.claude/credentials</code> 접근을 위해 App Sandbox는 OFF 유지 (P1 결정 항목 그대로). sandboxing 변경 없음.</li>
+        <li>R6 (동시 두 claude tab의 file lock 충돌)는 본 Day의 walkthrough에서 5분 idle 시나리오로 1차 평가. 충돌 발생 시 Day 8 acceptance에서 재확인 + P4 wave 모니터 항목으로 인계.</li>
+        <li>manual UX walkthrough는 phase 종료 의무 체크리스트로 master plan v5 진화 시 P-2 lessons learned 박을 입력 자료. 본 Day에 Day 0 초안에 신규 항목 (claude 재로그인 부재 / 동시 claude tab)을 추가하여 카탈로그 정착.</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>grep -n 'CLAUDE_CONFIG_DIR' Sources/Session/SessionSpawnEnv.swift</code> 결과가 <strong>0건</strong> (env override 라인 부재, captureUserEnv 의 ProcessInfo propagate 만 남음)</li>
+    <li><input type="checkbox" disabled> <code>grep -rn 'cleanupStaleClaudeConfigDirs' Sources/</code> 결과가 <strong>호출 site 0건</strong> (함수 정의 1건만 남음, deprecation 주석 포함)</li>
+    <li><input type="checkbox" disabled> <code>swift test --filter SessionSpawnEnvSharedConfigTests</code> exit code 0 (3 case 통과)</li>
+    <li><input type="checkbox" disabled> walkthrough: claude tab 첫 spawn 시 <strong>로그인 프롬프트 부재</strong> + <code>echo $CLAUDE_CONFIG_DIR</code>이 빈 문자열 또는 사용자 본래 env 값</li>
+    <li><input type="checkbox" disabled> walkthrough: <code>ls -la ~/.claude/</code>가 사용자 본래 credentials/projects 디렉터리를 그대로 노출 (격리 가짜 디렉터리 미생성)</li>
+    <li><input type="checkbox" disabled> walkthrough: 2개 claude tab을 동시 spawn 후 5분 idle → 양쪽 모두 정상 동작 (file lock 충돌 시 에러 로그 0건, Anthropic CLI의 read-during-write 처리 정상). 충돌 발생 시 timestamp + 에러 메시지를 <code>docs/p3.5/manual-ux-walkthrough.md</code>의 R6 후보 섹션에 기록 + Day 8 재확인</li>
+    <li><input type="checkbox" disabled> <code>docs/p3.5/manual-ux-walkthrough.md</code>에 Day 0 항목(5건) + Day 1 신규 항목(3건, 재로그인 부재/디렉터리 노출/동시 claude tab) = 총 8건 정착</li>
+    <li><input type="checkbox" disabled> <code>scripts/cleanup-legacy-claude-config-dirs.sh</code> 실행 후 <code>~/Library/Application Support/ClaudeAlarmTerminal/claude-config/</code> 디렉터리가 빈 상태 (7일 이상 old + UUID 형태만 삭제 확인)</li>
+    <li><input type="checkbox" disabled> Day 1 종료 commit 1건 (<code>feat(P3.5 Day 1): CLAUDE_CONFIG_DIR 격리 폐지 + manual UX walkthrough 정착</code>)</li>
+  </ul>
+</section>
+
+<!-- Day 2 -->
+<section class="day-card" id="day-2">
+  <h3>Day 2 — schema v2 모델 (Tab 신설 + Pane 재구조 + PanePosition .left/.right) + migration</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd><code>Tab</code> 모델을 신설하고 <code>Pane</code>을 멀티탭 컨테이너로 재구조화한다. <code>PanePosition</code>을 <code>.left</code>/<code>.right</code>로 변경한다. v1 → v2 backward-compat migration을 구현한다.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>Sources/Workspace/Tab.swift</code> (신규, 약 100 lines, Codable + immutable builder + extraFields catch-all)</li>
+        <li><code>Sources/Workspace/Pane.swift</code> 수정 — <code>PanePosition</code> case 변경, <code>sessionId</code>/<code>kind</code> 제거, <code>tabs</code>/<code>activeTabId</code> 추가, knownKeys 갱신</li>
+        <li><code>Sources/Workspace/WorkspaceStore.swift</code> 수정 — <code>currentSchemaVersion: Int = 2</code>로 갱신 (P2에서 1로 stamp되어 있음). <code>WorkspaceFile.version</code> default 인자도 2로 갱신</li>
+        <li><code>Sources/Workspace/WorkspaceSchemaV1.swift</code> (신규, 약 200 lines, read-only decoder)</li>
+        <li><code>Sources/Workspace/WorkspaceSchemaMigration.swift</code> (신규, 약 150 lines, isV1 감지 + <code>workspaces.json.v1-pre-migration-&lt;ISO8601&gt;</code> 백업 + convert + 사용자 다이얼로그 trigger)</li>
+        <li><code>Sources/UI/ErrorDialog/SchemaMigrationDialogs.swift</code> (신규, 약 60 lines) — 한국어 다이얼로그 문구 카탈로그 2건 (성공/실패)</li>
+        <li><code>Tests/WorkspaceTests/TabModelTests.swift</code> (Codable round-trip, extraFields 보존, with(...) 빌더)</li>
+        <li><code>Tests/WorkspaceTests/PanePositionMigrationTests.swift</code> (top → left, bottom → right 1:1 매핑)</li>
+        <li><code>Tests/WorkspaceTests/WorkspaceSchemaV1DecoderTests.swift</code> (실제 v1 fixture 3건 디코딩)</li>
+        <li><code>Tests/WorkspaceTests/WorkspaceSchemaMigrationTests.swift</code> (.bak 생성, v2 overwrite, 두 번째 부팅 시 skip, decode 실패 시 v1 보존)</li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (opus) — schema migration은 모델 invariant 보호가 critical이므로 깊은 추론 필요</dd>
+    <dt>예상 소요</dt>
+    <dd>1.0~1.5일</dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li>v1 감지 condition (실제 코드 정합): <code>WorkspaceFile.version</code> 필드 부재 또는 <code>(version ?? 1) &lt; 2</code> + <code>position</code> in {<code>"top"</code>,<code>"bottom"</code>} 또는 <code>tabs</code> 부재+<code>sessionId</code> 존재. P2 v1 은 이미 <code>version: 1</code> 로 stamp 되어 있으므로 version field를 1차 판정자로 사용.</li>
+        <li>v1 fixture는 P2 시점의 실제 <code>workspaces.json</code> 3건 (top/bottom + sessionId 보유)을 <code>Tests/Fixtures/workspaces-v1-*.json</code>으로 보관</li>
+        <li>convert 시 v1의 단일 <code>sessionId</code>는 단일 <code>Tab</code>으로 wrap (id 새로 부여, kind는 v1 Pane.kind 그대로, name은 kind localized default "Claude" / "셸")</li>
+        <li>activeTabId는 wrap된 단일 tab의 id로 설정</li>
+        <li>backup 파일명: <code>workspaces.json.v1-pre-migration-&lt;ISO8601&gt;</code> 형식. P2 atomic write의 <code>.bak</code>(직전 정상본)과 의미 분리하여 충돌 회피. migration backup은 영속 보존 목적이므로 사용자가 직접 삭제하기 전까지 유지.</li>
+        <li>한국어 다이얼로그 카탈로그 2건: (성공) "워크스페이스 스키마를 v2로 안전하게 변환했습니다. 이전 버전은 <code>workspaces.json.v1-pre-migration-...</code>에 보관됩니다." / (실패-백업) "워크스페이스 스키마를 v2로 변환하려 했으나 백업 생성에 실패했습니다. 원본 파일을 보존합니다."</li>
+        <li>v1 → v2 변환은 idempotent: <code>version == 2</code> 인 파일에 migrateIfNeeded 호출 시 false 반환 + no-op</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>grep -n 'case top$\|case bottom$' Sources/Workspace/Pane.swift</code> 결과가 <strong>0건</strong></li>
+    <li><input type="checkbox" disabled> <code>grep -n 'case left$\|case right$' Sources/Workspace/Pane.swift</code> 결과가 <strong>2건</strong></li>
+    <li><input type="checkbox" disabled> <code>grep -n 'public let sessionId' Sources/Workspace/Pane.swift</code> 결과가 <strong>0건</strong> (Tab.swift로 이동)</li>
+    <li><input type="checkbox" disabled> <code>grep -n 'public let tabs:' Sources/Workspace/Pane.swift</code> 결과가 <strong>1건</strong></li>
+    <li><input type="checkbox" disabled> <code>grep -n 'currentSchemaVersion: Int = 2' Sources/Workspace/WorkspaceStore.swift</code> 결과가 <strong>1건</strong> (P2의 1에서 2로 갱신됨)</li>
+    <li><input type="checkbox" disabled> <code>swift test --filter TabModelTests</code> exit code 0 (≥5 case)</li>
+    <li><input type="checkbox" disabled> <code>swift test --filter WorkspaceSchemaMigrationTests</code> exit code 0 (≥5 case: v1 detect + backup 생성 + v2 overwrite + idempotent on v2 + backup copy 실패 시 abort + 원본 보존)</li>
+    <li><input type="checkbox" disabled> v1 fixture로 migration 1회 실행 후 <code>workspaces.json.v1-pre-migration-&lt;ISO8601&gt;</code> 파일이 생성되고 <code>workspaces.json</code>이 v2 schema (<code>version: 2</code> stamp + <code>position: left|right</code> + <code>tabs: [...]</code> 구조)로 overwrite됨</li>
+    <li><input type="checkbox" disabled> v2 fixture로 migration 호출 시 <code>migrateIfNeeded</code>가 <strong>false 반환</strong> + 파일 변경 없음 (idempotent)</li>
+    <li><input type="checkbox" disabled> 중간 walkthrough: 실제 P2 시점의 <code>workspaces.json</code> 사본을 dev 환경에 배치 → 앱 시작 → 자동 변환 → 사용자 다이얼로그 1회 표시 + backup 파일 생성 + 두 번째 부팅 시 다이얼로그 미표시 (idempotent 시각 확인)</li>
+    <li><input type="checkbox" disabled> Day 2 종료 commit 1건 (<code>feat(P3.5 Day 2): schema v2 모델 + Tab 신설 + v1→v2 migration</code>)</li>
+  </ul>
+  <div class="callout warn">
+    <div class="label">위험 트리거</div>
+    <p>migration이 실제 사용자 workspaces.json에서 실패하면 Day 3 진입 전 Day 2.5 컨틴전시(+0.5일)를 즉시 투입하여 v1 fixture 보강 + 변환 로직 정정. .bak 백업이 안 만들어진 상태에서 overwrite는 절대 금지.</p>
+  </div>
+</section>
+
+<!-- Day 3 -->
+<section class="day-card" id="day-3">
+  <h3>Day 3 — WorkspaceManager API 확장 + 자동 정리 cascade (REQ-4) + UI 탭바</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd><code>WorkspaceManager</code>에 <code>addTab</code>/<code>closeTab</code>/<code>selectTab</code> API를 추가하고, closeTab → pane 제거 → workspace 제거 cascade를 구현한다. pane 상단 탭바 UI를 추가한다. <code>Cmd+W</code>/<code>Cmd+Shift+W</code> 단축키 재매핑.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>Sources/Workspace/WorkspaceManager.swift</code> 수정 — <code>addTab(workspaceId:paneId:kind:name:)</code>, <code>closeTab(workspaceId:paneId:tabId:)</code>, <code>selectTab(workspaceId:paneId:tabId:)</code> 추가 (모두 @MainActor async)</li>
+        <li><code>Sources/UI/Pane/TabBarView.swift</code> (신규) — macOS 표준 탭 UI, "+" 버튼 (사용자 sheet로 kind 선택), 탭별 "×" close 버튼</li>
+        <li><code>Sources/UI/Pane/PaneTabContainer.swift</code> (신규) — Pane을 표시하는 컨테이너 (TabBarView + 활성 tab의 GhosttyTerminalView)</li>
+        <li><code>Sources/UI/WorkspaceContentView.swift</code> 수정 — <code>VStack</code> → <code>HStack</code>, 각 Pane을 <code>PaneTabContainer</code>로 wrap</li>
+        <li><code>Sources/ClaudeAlarmTerminal/AppDelegate.swift</code> 수정 — <code>Cmd+W</code> 메뉴 항목 action을 <code>closeActiveTab</code>으로, <code>Cmd+Shift+W</code> 메뉴 항목 action을 <code>closeActiveWorkspace</code>로 재매핑</li>
+        <li><code>Sources/Session/SurfaceRegistry.swift</code> 수정 — key를 <code>paneId</code> → <code>tabId</code>로 전환, inactive tab의 surface는 detach (lifecycle hook)</li>
+        <li><code>Tests/WorkspaceTests/WorkspaceManagerCascadeTests.swift</code> (≥6 case: closeTab → tab 제거만 / 마지막 tab close → pane 제거 / 마지막 pane close → workspace 제거 / agent-view는 cascade 미발동 / tab close 시 sessionManager.terminate 발동 / addTab 시 SurfaceRegistry attach)</li>
+        <li><code>Tests/UITests/TabBarViewTests.swift</code> (탭 클릭 → activeTabId 변경 / "+" 클릭 → sheet 표시 / "×" 클릭 → cascade 발동)</li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (opus) — actor isolation + lifecycle hook 동시성, cascade invariant</dd>
+    <dt>예상 소요</dt>
+    <dd>1.0~1.5일</dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li>cascade는 <code>closeTab</code> 안에서 동기적 sequence로 실행 (tab → pane → workspace). 중간 단계 실패 시 partial state 방지 위해 transaction 패턴 검토.</li>
+        <li><code>Cmd+W</code> = 활성 tab close — 활성 tab 판정은 <code>FocusedPaneStore.focused[selectedWorkspaceId]</code>로 활성 pane 찾고 그 pane의 <code>activeTabId</code>.</li>
+        <li>agent-view는 자체 분기 (3-pane split)이므로 <code>Cmd+W</code> 메뉴 항목은 agent-view 활성 시 비활성화 (NSMenuItem.isEnabled = false).</li>
+        <li>"+" 버튼 default kind는 사용자 sheet (Q-ε default). sheet UI는 P2의 workspace 생성 sheet 패턴 재활용.</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>grep -n 'func addTab\|func closeTab\|func selectTab' Sources/Workspace/WorkspaceManager.swift</code> 결과가 <strong>3건</strong></li>
+    <li><input type="checkbox" disabled> <code>swift test --filter WorkspaceManagerCascadeTests</code> exit code 0 (≥6 case)</li>
+    <li><input type="checkbox" disabled> manual: 한 pane에 2개 tab 생성 → 첫 tab close → pane은 그대로 (cascade 미발동) / 두 번째 tab close → pane 제거 / 다른 pane 마지막 tab close → workspace 제거</li>
+    <li><input type="checkbox" disabled> manual: agent-view 활성 시 <code>Cmd+W</code>가 비활성, <code>Cmd+Shift+W</code>가 비활성 (둘 다 agent-view canClose=false 자연 보호)</li>
+    <li><input type="checkbox" disabled> normal workspace 분할: <code>VStack</code> → <code>HStack</code> 전이 확인 (왼쪽 pane | 오른쪽 pane)</li>
+    <li><input type="checkbox" disabled> <code>grep -rn 'paneId' Sources/Session/SurfaceRegistry.swift</code> 결과가 <strong>0건</strong> (tabId로 전환됨)</li>
+    <li><input type="checkbox" disabled> 중간 walkthrough (Day 2 + Day 3 통합): 실제 v1 fixture를 <code>~/Library/Application Support/ClaudeAlarmTerminal/workspaces.json</code>에 배치 → 앱 시작 → 한국어 성공 다이얼로그 1회 표시 + backup 파일 1개 생성 → 변환된 workspace에서 pane split (HStack 좌/우) + tab 추가/close cascade 동작 정상 (1회 walkthrough를 <code>docs/p3.5/manual-ux-walkthrough.md</code>에 timestamp + 통과 표기)</li>
+    <li><input type="checkbox" disabled> Day 3 종료 commit 1건 (<code>feat(P3.5 Day 3): WorkspaceManager addTab/closeTab/selectTab + cascade + 탭바 UI</code>)</li>
+  </ul>
+</section>
+
+<!-- Day 4 -->
+<section class="day-card" id="day-4">
+  <h3>Day 4 — agent-view 2-pane split (HSplitView) + 3단 트리 (OutlineGroup)</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>agent-view 진입 시 컨텐츠 영역을 2-pane horizontal split으로 재구성한다. 좌측은 <code>List + OutlineGroup</code>으로 workspace - pane - tab 3단 계층 트리를 표시한다. 우측은 선택된 tab의 <code>GhosttyTerminalView</code>를 표시한다.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>Sources/UI/AgentView/AgentSplitView.swift</code> (신규, HSplitView 컨테이너, 우측 EmptyAgentRightPane placeholder 포함)</li>
+        <li><code>Sources/UI/AgentView/AgentTreeView.swift</code> (신규, List + OutlineGroup, 좌측 트리)</li>
+        <li><code>Sources/UI/AgentView/AgentTreeNode.swift</code> (신규, enum 3-variant: workspace/pane/tab)</li>
+        <li><code>Sources/UI/AgentView/AgentTreeSelection.swift</code> (신규, @Published selectedTabId, selectFirstAvailable(manager:))</li>
+        <li><code>Sources/UI/RootView.swift</code> 수정 — agent-view workspace 분기 시 <code>AgentDashboardView</code> → <code>AgentSplitView</code>로 교체</li>
+        <li><code>Tests/UITests/AgentTreeNodeTests.swift</code> (≥4 case: workspace 빈 panes → leaf, pane 빈 tabs → leaf, normal workspace tree 빌드, agent-view는 트리 노드 제외)</li>
+        <li><code>Tests/UITests/AgentTreeSelectionTests.swift</code> (≥4 case: selectFirstAvailable → 트리의 첫 sessionId 보유 tab, 모든 workspace 비어 있으면 nil, workspace 추가순 정렬, 선택된 tab이 close 되면 selection 다음 sibling으로 이동)</li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (opus) — SwiftUI List + OutlineGroup + selection binding 패턴 정확성</dd>
+    <dt>예상 소요</dt>
+    <dd>1.0~1.5일</dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li><code>OutlineGroup</code>의 children KeyPath는 <code>\.children</code> — workspace 노드의 children = 그 workspace의 pane 노드 배열, pane 노드의 children = 그 pane의 tab 노드 배열, tab 노드의 children = nil (leaf).</li>
+        <li><code>List(selection:)</code> binding은 단일 <code>UUID?</code> (선택된 tab의 id). workspace/pane 노드는 <code>.tag(nil)</code>으로 선택 불가 처리.</li>
+        <li>workspace 노드는 expand/collapse 가능 (default expand). agent-view workspace 자체는 트리에서 제외 (자기 자신 표시 금지, agent-view canClose=false invariant 자연 보호).</li>
+        <li>우측 surface 교체는 즉시 (Q-γ default). SurfaceRegistry에서 surfaceRef를 가져와 GhosttyTerminalView에 주입 (zero-flicker).</li>
+        <li>EmptyAgentRightPane은 첫 부팅 (모든 workspace 비어 있을 때) 한정. 한 번이라도 tab이 생기면 placeholder는 다시 표시되지 않음.</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>grep -n 'AgentDashboardView()' Sources/UI/RootView.swift</code> 결과가 <strong>0건</strong> (AgentSplitView로 교체됨)</li>
+    <li><input type="checkbox" disabled> <code>grep -n 'OutlineGroup' Sources/UI/AgentView/AgentTreeView.swift</code> 결과가 <strong>1건 이상</strong></li>
+    <li><input type="checkbox" disabled> <code>swift test --filter AgentTreeNodeTests</code> exit code 0 (≥4 case)</li>
+    <li><input type="checkbox" disabled> <code>swift test --filter AgentTreeSelectionTests</code> exit code 0 (≥4 case)</li>
+    <li><input type="checkbox" disabled> manual: 3개 workspace (각 1 pane, 각 1 tab) 생성 후 agent-view 클릭 → 좌측 트리에 3개 workspace 펼침 표시 + 첫 sessionId 보유 tab이 자동 선택됨 → 우측에 그 tab의 GhosttyTerminalView 렌더</li>
+    <li><input type="checkbox" disabled> manual: 좌측 트리에서 다른 tab 클릭 → 우측 surface가 즉시 교체 (페이드 없음)</li>
+    <li><input type="checkbox" disabled> manual: 모든 workspace 닫은 상태에서 agent-view 진입 → EmptyAgentRightPane placeholder 표시</li>
+    <li><input type="checkbox" disabled> 중간 walkthrough (사이드바 ↔ 좌측 트리 동기화 R8): 사이드바에서 ws-beta 클릭 → 좌측 트리 ws-beta 노드 자동 expand + <code>selectedTabId</code> 그대로 / 좌측 트리에서 ws-gamma의 tab 클릭 → 사이드바 selection이 ws-gamma로 동기화 + 우측 surface 즉시 교체 / workspace·pane 노드 클릭 시 <code>selectedTabId</code> 변경 없이 expand/collapse 토글만 발동</li>
+    <li><input type="checkbox" disabled> 결정자 평가 (R8 결론 1차): 사이드바 240px 유지 시각 평가 → § 11 Q-α-1 default(240px 유지) 채택 또는 변경 결정 기록</li>
+    <li><input type="checkbox" disabled> Day 4 종료 commit 1건 (<code>feat(P3.5 Day 4): agent-view AgentSplitView + AgentTreeView (OutlineGroup) + 사이드바 동기화</code>)</li>
+  </ul>
+</section>
+
+<!-- Day 5 -->
+<section class="day-card" id="day-5">
+  <h3>Day 5 — AgentTreeRow + P3 status 인프라 wiring</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>좌측 트리의 각 노드(특히 tab leaf)에 P3에서 보존된 status 인프라(observer/policy/coordinator/badge)를 wiring하여 status 아이콘 + 한 줄 요약을 표시한다.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>Sources/UI/AgentView/AgentTreeRow.swift</code> (신규) — workspace row (이름 + tab 총개수), pane row (좌/우 + tab 개수), tab row (status badge + name + 한 줄 요약)</li>
+        <li><code>Sources/UI/AgentView/AgentStatusBadge.swift</code> 수정 — 기존 카드용 inline badge를 트리 row의 leading 아이콘 형태로 재배치 (16x16, ∙/✻/!/✓/✗ 매핑 보존)</li>
+        <li><code>Sources/UI/AgentView/ViewportPollingTimer.swift</code> 수정 — polling 단위를 <code>paneId</code> → <code>tabId</code>로 변경 (SessionIndex.allRunningSessions를 SessionIndex.allRunningTabs로 변경 또는 wrapper)</li>
+        <li><code>Sources/UI/AgentView/FocusedPaneStore.swift</code> 수정 — focused 판정을 paneId → tabId로 확장 (Pane 안에서도 어떤 tab이 활성인지 추가 판정)</li>
+        <li><code>Tests/SessionTests/SessionIndexTabExtensionTests.swift</code> (tab 단위 인덱싱, workspace - pane - tab 3단 인덱싱)</li>
+        <li><code>Tests/UITests/AgentTreeRowSnapshotTests.swift</code> (status별 row 렌더링, 한국어 한 줄 요약, needsInput pulse animation)</li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (opus) — P3 인프라 재배선 + SwiftUI snapshot test</dd>
+    <dt>예상 소요</dt>
+    <dd>1.0~1.5일</dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li>SessionStatusObserver/SessionStatusCoordinator는 그대로 사용 (sessionId 기반). tabId → sessionId 매핑은 Tab.sessionId 필드로 단순.</li>
+        <li>한 줄 요약 길이: 트리 row는 카드보다 좁으므로 <strong>120 grapheme</strong> 제한 (P3 카드는 200). Utf8BoundaryTruncator는 그대로 사용.</li>
+        <li>ANSI SGR은 트리 row에서도 유지 — AttributedString을 SwiftUI Text에 전달 (P3 동일 패턴).</li>
+        <li>needsInput pulse animation은 tab row의 leading badge에만 적용 (workspace/pane row는 자식의 needsInput 개수를 카운트하여 "(1)" 형태로 표시).</li>
+        <li>polling 빈도: focused tab 4Hz, inactive tab 1Hz, app 백그라운드 시 모든 tab 0.5Hz (ViewportPollingTimer 기존 정책 그대로 + tier 추가).</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>grep -n 'AgentStatusBadge\|AgentTreeRow' Sources/UI/AgentView/AgentTreeView.swift</code> 결과가 <strong>1건 이상</strong></li>
+    <li><input type="checkbox" disabled> <code>grep -rn 'paneId:' Sources/UI/AgentView/ViewportPollingTimer.swift</code> 결과가 <strong>0건</strong> (tabId 로 전환됨)</li>
+    <li><input type="checkbox" disabled> <code>swift test --filter SessionIndexTabExtensionTests</code> exit code 0 (≥3 case)</li>
+    <li><input type="checkbox" disabled> <code>swift test --filter AgentTreeRowSnapshotTests</code> exit code 0 (≥5 case: idle/working/needsInput/exited/failed)</li>
+    <li><input type="checkbox" disabled> manual: claude tab에서 "Do you want to apply this change? [y/n]" prompt 출력 → 좌측 트리의 해당 tab row에 needsInput "!" 아이콘이 250ms 안에 표시</li>
+    <li><input type="checkbox" disabled> manual: shell tab에서 <code>echo "안녕하세요 ✨"</code> 실행 → 좌측 트리 row의 한 줄 요약에 "안녕하세요 ✨"가 UTF-8 손상 없이 표시</li>
+    <li><input type="checkbox" disabled> manual: 좌측 트리에서 inactive tab의 polling 간격이 1Hz로 줄어듦을 OSLog로 확인 (CHAT_TERMINAL_AGENT_DEBUG_LOG=1)</li>
+    <li><input type="checkbox" disabled> 중간 walkthrough (agent-view 통합 시연): 3 workspace × 2 pane × 2 tab 환경 구성 → agent-view 진입 → 좌측 트리 첫 sessionId 보유 tab 자동 선택 → 우측 surface 렌더 → 다른 tab 클릭 → 우측 surface 즉시 교체 + status badge (∙/✻/!) 갱신 → 한 줄 요약 ANSI SGR 색상 유지 (1회 walkthrough를 <code>docs/p3.5/manual-ux-walkthrough.md</code>에 timestamp + 통과 표기)</li>
+    <li><input type="checkbox" disabled> Day 5 종료 commit 1건 (<code>feat(P3.5 Day 5): AgentTreeRow + status 인프라 wiring (P3 보존 자산 재활용)</code>)</li>
+  </ul>
+</section>
+
+<!-- Day 6 -->
+<section class="day-card" id="day-6">
+  <h3>Day 6 — P3 카드 그리드 폐기 + dangling reference 정리</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>P3에서 폐기 대상으로 분류된 6건 UI 파일을 삭제하고, 호출 site와 extraFields 누적 데이터를 정리한다. <code>"agentView.settings"</code> 키 cleanup도 포함.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li>파일 삭제 (git rm): <code>Sources/UI/AgentView/AgentDashboardView.swift</code>, <code>AgentDashboardViewModel.swift</code>, <code>AgentCardView.swift</code>, <code>AgentSortFilterControls.swift</code>, <code>AgentViewSettings.swift</code>, <code>AgentJumpAction.swift</code></li>
+        <li>테스트 삭제: <code>AgentDashboardViewModelTests</code>, <code>AgentDashboardIntegrationTests</code>, <code>AgentSortFilterControlsTests</code>, <code>AgentJumpActionTests</code>, <code>AgentViewSettingsTests</code></li>
+        <li><code>Sources/UI/RootView.swift</code>, <code>Sources/UI/Sidebar/*</code>, <code>Sources/ClaudeAlarmTerminal/AppDelegate.swift</code>에서 6개 폐기 파일 참조 전부 제거</li>
+        <li><code>Sources/Workspace/WorkspaceManager.swift</code>에 cleanup helper: <code>workspace.extraFields["agentView.settings"]</code> 키 제거 (one-shot, bootstrap 시 1회)</li>
+        <li><code>Tests/IntegrationTests/AgentViewSettingsCleanupTests.swift</code> (extraFields에서 "agentView.settings" 키 제거 후 다시 read하면 nil)</li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (sonnet) — 표준 삭제 + 호출 site 정리</dd>
+    <dt>예상 소요</dt>
+    <dd>0.5~1.0일</dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li>"agentView.settings" 키 cleanup은 사용자 데이터 손실 우려가 거의 없음 (sort/filter 선호도뿐). 그래도 안전을 위해 1회 cleanup 직전 키 값을 OSLog INFO로 기록.</li>
+        <li>refactor-cleaner 패턴 적용: dead code 0건 / unused import 0건 / unused type 0건.</li>
+        <li>P4 reserved namespace에서 "agentView.*"는 그대로 reserved 유지 (forward-compat). 다른 P3.5+ 컴포넌트가 재사용 가능.</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>ls Sources/UI/AgentView/AgentDashboardView.swift Sources/UI/AgentView/AgentCardView.swift 2>&1 | grep -c 'No such'</code> 결과가 <strong>2</strong> (둘 다 삭제됨)</li>
+    <li><input type="checkbox" disabled> <code>grep -rn 'AgentDashboardView\|AgentCardView\|AgentSortFilterControls\|AgentViewSettings\|AgentJumpAction' Sources/</code> 결과가 <strong>0건</strong> (호출 site 0건)</li>
+    <li><input type="checkbox" disabled> <code>swift build -Xswiftc -warnings-as-errors</code> exit code 0 (dead reference로 인한 warning 0건)</li>
+    <li><input type="checkbox" disabled> <code>swift test</code> 전체 통과 (P3.5 변경 후 전체 회귀 0건)</li>
+    <li><input type="checkbox" disabled> <code>swift test --filter AgentViewSettingsCleanupTests</code> exit code 0</li>
+    <li><input type="checkbox" disabled> manual: 첫 부팅 후 workspaces.json grep "agentView.settings" 결과 0건 (cleanup 적용됨)</li>
+    <li><input type="checkbox" disabled> Day 6 종료 commit 1건 (<code>refactor(P3.5 Day 6): P3 카드 그리드 UI 6건 폐기 + dangling reference 정리</code>)</li>
+  </ul>
+</section>
+
+<!-- Day 7 -->
+<section class="day-card" id="day-7">
+  <h3>Day 7 — 좌측 트리 keyboard navigation (H-1)</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>P3 hand-off에서 이월된 H-1을 구현한다. 좌측 트리에서 ←/→ (collapse/expand), ↑/↓ (sibling 이동), Enter (선택된 tab에 attach 후 우측 surface 포커스), Tab (다음 tab으로 이동).</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>Sources/UI/AgentView/AgentTreeKeyboardHandler.swift</code> (신규) — NSEvent.localKeyDown monitor 등록, AgentTreeView focus 시에만 활성</li>
+        <li><code>Sources/UI/AgentView/AgentTreeSelection.swift</code> 수정 — <code>moveSelectionDown()</code>, <code>moveSelectionUp()</code>, <code>expandSelected()</code>, <code>collapseSelected()</code>, <code>attachToSelected()</code> 메서드 추가</li>
+        <li><code>Sources/UI/AgentView/AgentSplitView.swift</code> 수정 — Enter 시 우측 GhosttyTerminalView에 firstResponder 위임</li>
+        <li><code>Tests/UITests/AgentTreeKeyboardNavigationTests.swift</code> (≥8 case: ↓ leaf 도달 / ↑ workspace 도달 / → expand / ← collapse / Enter 선택된 tab 보유 시 attach / Enter 빈 워크스페이스 선택 시 no-op / Tab 다음 tab 이동 / Shift+Tab 이전 tab 이동)</li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (sonnet) — 표준 NSEvent 처리, SwiftUI focus 관리</dd>
+    <dt>예상 소요</dt>
+    <dd>1.0일</dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li>NSEvent.localKeyDown monitor는 AgentSplitView의 onAppear에서 등록, onDisappear에서 제거. weak self 유의.</li>
+        <li>↑/↓ 키는 flat ordered sequence (트리를 DFS 순회한 flatten 결과)에서 sibling 이동. workspace/pane/tab 모두 selection 후보.</li>
+        <li>Enter 시 selectedTabId가 nil이면 (workspace/pane 노드 선택) 그 노드의 첫 tab으로 selectedTabId 이동 후 attach.</li>
+        <li>Tab/Shift+Tab은 GhosttyTerminalView 안에서는 PTY로 전달되어야 하므로, 좌측 트리 focus일 때만 트리 navigation 처리. 우측 focus 시 PTY로 전달 (R-1 패치의 ghostty_surface_key 라우팅 그대로).</li>
+        <li>focus 판정은 NSApp.keyWindow?.firstResponder == AgentTreeView host view 일 때만 트리 navigation 활성.</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>swift test --filter AgentTreeKeyboardNavigationTests</code> exit code 0 (≥8 case)</li>
+    <li><input type="checkbox" disabled> manual: 좌측 트리 클릭 후 ↓ 5회 → 트리 5번째 노드로 selection 이동 (시각 강조)</li>
+    <li><input type="checkbox" disabled> manual: workspace 노드 선택 후 → 누름 → 펼침 / ← 누름 → 접힘</li>
+    <li><input type="checkbox" disabled> manual: tab 노드 선택 후 Enter → 우측 GhosttyTerminalView가 firstResponder를 받고 키 입력이 PTY로 전달됨 (echo test로 검증)</li>
+    <li><input type="checkbox" disabled> manual: 우측 surface focus 상태에서 Tab 키 → PTY로 \t 전달 (R-1 회귀 검증, 트리로 focus 안 빼앗김)</li>
+    <li><input type="checkbox" disabled> manual: 좌측 트리 focus 상태에서 Tab 키 → 다음 tab 노드로 selection 이동 (R-1 회귀 검증, PTY로 전달 안 됨)</li>
+    <li><input type="checkbox" disabled> Day 7 종료 commit 1건 (<code>feat(P3.5 Day 7): H-1 좌측 트리 keyboard navigation</code>)</li>
+  </ul>
+</section>
+
+<!-- Day 8 -->
+<section class="day-card" id="day-8">
+  <h3>Day 8 — H-4 leaks + H-5 TSan + acceptance walkthrough + P3.5 → P4 인계</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>P3 hand-off에서 이월된 H-4 leaks 실측과 H-5 TSan 30분 verifier를 수행하고, 종합 acceptance walkthrough를 통과시키고, P4 진입 체크리스트를 정착한다.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>docs/p3.5/leaks-report.md</code> — <code>xcrun leaks &lt;pid&gt;</code> 측정 결과 (20 surface × 30분 idle, leak count == 0 검증)</li>
+        <li><code>docs/p3.5/tsan-report.md</code> — TSan 30분 runtime 결과 (alloc/free 1:1, SessionActionRouter.dispatch 동시성, AgentTreeSelection 동시 업데이트 0 알람)</li>
+        <li><code>docs/p3.5/acceptance-walkthrough.md</code> — A1~A10 종합 walkthrough 결과</li>
+        <li><code>docs/p3.5/handoff-to-p4.md</code> — P4 진입 시 알아야 할 사항 (P3 hand-off 패턴 계승)</li>
+        <li><code>docs/adr/F-pane-tab-hierarchy.md</code> (신규 ADR) — Pane을 멀티탭 컨테이너로 만든 결정의 Drivers/Alternatives/Why/Consequences/Follow-ups</li>
+        <li><code>docs/adr/G-claude-config-dir-policy.md</code> (신규 ADR) — CLAUDE_CONFIG_DIR 격리 폐지 결정의 동일 6-section</li>
+        <li><code>docs/adr/E-agent-view-rendering.md</code> 수정 — (마) 항목 추가: UI 렌더링 패러다임 카드 그리드 → 2-pane split 변경 supersede 명시. (가)~(라)는 변경 없음 (SGR 부분집합 / read_text-free_text 1:1 / NeedsInputPolicyV1 / OSC 133 2-tier 그대로 유지)</li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>verifier (opus) — leaks/TSan 측정, ADR 작성은 architect 후속 spawn</dd>
+    <dt>예상 소요</dt>
+    <dd>1.0일</dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li>H-4: 20 tab × 30분 idle 시나리오는 P3 hand-off 명세 그대로. 차이는 SurfaceRegistry key가 tabId로 변경된 점뿐. <code>ghostty_surface_read_text</code> / <code>ghostty_surface_free_text</code> grep count는 GhosttyViewportProvider.swift에서 동일해야 함.</li>
+        <li>H-5: TSan은 SessionActionRouter.dispatch + AgentTreeSelection 두 영역 집중. AgentTreeSelection은 @MainActor 보장 + selection 변경 시 main thread에서만 read/write.</li>
+        <li>acceptance walkthrough는 사용자(결정자)가 직접 수행. A1~A10 10개 항목 (Backspace/Enter/Tab/Arrow / 한글 IME / claude 재로그인 부재 + <strong>동시 두 claude tab 5분 idle</strong> / pane 좌우 / 멀티탭 + cascade / agent-view 2-pane + 첫 세션 선택 + 사이드바 ↔ 트리 동기화 / schema v1 → v2 자동 변환 + <code>workspaces.json.v1-pre-migration-...</code> 백업 + idempotent / H-1 키보드 / H-4 leaks + H-5 TSan / 5회 walkthrough 카탈로그)</li>
+        <li>P4 인계 문서는 (i) P4 wave 진입 시 알아야 할 schema v2 모델 변경 (ii) SurfaceRegistry tabId key (iii) WorkspaceManager.addTab/closeTab API (iv) agent-view AgentSplitView 구조 (v) ADR-E (마) supersede (vi) ADR-F/G 신설을 명시.</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>xcrun leaks &lt;pid&gt; | grep "leaks for [0-9]* nodes"</code> 결과가 <strong>0 leaks</strong> (20 surface × 30분 idle)</li>
+    <li><input type="checkbox" disabled> TSan 30분 동안 alloc/free 1:1 위반 <strong>0건</strong>, SessionActionRouter.dispatch data race <strong>0건</strong>, AgentTreeSelection data race <strong>0건</strong> (TSan log 첨부)</li>
+    <li><input type="checkbox" disabled> <code>grep -rc 'ghostty_surface_read_text' Sources/ == grep -rc 'ghostty_surface_free_text' Sources/</code> (1:1 invariant 보존)</li>
+    <li><input type="checkbox" disabled> acceptance walkthrough A1~A10 모두 결정자가 직접 통과 확인 (각 항목 timestamp + 통과/실패 표기). 특히 A3는 <strong>2개 claude tab 동시 spawn 5분 idle</strong> 재확인 (R6 후보 finalize) 의무</li>
+    <li><input type="checkbox" disabled> <code>docs/adr/F-pane-tab-hierarchy.md</code>, <code>docs/adr/G-claude-config-dir-policy.md</code> 두 파일이 git에 add됨</li>
+    <li><input type="checkbox" disabled> <code>grep -n '## (마)' docs/adr/E-agent-view-rendering.md</code> 결과가 <strong>1건</strong> (supersede 항목 추가됨)</li>
+    <li><input type="checkbox" disabled> <code>docs/p3.5/handoff-to-p4.md</code>가 6개 인계 항목 모두 포함</li>
+    <li><input type="checkbox" disabled> Day 8 종료 commit 1건 (<code>verify(P3.5 Day 8): H-4 leaks + H-5 TSan + acceptance + P4 인계</code>)</li>
+  </ul>
+</section>
+
+<!-- =================================================================== -->
+<h2 id="sec-5">5. Architecture Diagram (ASCII art)</h2>
+
+<h3>agent-view 선택 시 (3-pane horizontal)</h3>
+<div class="ascii">+-------------+-----------------+----------------------------+
+| Sidebar     |  AgentTreeView  |  GhosttyTerminalView       |
+| 240px       |   240~360px     |  남은 폭                   |
+|             |                 |                            |
+| ★ 에이전트뷰 | ▼ ws alpha      | $ npm test                 |
+| ▢ ws alpha  |   ▼ pane (L)    | PASS  src/foo.test.ts      |
+| ▢ ws beta   |     • tab 1 ∙   | PASS  src/bar.test.ts      |
+| ▢ ws gamma  |     • tab 2 ✻   |                            |
+|             |   ▼ pane (R)    | Tests: 12 passed           |
+|             |     • tab 1 !   |                            |
+| [+ 새 작업] | ▼ ws beta       |                            |
+|             |   ▶ pane (L)    |                            |
++-------------+-----------------+----------------------------+
+              ▲                  ▲
+              │                  │
+              List(selection:)   SurfaceRegistry.surface(forTabId:)
+              + OutlineGroup
+              + AgentTreeRow
+                (AgentStatusBadge + AnsiSGRParser + ShellPreviewExtractor)</div>
+
+<h3>normal workspace 선택 시 (2-pane horizontal, REQ-1 + REQ-2)</h3>
+<div class="ascii">+-------------+--------------------------------------------+
+| Sidebar     |  WorkspaceContentView (HStack)             |
+|             |   ┌──────────────┬──────────────┐          |
+| ★ 에이전트뷰 |   │ PaneTabCont. │ PaneTabCont. │          |
+| ★ ws alpha  |   │ [t1|t2|t3|+] │ [t1|+]       │          |
+| ▢ ws beta   |   │              │              │          |
+|             |   │  GhosttyTV   │  GhosttyTV   │          |
+|             |   │  (activeTab) │  (activeTab) │          |
+|             |   └──────────────┴──────────────┘          |
+|             |    PanePosition.left  PanePosition.right    |
++-------------+--------------------------------------------+
+                                                          ▲
+                                                          │
+                                            SurfaceRegistry[tabId]</div>
+
+<h3>schema v1 → v2 migration flow</h3>
+<div class="ascii">App 부팅
+  │
+  ▼
+WorkspaceStore.load()
+  │
+  ▼
+WorkspaceSchemaMigration.migrateIfNeeded(at: workspacesURL)
+  │
+  ├─ isV1(data)? ──no──▶ return false (v2 그대로 로드)
+  │     │ yes
+  │     ▼
+  │  WorkspaceSchemaV1.decodeV1(data)
+  │     │
+  │     ▼
+  │  convert(v1) → [Workspace] (v2)
+  │     │  (top→left, bottom→right, sessionId→Tab wrap)
+  │     ▼
+  │  FileManager.copyItem(workspaces.json → workspaces.json.v1-pre-migration-&lt;ISO8601&gt;)
+  │     │  실패 시 abort, v1 보존, 한국어 에러 다이얼로그
+  │     ▼
+  │  encodeV2(v2) → workspaces.json overwrite
+  │     │
+  │     ▼
+  │  return true (migration 1회 완료, version=2 stamp)
+  ▼
+WorkspaceManager init</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-6">6. Critical Code Specs</h2>
+
+<h3>6.1 WorkspaceManager.closeTab cascade (핵심)</h3>
+
+<pre><code><span class="kw">@MainActor</span>
+<span class="kw">public func</span> closeTab(workspaceId: <span class="typ">UUID</span>, paneId: <span class="typ">UUID</span>, tabId: <span class="typ">UUID</span>) <span class="kw">async throws</span> {
+    <span class="com">// Phase 1: tab의 session terminate (lifecycle hook 발동)</span>
+    <span class="kw">guard let</span> ws = workspaces.first(where: { $0.id == workspaceId }),
+          <span class="kw">let</span> paneIdx = ws.panes.firstIndex(where: { $0.id == paneId }),
+          <span class="kw">let</span> tabIdx = ws.panes[paneIdx].tabs.firstIndex(where: { $0.id == tabId })
+    <span class="kw">else</span> { <span class="kw">throw</span> <span class="typ">WorkspaceError</span>.tabNotFound }
+
+    <span class="kw">let</span> closingTab = ws.panes[paneIdx].tabs[tabIdx]
+    <span class="kw">if let</span> sessionId = closingTab.sessionId {
+        <span class="kw">try await</span> sessionManager.terminate(id: sessionId)
+        surfaceRegistry.detach(tabId: tabId)
+    }
+
+    <span class="com">// Phase 2: tab 제거 + activeTabId 갱신 (immutable rebuild)</span>
+    <span class="kw">var</span> newTabs = ws.panes[paneIdx].tabs
+    newTabs.remove(at: tabIdx)
+    <span class="kw">let</span> newActiveTabId: <span class="typ">UUID</span>? = {
+        <span class="kw">if</span> ws.panes[paneIdx].activeTabId == tabId {
+            <span class="kw">return</span> newTabs.first?.id  <span class="com">// sibling 으로 이동</span>
+        } <span class="kw">else</span> {
+            <span class="kw">return</span> ws.panes[paneIdx].activeTabId  <span class="com">// 그대로</span>
+        }
+    }()
+    <span class="kw">let</span> newPane = ws.panes[paneIdx].with(tabs: newTabs, activeTabId: newActiveTabId)
+
+    <span class="com">// Phase 3: cascade — pane.tabs.isEmpty → pane 제거</span>
+    <span class="kw">var</span> newPanes = ws.panes
+    <span class="kw">if</span> newPane.tabs.isEmpty {
+        newPanes.remove(at: paneIdx)
+    } <span class="kw">else</span> {
+        newPanes[paneIdx] = newPane
+    }
+
+    <span class="com">// Phase 4: cascade — workspace.panes.isEmpty && canClose → workspace 제거</span>
+    <span class="kw">if</span> newPanes.isEmpty &amp;&amp; ws.canClose {
+        removeWorkspace(id: workspaceId)
+        <span class="com">// agent-view 는 canClose=false 이므로 이 분기 진입 불가</span>
+    } <span class="kw">else</span> {
+        replace(workspace: ws.with(panes: newPanes))
+    }
+
+    <span class="kw">try</span> store.save(workspaces)  <span class="com">// 영속화</span>
+}</code></pre>
+
+<h3>6.2 AgentTreeSelection.selectFirstAvailable (REQ-5 default)</h3>
+
+<pre><code><span class="kw">@MainActor</span>
+<span class="kw">public final class</span> <span class="typ">AgentTreeSelection</span>: <span class="typ">ObservableObject</span> {
+    <span class="kw">@Published public var</span> selectedTabId: <span class="typ">UUID</span>? = <span class="kw">nil</span>
+    <span class="kw">@Published public var</span> expandedNodeIds: <span class="typ">Set</span>&lt;<span class="typ">UUID</span>&gt; = []  <span class="com">// workspace.id</span>
+
+    <span class="com">/// 트리 DFS 순회 첫 sessionId 보유 tab. 모든 tab이 sessionId nil 이면 첫 tab.</span>
+    <span class="com">/// 트리에 tab 자체가 없으면 selectedTabId = nil.</span>
+    <span class="kw">public func</span> selectFirstAvailable(manager: <span class="typ">WorkspaceManager</span>) {
+        <span class="kw">for</span> ws <span class="kw">in</span> manager.workspaces <span class="kw">where</span> ws.kind == .normal {
+            expandedNodeIds.insert(ws.id)  <span class="com">// default expand</span>
+            <span class="kw">for</span> pane <span class="kw">in</span> ws.panes {
+                <span class="kw">for</span> tab <span class="kw">in</span> pane.tabs <span class="kw">where</span> tab.sessionId != <span class="kw">nil</span> {
+                    selectedTabId = tab.id
+                    <span class="kw">return</span>
+                }
+            }
+        }
+        <span class="com">// fallback: 첫 tab (sessionId nil 이어도)</span>
+        selectedTabId = manager.workspaces
+            .first(where: { $0.kind == .normal })?
+            .panes.first?.tabs.first?.id
+    }
+}</code></pre>
+
+<h3>6.3 WorkspaceSchemaMigration v1 감지 + 변환</h3>
+
+<pre><code><span class="kw">internal func</span> isV1(data: <span class="typ">Data</span>) -> <span class="typ">Bool</span> {
+    <span class="com">// 휴리스틱: WorkspaceFile.version 필드 기준 + pane shape 보강.</span>
+    <span class="com">// P2 v1 은 이미 `version: 1` 로 stamp 되어 있으므로 version 필드를 1차 판정자로,</span>
+    <span class="com">// pane shape (position in {top,bottom} 또는 tabs 부재+sessionId 존재) 을 2차 보강으로 사용.</span>
+    <span class="kw">guard let</span> json = <span class="kw">try</span>? <span class="typ">JSONSerialization</span>.jsonObject(with: data) <span class="kw">as</span>? [<span class="typ">String</span>: <span class="typ">Any</span>]
+    <span class="kw">else</span> { <span class="kw">return false</span> }
+
+    <span class="com">// 1차: version field 검사 (v2 이상이면 즉시 false → idempotent)</span>
+    <span class="kw">let</span> version = (json[<span class="str">"version"</span>] <span class="kw">as</span>? <span class="typ">Int</span>) ?? <span class="num">1</span>  <span class="com">// 부재 시 v1 가정</span>
+    <span class="kw">guard</span> version &lt; <span class="num">2</span> <span class="kw">else</span> { <span class="kw">return false</span> }
+
+    <span class="com">// 2차: pane shape 보강 — version 만으로 잘못 stamp 된 케이스 방어</span>
+    <span class="kw">guard let</span> wsArray = json[<span class="str">"workspaces"</span>] <span class="kw">as</span>? [[<span class="typ">String</span>: <span class="typ">Any</span>]],
+          <span class="kw">let</span> firstWs = wsArray.first,
+          <span class="kw">let</span> panes = firstWs[<span class="str">"panes"</span>] <span class="kw">as</span>? [[<span class="typ">String</span>: <span class="typ">Any</span>]]
+    <span class="kw">else</span> { <span class="kw">return true</span> }  <span class="com">// version=1 이고 빈 workspaces 면 v1 으로 처리 (stamp 만 갱신)</span>
+
+    <span class="kw">return</span> panes.contains { ($0[<span class="str">"position"</span>] <span class="kw">as</span>? <span class="typ">String</span>) == <span class="str">"top"</span> ||
+                            ($0[<span class="str">"position"</span>] <span class="kw">as</span>? <span class="typ">String</span>) == <span class="str">"bottom"</span> } ||
+           panes.contains { $0[<span class="str">"tabs"</span>] == <span class="kw">nil</span> &amp;&amp; $0[<span class="str">"sessionId"</span>] != <span class="kw">nil</span> }
+}</code></pre>
+
+<!-- =================================================================== -->
+<h2 id="sec-7">7. ADR 운영화</h2>
+
+<h3>7.1 ADR-E (P3 agent-view 렌더링) — 일부 supersede</h3>
+
+<table>
+  <thead><tr><th>항목</th><th>P3 결정</th><th>P3.5 운명</th></tr></thead>
+  <tbody>
+    <tr><td>(가) SGR 부분집합</td><td>0/1/22/30-37/40-47/90-97/100-107/256/truecolor/39/49</td><td><span class="tag ok">유지</span></td></tr>
+    <tr><td>(나) read_text/free_text 1:1</td><td>GhosttyViewportProvider 격리</td><td><span class="tag ok">유지</span></td></tr>
+    <tr><td>(다) NeedsInputPolicyV1</td><td>v1-2026-05 + 80 byte window + SGR reset ❯</td><td><span class="tag ok">유지</span></td></tr>
+    <tr><td>(라) OSC 133 우선 + 휴리스틱 보조</td><td>2-tier</td><td><span class="tag ok">유지</span></td></tr>
+    <tr><td>(마) UI 렌더링 패러다임</td><td>카드 그리드 (LazyVGrid)</td><td><span class="tag warn">supersede</span> → AgentSplitView (HSplitView + OutlineGroup)</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <div class="label">ADR-E supersede 적용 절차</div>
+  <p>Day 8에 <code>docs/adr/E-agent-view-rendering.md</code>의 status 라인을 "Accepted (가)~(라) / Superseded by P3.5 for (마)"로 갱신하고, 본문 끝에 "(마) UI 렌더링 패러다임 변경 — see ADR-F" 항목을 추가. (가)~(라)는 본문 그대로.</p>
+</div>
+
+<h3>7.2 ADR-F (신설) — Pane을 멀티탭 컨테이너로</h3>
+
+<p><strong>Decision</strong>: Pane은 단일 session을 갖던 단일-탭 모델에서 멀티탭 컨테이너로 변경. <code>Tab { id, sessionId, kind, name, createdAt, extraFields }</code> 도입.</p>
+
+<p><strong>Drivers</strong>: (D1) 일상 사용 baseline — IDE/Ghostty/iTerm2 표준 형태, (D2) P4 protocol freeze 전 모델 안정화, (D3) SurfaceRegistry key 단위를 명확히.</p>
+
+<p><strong>Alternatives</strong>: (A) workspace 단위 탭바 — REQ-2 의도와 어긋남, 거부 / (B) pane 단위 탭바 + Tab 모델 — 선택 / (C) Pane.sessions[] 배열만 — Tab 메타데이터 부재, 거부.</p>
+
+<p><strong>Consequences</strong>: 긍정 — sessionId 1:1 wrap으로 v1 migration 자연 / 부정 — SurfaceRegistry key 변경 (paneId → tabId) / Follow-ups: P4에서 protocol freeze 시 Tab.id를 protocol 단위로 노출할지 결정.</p>
+
+<h3>7.3 ADR-G (신설) — CLAUDE_CONFIG_DIR 격리 정책</h3>
+
+<p><strong>Decision</strong>: CLAUDE_CONFIG_DIR 강제 격리 폐지. 사용자 ~/.claude 공유.</p>
+
+<p><strong>Drivers</strong>: (D1) 일상 사용 불가의 직접 원인 (매번 재로그인), (D2) Anthropic 공식 문서가 ~/.claude 공유를 default로 명시, (D3) P1/P2의 세션별 credential 격리 가설은 검증 부재.</p>
+
+<p><strong>Alternatives</strong>: (A) 격리 폐지 — 선택 / (B) 사용자 opt-in 격리 (env 변수로 toggle) — P3.5 범위 초과, 거부 / (C) 부분 격리 (claude.json만 격리하고 credentials은 공유) — Anthropic CLI 내부 동작 불확실, 거부.</p>
+
+<p><strong>Consequences</strong>: 긍정 — claude 재로그인 부재, 사용자 일상 사용 가능 / 부정 — 두 세션이 동시에 같은 claude config를 read/write 시 file lock 충돌 가능 (Anthropic CLI의 lock 정책에 의존) / Follow-ups: 동시 두 claude 세션 시나리오에서 conflict 발생 여부 P4 wave에서 모니터.</p>
+
+<!-- =================================================================== -->
+<h2 id="sec-8">8. Acceptance Criteria</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width: 50px;">#</th>
+      <th>기준</th>
+      <th style="width: 100px;">검증 일자</th>
+      <th>검증 절차</th>
+      <th style="width: 50px;">통과</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>A1</strong></td>
+      <td>R-1 회귀 — Backspace/Enter/Tab/Arrow가 PTY로 정상 control byte 전달</td>
+      <td>Day 1 + Day 8</td>
+      <td>shell tab에서 <code>cat &gt; /tmp/keytest</code> 후 BS/Enter/Tab/Arrow 키 입력 → /tmp/keytest 파일 hexdump가 0x7F / 0x0D / 0x09 / 0x1B 0x5B 0x41 byte를 정확히 포함</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td><strong>A2</strong></td>
+      <td>한글 IME 자모 결합 정상</td>
+      <td>Day 1 + Day 8</td>
+      <td>claude tab에서 "안녕하세요"를 IME로 입력 → claude 입력 echo에 "ㅇㅏㄴㄴㅕㅇ..." 자모 분리 없이 음절 완성형 표시</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td><strong>A3</strong></td>
+      <td>claude ~/.claude 공유 — 매번 로그인 요구 없음 + 동시 두 claude tab 정상 동작</td>
+      <td>Day 1 + Day 8</td>
+      <td>앱 시작 후 claude tab 첫 spawn → 즉시 REPL 진입, 로그인 프롬프트 부재. <code>echo $CLAUDE_CONFIG_DIR</code>이 빈 문자열 또는 사용자 본래 env 값. 추가: <strong>2개 claude tab을 동시 spawn 후 5분 idle</strong> → 양쪽 모두 정상 동작 + 에러 로그 0건 (file lock 충돌 부재). 충돌 발생 시 R6 후보로 timestamp 기록.</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td><strong>A4</strong></td>
+      <td>pane 좌우 분할 (REQ-1)</td>
+      <td>Day 3</td>
+      <td>normal workspace에서 pane split → 두 pane이 가로로 배치 (좌 PanePosition.left, 우 .right), HStack invariant</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td><strong>A5</strong></td>
+      <td>pane 멀티탭 + 탭별 close 자동 정리 cascade (REQ-2 + REQ-4)</td>
+      <td>Day 3 + Day 8</td>
+      <td>한 pane에 3개 tab 생성 → 2개 close → pane 그대로 / 마지막 tab close → pane 제거 / 다른 pane의 마지막 tab close → workspace 제거 / agent-view는 cascade 미발동</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td><strong>A6</strong></td>
+      <td>agent-view 2-pane split + 첫 세션 자동 선택 (REQ-5)</td>
+      <td>Day 4 + Day 8</td>
+      <td>3개 workspace × 1 pane × 1 tab 환경 → agent-view 클릭 → 좌측 트리에 3개 workspace 표시 + 첫 sessionId 보유 tab 자동 선택 + 우측 GhosttyTerminalView 즉시 렌더</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td><strong>A7</strong></td>
+      <td>schema v1 workspaces.json 자동 migration (실제 코드 field <code>version</code>)</td>
+      <td>Day 2 + Day 3 + Day 8</td>
+      <td>v1 fixture를 ~/Library/Application Support/.../workspaces.json에 배치 → 앱 시작 → <code>workspaces.json.v1-pre-migration-&lt;ISO8601&gt;</code> 백업 생성 + 한국어 성공 다이얼로그 1회 표시 + workspaces.json이 <code>version: 2</code> + <code>position: "left"|"right"</code> + <code>tabs: [...]</code> 구조로 overwrite. 두 번째 부팅 시 idempotent (다이얼로그 미표시, 파일 변경 없음).</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td><strong>A8</strong></td>
+      <td>H-1 keyboard navigation — ←/→ 트리 + Enter attach + Tab 사이 이동</td>
+      <td>Day 7 + Day 8</td>
+      <td>agent-view 좌측 트리 focus → ↓ 키 / → expand / ← collapse / Enter → 우측 surface 포커스 / Tab → 다음 tab 노드 selection. 우측 surface focus 시 Tab은 PTY로 전달 (R-1 회귀 없음)</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td><strong>A9</strong></td>
+      <td>H-4 leaks 0 + H-5 TSan 알람 0건</td>
+      <td>Day 8</td>
+      <td><code>xcrun leaks &lt;pid&gt;</code> 결과 leaks for 0 nodes (20 tab × 30분 idle). TSan 30분 runtime alloc/free 1:1 + SessionActionRouter.dispatch + AgentTreeSelection data race 0건</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td><strong>A10</strong></td>
+      <td>manual UX walkthrough 5회 카탈로그 통과 (master plan v5 lessons learned)</td>
+      <td>Day 0 + Day 1 + Day 3 + Day 5 + Day 8</td>
+      <td><code>docs/p3.5/manual-ux-walkthrough.md</code>에 5회 walkthrough 기록 의무: (1) Day 0 R-1 게이트 5건, (2) Day 1 격리 폐지 + 동시 claude tab 3건, (3) Day 3 schema migration + cascade 통합 1건, (4) Day 5 agent-view 통합 시연 1건, (5) Day 8 종합 acceptance A1~A9 재확인. 각 walkthrough는 timestamp + 통과/실패 + 결정자 sign-off. master plan v5 진화 시 phase 종료 의무 조항으로 박힘.</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-9">9. Risks &amp; Mitigations</h2>
+
+<table>
+  <thead><tr><th>ID</th><th>위험</th><th>가능성</th><th>영향</th><th>완화</th><th>책임</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>R1</td>
+      <td>schema v1 → v2 migration 회귀 (사용자 workspaces.json 손상)</td>
+      <td>MED</td>
+      <td>HIGH</td>
+      <td>backward-compat 자동 변환 + <code>workspaces.json.v1-pre-migration-&lt;ISO8601&gt;</code> 영속 백업 의무 + backup copy 실패 시 abort + 사용자 다이얼로그 표시 + 변환 후 <code>WorkspaceFile.version = 2</code> stamp로 idempotent (<code>(version ?? 1) &lt; 2</code> 휴리스틱)</td>
+      <td>Day 2 executor + Day 8 verifier</td>
+    </tr>
+    <tr>
+      <td>R2</td>
+      <td>P3 데이터 인프라 보존하되 카드 그리드 폐기 시 dangling reference (build 실패 / runtime crash)</td>
+      <td>MED</td>
+      <td>MED</td>
+      <td>Day 6에 <code>-warnings-as-errors</code>로 빌드 + <code>grep -rn</code>로 6개 폐기 클래스 호출 site 0건 검증 + 전체 swift test 회귀 0건</td>
+      <td>Day 6 executor + refactor-cleaner</td>
+    </tr>
+    <tr>
+      <td>R3</td>
+      <td>CLAUDE_CONFIG_DIR 폐지 후 기존 격리 디렉터리 잔존물 정리 누락 (디스크 낭비)</td>
+      <td>HIGH</td>
+      <td>LOW</td>
+      <td>Day 1에 1회용 cleanup 스크립트 <code>scripts/cleanup-legacy-claude-config-dirs.sh</code> 실행 + ~/Library/Application Support/.../claude-config/ 디렉터리 비움 확인 (단 사용자 자료 보호: 7일 이상 old + UUID 형태만 삭제)</td>
+      <td>Day 1 executor</td>
+    </tr>
+    <tr>
+      <td>R4</td>
+      <td>멀티탭 SurfaceRegistry tab 단위 전환 시 mem leak / surface lifecycle 회귀</td>
+      <td>MED</td>
+      <td>HIGH</td>
+      <td>SurfaceRegistry.attach/detach를 tab 단위로 elaborate + inactive tab의 surface는 lazy attach (active tab만 alloc, inactive tab은 detach) + Day 8 H-4 leaks 실측으로 검증</td>
+      <td>Day 3 executor + Day 8 verifier</td>
+    </tr>
+    <tr>
+      <td>R5</td>
+      <td>agent-view 2-pane split의 좌측 트리 polling overhead (모든 workspace의 모든 tab viewport 폴링)</td>
+      <td>MED</td>
+      <td>MED</td>
+      <td>ViewportPollingTimer 동적 빈도 정책 보존 + inactive tab 1Hz / app 백그라운드 0.5Hz tier 추가 + OSLog로 polling 호출 횟수 monitor</td>
+      <td>Day 5 executor + Day 8 verifier</td>
+    </tr>
+    <tr>
+      <td>R6</td>
+      <td>두 claude tab이 동시에 ~/.claude/claude.json read/write 시 file lock 충돌 (R3 부작용)</td>
+      <td>LOW</td>
+      <td>MED</td>
+      <td>P4 wave에서 모니터 (P3.5 범위 초과). Anthropic CLI의 file lock 정책에 의존. Day 8 acceptance 시 동시 2개 claude tab 시나리오를 walkthrough로 검증.</td>
+      <td>P4 wave</td>
+    </tr>
+    <tr>
+      <td>R7</td>
+      <td>manual UX walkthrough가 master plan v5 lessons learned로 박히지 않음 (검증 부실 재발)</td>
+      <td>MED</td>
+      <td>HIGH</td>
+      <td>Day 8 인계 문서에 P-2 lessons learned 입력 자료로 명시 + 다음 ralplan 사이클에서 master plan v5 진화 시 phase 종료 의무 조항으로 추가</td>
+      <td>Day 8 architect + 다음 ralplan 사이클</td>
+    </tr>
+    <tr>
+      <td>R8</td>
+      <td>agent-view 활성 시 좌측 사이드바(workspace 목록) + 좌측 트리(workspace/pane/tab) 정보 중복으로 사용자 혼란</td>
+      <td>MED</td>
+      <td>MED</td>
+      <td>D3-6 본문의 사이드바 ↔ 좌측 트리 동기화 규칙 (사이드바 클릭=workspace 선택+트리 expand / 트리 tab 클릭=tabId 선택+사이드바 stale 시 동기화 / workspace·pane 노드 클릭=expand/collapse only) 명시 구현 + Day 4 walkthrough에서 결정자가 사이드바 폭(240px 유지 vs 축소 vs collapse 옵션) 평가 + Q-α-1로 § 11 결정자 청취 항목에 등록</td>
+      <td>Day 4 executor</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-10">10. Exit Gate to P4</h2>
+
+<ul class="exit-criteria">
+  <li><input type="checkbox" disabled> A1~A10 acceptance 전부 통과 (결정자 직접 표기)</li>
+  <li><input type="checkbox" disabled> Day 1~Day 8 commit 8건 누적 (P2/P3 패턴 계승)</li>
+  <li><input type="checkbox" disabled> ADR-E 일부 supersede 반영 + ADR-F + ADR-G 신설</li>
+  <li><input type="checkbox" disabled> <code>docs/p3.5/handoff-to-p4.md</code> 6개 인계 항목 모두 포함</li>
+  <li><input type="checkbox" disabled> <code>swift test</code> 전체 통과 (0 failure, 0 warning-as-error)</li>
+  <li><input type="checkbox" disabled> <code>swift build -c release</code> exit code 0 (notarize dry-run은 P4 진입 전 별도)</li>
+  <li><input type="checkbox" disabled> <code>grep -rc 'ghostty_surface_read_text' Sources/ == grep -rc 'ghostty_surface_free_text' Sources/</code> (1:1 invariant 보존)</li>
+  <li><input type="checkbox" disabled> H-2 (환경 변수 master 등록) + H-3 (reserved namespace "agentView.settings") master ralplan 사이클로 인계 (P3 hand-off 이월 항목)</li>
+  <li><input type="checkbox" disabled> 사용자 workspaces.json이 schema v2로 자동 변환되었고 .bak 파일이 보존됨</li>
+  <li><input type="checkbox" disabled> manual UX walkthrough 의무화가 master plan v5 진화 입력으로 명시됨</li>
+</ul>
+
+<div class="callout">
+  <div class="label">P4로의 인계 사항</div>
+  <p>P4 (WebSocket 채널 / claude session 자체의 영속화·resume)는 P3.5에서 v2로 안정화된 schema를 base로 진행한다. WS envelope의 session bind 단위는 sessionId (v1과 동일)이며, tab 메타데이터(name, createdAt 등)는 protocol에 노출하지 않는다. P3.5에서 보존된 status 인프라는 P4 WS envelope의 <code>status</code> field source로 그대로 재사용 가능.</p>
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-11">11. 결정자 추가 청취 항목</h2>
+
+<p>본 문서는 사양서 v2 § 4의 5개 미해결 점에 대해 다음 default를 채택했다. 결정자가 다른 결정을 원하면 다음 ralplan 사이클에서 변경 가능.</p>
+
+<table>
+  <thead><tr><th>ID</th><th>질문</th><th>본 문서 default</th><th>대안</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Q-α</td>
+      <td>Tab 모델 영속 schema v1 → v2 migration 방식</td>
+      <td><strong>backward-compat 자동 변환</strong> (Option C) + <code>workspaces.json.v1-pre-migration-&lt;ISO8601&gt;</code> 영속 백업</td>
+      <td>hard cut (Option A, 거부됨)</td>
+    </tr>
+    <tr>
+      <td>Q-α-1</td>
+      <td>agent-view 활성 시 좌측 사이드바 시각 처리 (정보 중복 R8 회수)</td>
+      <td><strong>240px 유지</strong> (1) — 사이드바와 좌측 트리는 동기화 규칙으로 의미 분기, 폭 변경 없음</td>
+      <td>(2) 180px로 축소 / (3) collapse 가능 옵션 추가 (post-MVP)</td>
+    </tr>
+    <tr>
+      <td>Q-β</td>
+      <td>좌측 트리 정렬 default</td>
+      <td><strong>workspace 추가순</strong> (사용자가 만든 순서)</td>
+      <td>최근 활동순 (post-MVP 토글), 사용자 드래그 (post-MVP)</td>
+    </tr>
+    <tr>
+      <td>Q-γ</td>
+      <td>우측 surface 교체 transition</td>
+      <td><strong>즉시 교체</strong> (zero-flicker, SurfaceRegistry 재사용)</td>
+      <td>페이드 transition (post-MVP)</td>
+    </tr>
+    <tr>
+      <td>Q-δ</td>
+      <td>한 workspace당 pane 최대 개수</td>
+      <td><strong>2개</strong> (P2 invariant 보존)</td>
+      <td>3개+ 허용 (별도 phase, P4+ 검토)</td>
+    </tr>
+    <tr>
+      <td>Q-ε</td>
+      <td>"+ 새 탭" default kind</td>
+      <td><strong>사용자 sheet</strong> (P2 패턴 계승)</td>
+      <td>shell default / claude default</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="app-a">부록 A. 환경 변수</h2>
+
+<table>
+  <thead><tr><th>변수</th><th>P3.5 값</th><th>설명</th><th>후속 단계</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>CHAT_TERMINAL_MAX_SESSIONS</code></td>
+      <td>20 (P2 기본 유지)</td>
+      <td>SessionManager 최대 세션 수</td>
+      <td>변동 없음</td>
+    </tr>
+    <tr>
+      <td><code>CLAUDE_CONFIG_DIR</code></td>
+      <td><strong>설정하지 않음</strong> (사용자 env 그대로 propagate)</td>
+      <td>P1에서 default → P2에서 세션 격리 → <strong>P3.5에서 공유로 회귀</strong></td>
+      <td>P4+ 변동 없음</td>
+    </tr>
+    <tr>
+      <td><code>CHAT_TERMINAL_AGENT_POLL_INTERVAL_MS</code></td>
+      <td>250 (focused), 1000 (inactive), 2000 (background)</td>
+      <td>tab 단위 polling 빈도</td>
+      <td>H-2로 master § 4.3 환경 변수 표 등록 예정</td>
+    </tr>
+    <tr>
+      <td><code>CHAT_TERMINAL_AGENT_PREVIEW_THROTTLE_MS</code></td>
+      <td>100 (P3 그대로)</td>
+      <td>preview publisher throttle</td>
+      <td>H-2로 등록 예정</td>
+    </tr>
+    <tr>
+      <td><code>CHAT_TERMINAL_AGENT_PREVIEW_MAX_GRAPHEMES</code></td>
+      <td>120 (P3 카드 200에서 트리 row용 축소)</td>
+      <td>한 줄 요약 grapheme 한도</td>
+      <td>H-2로 등록 예정</td>
+    </tr>
+    <tr>
+      <td><code>CHAT_TERMINAL_AGENT_DEBUG_LOG</code></td>
+      <td>0 (P3 그대로)</td>
+      <td>polling/cascade/migration OSLog verbose</td>
+      <td>H-2로 등록 예정</td>
+    </tr>
+    <tr>
+      <td><code>WorkspaceStore.currentSchemaVersion</code> (env 변수 아님)</td>
+      <td>2 (P2의 1에서 갱신, read-only constant)</td>
+      <td><code>workspaces.json</code>의 <code>WorkspaceFile.version</code> field default. 실제 코드는 env 변수가 아닌 Swift constant이므로 부록 A 표기는 reference 목적</td>
+      <td>P4+ v3 진화 시 갱신</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="app-b">부록 B. 참고 문헌</h2>
+
+<ul>
+  <li>입력 사양: <code>docs/specs/desktop-improvement-requirements.md</code> (v2, 2026-05-14)</li>
+  <li>마스터 계획: <code>docs/plans/work-plan-v4.md</code> § P3 (lines 124~155), § P4 (lines 156~184)</li>
+  <li>P1 상세: <code>docs/plans/p1/p1-detailed.html</code> (디자인 시스템 표준)</li>
+  <li>P2 상세: <code>docs/plans/p2/p2-detailed.html</code> (Pane / Workspace 모델 + schema 패턴)</li>
+  <li>P2 합의 이력: <code>docs/plans/p2/p2-history.md</code> (schema versioning 패턴 reference)</li>
+  <li>P3 상세: <code>docs/plans/p3/p3-detailed.html</code> (보존되는 status 인프라 reference)</li>
+  <li>P3 합의 이력: <code>docs/plans/p3/p3-history.md</code></li>
+  <li>P3 → P4 인계 (P3.5 흡수 항목 H-1, H-4, H-5): <code>docs/p3/handoff-to-p4.md</code></li>
+  <li>ADR-E (agent-view 렌더링, 일부 supersede 대상): <code>docs/adr/E-agent-view-rendering.md</code></li>
+  <li>Anthropic 공식 agent-view 문서 (CLAUDE_CONFIG_DIR 격리 근거): <a href="https://code.claude.com/docs/ko/agent-view">code.claude.com/docs/ko/agent-view</a></li>
+  <li>TUI 영감 블로그 (agent-view 2-pane split 영감): <a href="https://www.elancer.co.kr/blog/detail/1092">elancer.co.kr/blog/detail/1092</a></li>
+  <li>R-1 회복 패치 대상 파일: <code>Sources/TerminalView/GhosttyTerminalView.swift</code>, <code>Sources/UI/RootView.swift</code>, <code>Sources/Workspace/WorkspaceManager.swift</code>, <code>Sources/ClaudeAlarmTerminal/AppDelegate.swift</code>, <code>Sources/ClaudeAlarmTerminal/main.swift</code></li>
+  <li>SwiftUI OutlineGroup reference: <a href="https://developer.apple.com/documentation/swiftui/outlinegroup">developer.apple.com/documentation/swiftui/outlinegroup</a></li>
+  <li>SwiftUI HSplitView reference: <a href="https://developer.apple.com/documentation/swiftui/hsplitview">developer.apple.com/documentation/swiftui/hsplitview</a></li>
+</ul>
+
+</main>
+</div>
+</body>
+</html>

@@ -3,6 +3,7 @@ import Foundation
 import SwiftUI
 import os
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private static let logger = Logger(subsystem: "com.choms0521.ClaudeAlarmTerminal", category: "AppDelegate")
 
@@ -204,6 +205,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         )
         appMenuItem.submenu = appMenu
         mainMenu.addItem(appMenuItem)
+
+        // Edit menu (Cmd+C / Cmd+V / Cmd+A). Items use nil target so AppKit
+        // dispatches the action through the responder chain — GhosttyTerminalView
+        // implements paste(_:) / copy(_:) / selectAll(_:) as @IBAction.
+        let editMenuItem = NSMenuItem()
+        let editMenu = NSMenu(title: "편집")
+        let copyItem = NSMenuItem(
+            title: "복사",
+            action: #selector(NSText.copy(_:)),
+            keyEquivalent: "c"
+        )
+        copyItem.keyEquivalentModifierMask = [.command]
+        editMenu.addItem(copyItem)
+
+        let pasteItem = NSMenuItem(
+            title: "붙여넣기",
+            action: #selector(NSText.paste(_:)),
+            keyEquivalent: "v"
+        )
+        pasteItem.keyEquivalentModifierMask = [.command]
+        editMenu.addItem(pasteItem)
+
+        let selectAllItem = NSMenuItem(
+            title: "모두 선택",
+            action: #selector(NSResponder.selectAll(_:)),
+            keyEquivalent: "a"
+        )
+        selectAllItem.keyEquivalentModifierMask = [.command]
+        editMenu.addItem(selectAllItem)
+
+        editMenuItem.submenu = editMenu
+        mainMenu.addItem(editMenuItem)
 
         // Workspace menu (Cmd+N, Cmd+W, Cmd+1~9, Cmd+Opt+Up/Down)
         let wsMenuItem = NSMenuItem()

@@ -57,8 +57,11 @@ public final class WorkspaceManager: ObservableObject {
         if let active = activeCandidate, file.workspaces.contains(where: { $0.id == active }) {
             self.selectedID = active
         } else {
-            // 기본 선택: 첫 normal workspace, 없으면 첫 워크스페이스.
-            self.selectedID = file.workspaces.first(where: { $0.kind == .normal })?.id
+            // P3 Recovery: agent-view 가 영구 첫 탭이므로 lastActiveWorkspaceId 가 없거나
+            // 유효하지 않으면 agent-view 를 우선 선택한다. agent-view 가 없는 비정상
+            // 상태에서만 첫 normal workspace 로 fall back.
+            self.selectedID = file.workspaces.first(where: { $0.kind == .agentView })?.id
+                ?? file.workspaces.first(where: { $0.kind == .normal })?.id
                 ?? file.workspaces.first?.id
         }
     }

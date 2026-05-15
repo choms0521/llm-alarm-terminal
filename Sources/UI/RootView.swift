@@ -28,21 +28,27 @@ public struct RootView<NormalContent: View>: View {
     }
 
     public var body: some View {
-        NavigationSplitView(columnVisibility: .constant(.all)) {
+        // P3 Recovery: NavigationSplitView with `.balanced` style could hide or
+        // overlay the sidebar at typical desktop window widths (~900px) on
+        // macOS 14+, leaving the workspace surface to fill the entire window
+        // while the workspace list became inaccessible. HSplitView gives a
+        // deterministic two-pane layout with a draggable divider and a
+        // minimum sidebar width — both required for the agent-view UX.
+        HSplitView {
             SidebarView(
                 manager: manager,
                 onCloseWorkspace: onCloseWorkspace,
                 onAddWorkspace: onAddWorkspace
             )
-            .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 400)
-        } detail: {
+            .frame(minWidth: 200, idealWidth: 240, maxWidth: 360)
+
             WorkspaceContentView(
                 manager: manager,
                 coordinator: coordinator,
                 jumpAction: jumpAction,
                 normalContent: normalContent
             )
+            .frame(minWidth: 480)
         }
-        .navigationSplitViewStyle(.balanced)
     }
 }

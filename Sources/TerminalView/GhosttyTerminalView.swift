@@ -227,21 +227,19 @@ final class GhosttyTerminalView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
-        // Drive the IME pipeline. `interpretKeyEvents` will invoke
-        // `setMarkedText` for in-progress composition (e.g. Hangul jamo) and
-        // `insertText` for committed text. Both flow through our
-        // `NSTextInputClient` conformance below into the libghostty surface.
+        // Drive the IME pipeline first. `interpretKeyEvents` calls
+        // `setMarkedText` while composing (e.g. Hangul jamo) and `insertText`
+        // when committing. For non-text keys (Return, Tab, Backspace, arrows,
+        // ESC etc.) AppKit routes to `doCommand(by:)` and the accumulator
+        // stays empty.
         //
-        // Day 6: this replaces the direct `ghostty_surface_text(event.characters)`
-        // path from Day 5b — that path bypassed IMEs and broke composition for
-        // Korean / Japanese / Chinese input.
-        //
-        // For non-text keys (Return, Tab, Backspace, arrows, etc.) AppKit
-        // routes the event to `doCommand(by:)` instead of `insertText`. In
-        // that case our accumulator stays empty after `interpretKeyEvents`,
-        // and we fall back to forwarding `event.characters` directly so
-        // control bytes (\r, \t, \b, ESC[...) still reach libghostty.
-        guard let surface = surface else {
+        // P3 Recovery: All forwarding now goes through `ghostty_surface_key`
+        // (not `ghostty_surface_text`). That API is the only one that
+        // properly encodes control bytes — DEL/BS/Enter/Tab/arrows etc. —
+        // into the PTY input stream. The previous direct
+        // `ghostty_surface_text(event.characters)` fallback caused Backspace
+        // to advance the cursor instead of deleting and broke arrow keys.
+        guard surface != nil else {
             super.keyDown(with: event)
             return
         }
@@ -252,29 +250,94 @@ final class GhosttyTerminalView: NSView {
         defer { keyTextAccumulator = nil }
         interpretKeyEvents([event])
 
-        // If the IME accumulated text via insertText, our NSTextInputClient
-        // hook already forwarded it; nothing more to do.
+        let action: ghostty_input_action_e = event.isARepeat
+            ? GHOSTTY_ACTION_REPEAT
+            : GHOSTTY_ACTION_PRESS
+        let composing = markedText.length > 0 || markedTextBefore
+
+        // IME committed text → forward each commit as a key event with `text`.
         if let accumulated = keyTextAccumulator, !accumulated.isEmpty {
+            for text in accumulated {
+                _ = keyAction(action, event: event, text: text)
+            }
             return
         }
 
-        // If the IME is composing (marked text present, or just cleared) the
-        // raw event belongs to the IME — do not forward.
-        if markedText.length > 0 || markedTextBefore {
+        // Still composing (marked text present) or just cleared marked text:
+        // the raw event belongs to the IME, not the terminal.
+        if composing {
             return
         }
 
-        // Non-text key (Return, Tab, Backspace, arrows, ESC, etc.). Forward
-        // the raw characters so libghostty can encode the control sequence.
-        guard let chars = event.characters, !chars.isEmpty else { return }
-        chars.withCString { ptr in
-            ghostty_surface_text(surface, ptr, UInt(chars.utf8.count))
-        }
+        // Non-text key (Return, Tab, Backspace, arrows, ESC, etc.).
+        _ = keyAction(action, event: event, text: Self.ghosttyCharacters(event))
     }
 
     override func keyUp(with event: NSEvent) {
-        // Day 3: keyUp is unused but we override to silence the system beep
-        // that NSResponder would emit on unhandled events.
+        _ = keyAction(GHOSTTY_ACTION_RELEASE, event: event)
+    }
+
+    /// Build a `ghostty_input_key_s` from an `NSEvent` and hand it to
+    /// `ghostty_surface_key`. This is the single API that knows how to encode
+    /// control bytes (BS/DEL/Tab/Enter/arrows/ESC sequences) into PTY input.
+    ///
+    /// Pattern lifted from `vendor/ghostty/macos/Sources/Ghostty/Surface
+    /// View/SurfaceView_AppKit.swift::keyAction` (line 1416).
+    @discardableResult
+    private func keyAction(
+        _ action: ghostty_input_action_e,
+        event: NSEvent,
+        text: String? = nil
+    ) -> Bool {
+        guard let surface = surface else { return false }
+
+        var key_ev = ghostty_input_key_s()
+        key_ev.action = action
+        key_ev.keycode = UInt32(event.keyCode)
+        key_ev.text = nil
+        key_ev.composing = false
+        key_ev.mods = Self.ghosttyMods(event.modifierFlags)
+        key_ev.consumed_mods = Self.ghosttyMods(
+            event.modifierFlags.subtracting([.control, .command])
+        )
+        key_ev.unshifted_codepoint = 0
+        if event.type == .keyDown || event.type == .keyUp {
+            if let chars = event.characters(byApplyingModifiers: []),
+               let codepoint = chars.unicodeScalars.first {
+                key_ev.unshifted_codepoint = codepoint.value
+            }
+        }
+
+        // Only attach `text` when it is a real printable string; control
+        // characters (< 0x20) are encoded by libghostty itself based on
+        // `keycode` + `mods` so attaching them would double-encode.
+        if let text, !text.isEmpty,
+           let codepoint = text.utf8.first, codepoint >= 0x20 {
+            return text.withCString { ptr in
+                key_ev.text = ptr
+                return ghostty_surface_key(surface, key_ev)
+            }
+        } else {
+            return ghostty_surface_key(surface, key_ev)
+        }
+    }
+
+    /// Extract the text portion of a key event, dropping control bytes and
+    /// macOS private-use area (function key) values. Mirrors
+    /// `NSEvent.ghosttyCharacters` in the upstream extension.
+    private static func ghosttyCharacters(_ event: NSEvent) -> String? {
+        guard let characters = event.characters else { return nil }
+        if characters.count == 1, let scalar = characters.unicodeScalars.first {
+            if scalar.value < 0x20 {
+                return event.characters(
+                    byApplyingModifiers: event.modifierFlags.subtracting(.control)
+                )
+            }
+            if scalar.value >= 0xF700 && scalar.value <= 0xF8FF {
+                return nil
+            }
+        }
+        return characters
     }
 
     // Silence the NSResponder system beep for selectors we don't implement.
@@ -283,6 +346,56 @@ final class GhosttyTerminalView: NSView {
     // fallback branch (see comments there).
     override func doCommand(by selector: Selector) {
         // Intentional no-op — see keyDown fallback path.
+    }
+
+    // MARK: - Edit actions (Cmd+C / Cmd+V / Cmd+A) + right-click context menu
+    //
+    // Routed through the standard responder chain by the Edit menu and the
+    // overridden `menu(for:)` below. Each action delegates to libghostty's
+    // binding system via `ghostty_surface_binding_action` so clipboard handling
+    // matches Ghostty proper (terminal mode awareness, bracketed paste, OSC52,
+    // selection tracking from mouseDragged). Mirrors vendor
+    // SurfaceView_AppKit.swift:1589.
+
+    @IBAction func paste(_ sender: Any?) {
+        invokeBindingAction("paste_from_clipboard")
+    }
+
+    @IBAction func copy(_ sender: Any?) {
+        invokeBindingAction("copy_to_clipboard")
+    }
+
+    @IBAction override func selectAll(_ sender: Any?) {
+        invokeBindingAction("select_all")
+    }
+
+    @IBAction func resetTerminal(_ sender: Any?) {
+        invokeBindingAction("reset")
+    }
+
+    private func invokeBindingAction(_ action: String) {
+        guard let surface = surface else { return }
+        let ok = action.withCString { ptr in
+            ghostty_surface_binding_action(surface, ptr, UInt(action.lengthOfBytes(using: .utf8)))
+        }
+        if !ok {
+            Self.logger.warning("ghostty_surface_binding_action failed action=\(action, privacy: .public)")
+        }
+    }
+
+    // Right-click context menu. AppKit calls `menu(for:)` for any right mouse
+    // event. We provide Copy / Paste / Select All / Reset Terminal — selection
+    // is already tracked by libghostty via the mouseDragged forwarding.
+    override func menu(for event: NSEvent) -> NSMenu? {
+        guard event.type == .rightMouseDown else { return nil }
+        let menu = NSMenu(title: "Terminal")
+        menu.addItem(withTitle: "복사", action: #selector(copy(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "붙여넣기", action: #selector(paste(_:)), keyEquivalent: "")
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(withTitle: "모두 선택", action: #selector(selectAll(_:)), keyEquivalent: "")
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(withTitle: "터미널 리셋", action: #selector(resetTerminal(_:)), keyEquivalent: "")
+        return menu
     }
 
     // MARK: - Mouse buttons
@@ -555,18 +668,22 @@ extension GhosttyTerminalView: NSTextInputClient {
 
         guard !chars.isEmpty else { return }
 
-        // Record the commit so `keyDown` knows the IME consumed the event
-        // and skips the raw-character fallback. Mirrors
-        // `Ghostty.SurfaceView.insertText` accumulator logic.
+        // Inside `keyDown -> interpretKeyEvents`: just record the commit; the
+        // outer `keyDown` runs `keyAction` with this text so it flows through
+        // `ghostty_surface_key`. Mirrors upstream `SurfaceView.insertText`.
         if keyTextAccumulator != nil {
             keyTextAccumulator?.append(chars)
+            return
         }
 
+        // Outside a keyDown (e.g. menu-driven character palette / dictation):
+        // there is no NSEvent to build a key event from, so push the text
+        // directly via the IME commit API.
         guard let surface = surface else { return }
         chars.withCString { ptr in
             ghostty_surface_text(surface, ptr, UInt(chars.utf8.count))
         }
-        Self.logger.debug("insertText -> surface_text len=\(chars.utf8.count, privacy: .public)")
+        Self.logger.debug("insertText (no event) -> surface_text len=\(chars.utf8.count, privacy: .public)")
     }
 
     // MARK: Preedit helpers
