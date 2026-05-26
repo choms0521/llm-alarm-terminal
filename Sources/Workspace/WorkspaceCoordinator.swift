@@ -86,14 +86,16 @@ public final class WorkspaceCoordinator {
         guard let ws = manager.workspaces.first(where: { $0.id == workspaceId }),
               let pane = ws.panes.first(where: { $0.id == paneId }) else { return }
 
-        // Day 2 transitional: pane 의 모든 tab 의 session 을 종료. Day 3 에서 closeTab cascade 와 분리.
+        // P3.5 Day 3: pane 안의 모든 tab 을 정리. 각 tab 의 session 을 terminate +
+        // surfaceRegistry.release(id: tab.id) — SurfaceRegistry 의 key 가 tabId 로
+        // 전환됐으므로 pane 단위 release 가 아니라 tab 단위로 풀어야 한다.
         for tab in pane.tabs {
             if let sessionId = tab.sessionId {
                 try? await sessionManager.terminate(id: sessionId)
                 await sessionManager.remove(id: sessionId)
             }
+            surfaceRegistry.release(id: tab.id)
         }
-        surfaceRegistry.release(paneId: paneId)
         manager.removePane(workspaceId: workspaceId, paneId: paneId)
     }
 
@@ -107,7 +109,9 @@ public final class WorkspaceCoordinator {
         }
         if let ws = manager.workspaces.first(where: { $0.id == id }) {
             for pane in ws.panes {
-                surfaceRegistry.release(paneId: pane.id)
+                for tab in pane.tabs {
+                    surfaceRegistry.release(id: tab.id)
+                }
             }
         }
         manager.removeWorkspace(id: id)

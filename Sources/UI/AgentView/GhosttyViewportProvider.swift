@@ -23,8 +23,8 @@ public final class GhosttyViewportProvider: AgentViewSurfaceProvider {
         self.surfaceRegistry = surfaceRegistry
     }
 
-    public func readViewportText(paneId: UUID) -> String? {
-        guard let view = surfaceRegistry.acquireExisting(paneId: paneId) as? GhosttyTerminalView,
+    public func readViewportText(id: UUID) -> String? {
+        guard let view = surfaceRegistry.acquireExisting(id: id) as? GhosttyTerminalView,
               let surface = view.surfaceHandle else { return nil }
 
         let sel = ghostty_selection_s(

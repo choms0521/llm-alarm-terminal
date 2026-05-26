@@ -1,21 +1,27 @@
 import Foundation
 
-/// SessionId 가 어느 workspace / pane 에 속하는지를 가리키는 단일 매핑.
+/// SessionId 가 어느 workspace / pane / tab 에 속하는지를 가리키는 단일 매핑.
+///
+/// P3.5 Day 3: `tabId` 가 추가됨. SurfaceRegistry 의 key 가 tabId 로 전환됐기 때문에
+/// AgentJumpAction / ViewportPollingTimer 가 surface 를 식별할 때 tabId 가 필요하다.
+/// `paneId` 도 함께 보존되어 focused pane 판정 등 pane 단위 로직과 정합을 유지한다.
 public struct SessionIndexEntry: Sendable, Equatable {
     public let sessionId: UUID
     public let workspaceId: UUID
     public let paneId: UUID
+    public let tabId: UUID
 
-    public init(sessionId: UUID, workspaceId: UUID, paneId: UUID) {
+    public init(sessionId: UUID, workspaceId: UUID, paneId: UUID, tabId: UUID) {
         self.sessionId = sessionId
         self.workspaceId = workspaceId
         self.paneId = paneId
+        self.tabId = tabId
     }
 }
 
-/// `Workspace` 의 panes 트리에서 `sessionId → (workspaceId, paneId)` 역인덱스를
-/// 한 번에 빌드한다. `AgentJumpAction` 이 카드 클릭 → workspace 선택 → pane focus
-/// 점프 시 lookup 대상.
+/// `Workspace` 의 panes 트리에서 `sessionId → (workspaceId, paneId, tabId)` 역인덱스를
+/// 한 번에 빌드한다. `AgentJumpAction` 이 카드 클릭 → workspace 선택 → pane focus →
+/// 해당 tab 의 surface lookup 시 사용.
 ///
 /// immutable struct. workspaces 가 바뀌면 새 인스턴스를 build 한다.
 public struct SessionIndex: Sendable, Equatable {
@@ -33,7 +39,8 @@ public struct SessionIndex: Sendable, Equatable {
                     let entry = SessionIndexEntry(
                         sessionId: sessionId,
                         workspaceId: workspace.id,
-                        paneId: pane.id
+                        paneId: pane.id,
+                        tabId: tab.id
                     )
                     table[sessionId] = entry
                     entries.append(entry)

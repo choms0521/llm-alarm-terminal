@@ -48,7 +48,10 @@ public final class AgentJumpAction {
         guard let location = snapshotIndex.locate(sessionId: snapshot.sessionId) else { return }
         manager.select(id: location.workspaceId)
         focusedPaneStore.setFocus(workspaceId: location.workspaceId, paneId: location.paneId)
-        if let view = surfaceRegistry.acquireExisting(paneId: location.paneId) {
+        // P3.5 Day 3: SurfaceRegistry 의 key 가 tabId 로 전환됨. SessionIndexEntry 의
+        // tabId 로 surface lookup. 비활성 tab 의 surface 는 호출 직후엔 부재 (lazy
+        // mount) 일 수 있으므로 nil 반환은 silently noop.
+        if let view = surfaceRegistry.acquireExisting(id: location.tabId) {
             handler.makeFirstResponder(view)
         }
     }

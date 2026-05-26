@@ -94,7 +94,9 @@ public final class ViewportPollingTimer {
     }
 
     private func poll(entry: SessionIndexEntry, now: Date) {
-        if let viewport = provider.readViewportText(paneId: entry.paneId) {
+        // P3.5 Day 3: SurfaceRegistry key 가 tabId 로 전환됨. polling 시 surface 식별자는
+        // tabId 를 전달한다. focused 판정은 여전히 paneId 기준 (Day 5 에서 tabId 단위로 확장 예정).
+        if let viewport = provider.readViewportText(id: entry.tabId) {
             observer?.observe(sessionId: entry.sessionId, viewportText: viewport, at: now)
         }
         lastPolledAt[entry.sessionId] = now
@@ -108,5 +110,5 @@ public final class ViewportPollingTimer {
 /// 강등 시나리오를 검증한다.
 @MainActor
 public protocol AgentViewSurfaceProvider: AnyObject {
-    func readViewportText(paneId: UUID) -> String?
+    func readViewportText(id: UUID) -> String?
 }

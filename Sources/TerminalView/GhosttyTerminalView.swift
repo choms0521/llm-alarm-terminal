@@ -28,10 +28,10 @@ final class GhosttyTerminalView: NSView {
     private var surface: ghostty_surface_t?
 
     /// 본 view 가 매핑된 Pane.id. P3 Day 4 의 SessionActionRouter 가 surfaceUserdata
-    /// pointer 를 paneId 로 환원할 때, 그리고 ViewportPollingTimer 가
+    /// pointer 를 tabId 로 환원할 때, 그리고 ViewportPollingTimer 가
     /// SurfaceRegistry 에서 acquireExisting 으로 view 를 찾을 때 anchor 가 된다.
     /// agent-view dashboard 부재 시(P1 path) nil 이면 routing 비활성.
-    var paneId: UUID?
+    var tabId: UUID?
 
     /// libghostty surface 핸들 read-only 접근자. GhosttyViewportProvider 가
     /// `ghostty_surface_read_text` 를 호출한 뒤 반드시
@@ -66,9 +66,9 @@ final class GhosttyTerminalView: NSView {
     ///     resolved `claude` path). When non-nil the surface owns the PTY.
     ///   - cwd: optional working directory for the spawned command.
     ///   - frame: initial frame for the view.
-    init(app: GhosttyApp, paneId: UUID? = nil, command: String?, cwd: String?, frame: NSRect) {
+    init(app: GhosttyApp, tabId: UUID? = nil, command: String?, cwd: String?, frame: NSRect) {
         self.ghosttyApp = app
-        self.paneId = paneId
+        self.tabId = tabId
         super.init(frame: frame)
 
         self.wantsLayer = true
@@ -76,7 +76,7 @@ final class GhosttyTerminalView: NSView {
         self.translatesAutoresizingMaskIntoConstraints = false
 
         let viewPtr = Unmanaged.passUnretained(self).toOpaque()
-        Self.logger.info("[R2-DIAG] init paneId=\(paneId?.uuidString.prefix(8) ?? "nil", privacy: .public) viewPtr=\(String(describing: viewPtr), privacy: .public) command=\(command ?? "<nil>", privacy: .public)")
+        Self.logger.info("[R2-DIAG] init tabId=\(tabId?.uuidString.prefix(8) ?? "nil", privacy: .public) viewPtr=\(String(describing: viewPtr), privacy: .public) command=\(command ?? "<nil>", privacy: .public)")
 
         createSurface(command: command, cwd: cwd)
     }
@@ -87,7 +87,7 @@ final class GhosttyTerminalView: NSView {
 
     deinit {
         let viewPtr = Unmanaged.passUnretained(self).toOpaque()
-        Self.logger.info("[R2-DIAG] deinit paneId=\(self.paneId?.uuidString.prefix(8) ?? "nil", privacy: .public) viewPtr=\(String(describing: viewPtr), privacy: .public) surface=\(String(describing: self.surface), privacy: .public)")
+        Self.logger.info("[R2-DIAG] deinit tabId=\(self.tabId?.uuidString.prefix(8) ?? "nil", privacy: .public) viewPtr=\(String(describing: viewPtr), privacy: .public) surface=\(String(describing: self.surface), privacy: .public)")
         if let s = surface {
             ghostty_surface_free(s)
         }
@@ -146,7 +146,7 @@ final class GhosttyTerminalView: NSView {
         }
         self.surface = s
         let viewPtr = Unmanaged.passUnretained(self).toOpaque()
-        Self.logger.info("[R2-DIAG] surface_new paneId=\(self.paneId?.uuidString.prefix(8) ?? "nil", privacy: .public) viewPtr=\(String(describing: viewPtr), privacy: .public) surface=\(String(describing: s), privacy: .public)")
+        Self.logger.info("[R2-DIAG] surface_new tabId=\(self.tabId?.uuidString.prefix(8) ?? "nil", privacy: .public) viewPtr=\(String(describing: viewPtr), privacy: .public) surface=\(String(describing: s), privacy: .public)")
     }
 
     /// Replace the active surface with one running the new command. Used by
@@ -227,13 +227,13 @@ final class GhosttyTerminalView: NSView {
         guard let surface = surface else { return }
         guard let pending = pendingPixelSize else { return }
         pendingPixelSize = nil
-        Self.logger.info("[R2-DIAG] set_size FLUSH (post-live) paneId=\(self.paneId?.uuidString.prefix(8) ?? "nil", privacy: .public) px=\(pending.0, privacy: .public)x\(pending.1, privacy: .public)")
+        Self.logger.info("[R2-DIAG] set_size FLUSH (post-live) tabId=\(self.tabId?.uuidString.prefix(8) ?? "nil", privacy: .public) px=\(pending.0, privacy: .public)x\(pending.1, privacy: .public)")
         ghostty_surface_set_size(surface, pending.0, pending.1)
     }
 
     private func applySurfaceSize(for size: CGSize) {
         guard let surface = surface else {
-            Self.logger.info("[R2-DIAG] applySurfaceSize SKIP (no surface) paneId=\(self.paneId?.uuidString.prefix(8) ?? "nil", privacy: .public)")
+            Self.logger.info("[R2-DIAG] applySurfaceSize SKIP (no surface) tabId=\(self.tabId?.uuidString.prefix(8) ?? "nil", privacy: .public)")
             return
         }
         // Dedup gate: skip when size has not actually changed.
@@ -284,11 +284,11 @@ final class GhosttyTerminalView: NSView {
             // updated above so the visible rendering remains smooth during
             // drag; only the PTY-bound size is held back.
             pendingPixelSize = (wpx, hpx)
-            Self.logger.info("[R2-DIAG] set_size DEFER (live) paneId=\(self.paneId?.uuidString.prefix(8) ?? "nil", privacy: .public) px=\(wpx, privacy: .public)x\(hpx, privacy: .public)")
+            Self.logger.info("[R2-DIAG] set_size DEFER (live) tabId=\(self.tabId?.uuidString.prefix(8) ?? "nil", privacy: .public) px=\(wpx, privacy: .public)x\(hpx, privacy: .public)")
             return
         }
         pendingPixelSize = nil
-        Self.logger.info("[R2-DIAG] set_size paneId=\(self.paneId?.uuidString.prefix(8) ?? "nil", privacy: .public) size=\(size.width, privacy: .public)x\(size.height, privacy: .public) px=\(wpx, privacy: .public)x\(hpx, privacy: .public) scale=\(layerScale, privacy: .public)")
+        Self.logger.info("[R2-DIAG] set_size tabId=\(self.tabId?.uuidString.prefix(8) ?? "nil", privacy: .public) size=\(size.width, privacy: .public)x\(size.height, privacy: .public) px=\(wpx, privacy: .public)x\(hpx, privacy: .public) scale=\(layerScale, privacy: .public)")
         ghostty_surface_set_size(surface, wpx, hpx)
     }
 
