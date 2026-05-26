@@ -11,32 +11,32 @@ final class SurfaceLifecycleTests: XCTestCase {
         let registry = SurfaceRegistry()
         XCTAssertEqual(registry.activeCount, 0)
 
-        let p1 = UUID()
-        let v1 = registry.acquire(paneId: p1) { NSView() }
+        let t1 = UUID()
+        let v1 = registry.acquire(id: t1) { NSView() }
         XCTAssertEqual(registry.activeCount, 1)
-        XCTAssertTrue(registry.contains(paneId: p1))
+        XCTAssertTrue(registry.contains(id: t1))
 
-        // 동일 paneId 두 번째 acquire 는 factory 미호출, 기존 인스턴스 반환.
+        // 동일 id 두 번째 acquire 는 factory 미호출, 기존 인스턴스 반환.
         var factoryCalls = 0
-        let v1Again = registry.acquire(paneId: p1) {
+        let v1Again = registry.acquire(id: t1) {
             factoryCalls += 1
             return NSView()
         }
-        XCTAssertTrue(v1 === v1Again, "동일 paneId acquire 는 같은 인스턴스 반환")
-        XCTAssertEqual(factoryCalls, 0, "이미 등록된 paneId 의 factory 는 호출되지 않음")
+        XCTAssertTrue(v1 === v1Again, "동일 id acquire 는 같은 인스턴스 반환")
+        XCTAssertEqual(factoryCalls, 0, "이미 등록된 id 의 factory 는 호출되지 않음")
 
         // release 후 dict 에서 제거됨.
-        registry.release(paneId: p1)
+        registry.release(id: t1)
         XCTAssertEqual(registry.activeCount, 0)
-        XCTAssertFalse(registry.contains(paneId: p1))
+        XCTAssertFalse(registry.contains(id: t1))
     }
 
-    func test_distinctPanes_isolatedSurfaces() {
+    func test_distinctIds_isolatedSurfaces() {
         let registry = SurfaceRegistry()
-        let p1 = UUID(); let p2 = UUID()
-        let v1 = registry.acquire(paneId: p1) { NSView() }
-        let v2 = registry.acquire(paneId: p2) { NSView() }
-        XCTAssertFalse(v1 === v2, "다른 paneId 는 다른 surface 인스턴스")
+        let t1 = UUID(); let t2 = UUID()
+        let v1 = registry.acquire(id: t1) { NSView() }
+        let v2 = registry.acquire(id: t2) { NSView() }
+        XCTAssertFalse(v1 === v2, "다른 id 는 다른 surface 인스턴스")
         XCTAssertEqual(registry.activeCount, 2)
     }
 
@@ -44,17 +44,17 @@ final class SurfaceLifecycleTests: XCTestCase {
 
     func test_workspaceSwitch_doesNotDestroySurfaces() {
         let registry = SurfaceRegistry()
-        let p1 = UUID(); let p2 = UUID()
-        // workspace A 의 pane 등록.
-        let viewA = registry.acquire(paneId: p1) { NSView() }
+        let t1 = UUID(); let t2 = UUID()
+        // workspace A 의 tab 등록.
+        let viewA = registry.acquire(id: t1) { NSView() }
         XCTAssertEqual(registry.activeCount, 1)
 
-        // workspace B 활성화 — 새 pane 등록 (A 의 view 는 release 호출 없음).
-        let viewB = registry.acquire(paneId: p2) { NSView() }
+        // workspace B 활성화 — 새 tab 등록 (A 의 view 는 release 호출 없음).
+        let viewB = registry.acquire(id: t2) { NSView() }
         XCTAssertEqual(registry.activeCount, 2)
 
         // A 로 복귀: 동일 인스턴스 반환 (destroy 되지 않음).
-        let viewARestored = registry.acquire(paneId: p1) { NSView() }
+        let viewARestored = registry.acquire(id: t1) { NSView() }
         XCTAssertTrue(viewARestored === viewA,
                       "비가시 workspace 의 surface 가 destroy 되지 않고 동일 인스턴스로 보존")
         _ = viewB  // suppress unused warning
@@ -68,12 +68,12 @@ final class SurfaceLifecycleTests: XCTestCase {
         for _ in 0..<20 {
             let id = UUID()
             ids.append(id)
-            _ = registry.acquire(paneId: id) { NSView() }
+            _ = registry.acquire(id: id) { NSView() }
         }
         XCTAssertEqual(registry.activeCount, 20)
 
         for id in ids {
-            registry.release(paneId: id)
+            registry.release(id: id)
         }
         XCTAssertEqual(registry.activeCount, 0,
                        "release 호출 후 activeCount 가 baseline (0) 으로 복원")

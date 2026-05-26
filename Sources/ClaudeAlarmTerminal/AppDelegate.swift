@@ -75,19 +75,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         }
 
         // SessionActionRouter: action_cb → main hop → observer.observe(action:).
+        // P3.5 Day 1.5: SurfaceRegistry key 가 tabId 로 전환됨에 따라 anchor 도 tabId.
         let router = SessionActionRouter(
             observer: statusObserver,
-            resolvePaneId: { ud in
+            resolveTabId: { ud in
                 guard let p = ud else { return nil }
                 let view = Unmanaged<GhosttyTerminalView>.fromOpaque(p).takeUnretainedValue()
-                return view.paneId
+                return view.tabId
             },
-            resolveSessionId: { [weak self] paneId in
+            resolveSessionId: { [weak self] tabId in
                 guard let mgr = self?.workspaceManager else { return nil }
                 for ws in mgr.workspaces {
-                    if let pane = ws.panes.first(where: { $0.id == paneId }) {
-                        // P3.5 schema v2: pane 의 active tab 의 sessionId 사용.
-                        return pane.activeTab?.sessionId
+                    for pane in ws.panes {
+                        if let tab = pane.tabs.first(where: { $0.id == tabId }) {
+                            return tab.sessionId
+                        }
                     }
                 }
                 return nil

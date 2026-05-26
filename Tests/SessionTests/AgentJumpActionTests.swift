@@ -27,7 +27,9 @@ final class AgentJumpActionTests: XCTestCase {
         let normalWorkspaces: [Workspace]
         let sessionIds: [UUID]
         let paneIds: [UUID]
+        let tabIds: [UUID]
         let workspaceIds: [UUID]
+        /// P3.5 Day 1.5: SurfaceRegistry key 가 tabId 로 전환. views 도 tabId 기준 lookup.
         let views: [UUID: NSView]
         let tempDir: URL
     }
@@ -41,6 +43,7 @@ final class AgentJumpActionTests: XCTestCase {
         var workspaceIds: [UUID] = []
         var sessionIds: [UUID] = []
         var paneIds: [UUID] = []
+        var tabIds: [UUID] = []
         var normalWorkspaces: [Workspace] = []
         for wIdx in 0..<3 {
             let wsId = UUID()
@@ -52,6 +55,7 @@ final class AgentJumpActionTests: XCTestCase {
                 sessionIds.append(sId)
                 paneIds.append(pId)
                 let tab = Tab(sessionId: sId, kind: .shell, name: Tab.defaultName(for: .shell))
+                tabIds.append(tab.id)
                 panes.append(Pane(
                     id: pId,
                     position: pIdx == 0 ? .left : .right,
@@ -84,10 +88,10 @@ final class AgentJumpActionTests: XCTestCase {
 
         let registry = SurfaceRegistry()
         var views: [UUID: NSView] = [:]
-        for pid in paneIds {
+        for tid in tabIds {
             let v = NSView(frame: .zero)
-            _ = registry.acquire(paneId: pid) { v }
-            views[pid] = v
+            _ = registry.acquire(id: tid) { v }
+            views[tid] = v
         }
 
         let handler = MockFirstResponderHandler()
@@ -108,6 +112,7 @@ final class AgentJumpActionTests: XCTestCase {
             normalWorkspaces: normalWorkspaces,
             sessionIds: sessionIds,
             paneIds: paneIds,
+            tabIds: tabIds,
             workspaceIds: workspaceIds,
             views: views,
             tempDir: tempDir
@@ -155,7 +160,7 @@ final class AgentJumpActionTests: XCTestCase {
         let index = SessionIndex(workspaces: b.normalWorkspaces)
         b.action.jump(snapshot: snapshot(for: b.sessionIds[0]), snapshotIndex: index)
         XCTAssertEqual(b.handler.callCount, 1)
-        XCTAssertEqual(b.handler.lastView, b.views[b.paneIds[0]])
+        XCTAssertEqual(b.handler.lastView, b.views[b.tabIds[0]])
     }
 
     // MARK: - 4. 6 카드 매트릭스
@@ -189,7 +194,7 @@ final class AgentJumpActionTests: XCTestCase {
     func test_jump_paneNotInRegistry_skipsHandler() throws {
         let b = try makeBundle()
         defer { cleanup(b.tempDir) }
-        b.registry.release(paneId: b.paneIds[1])
+        b.registry.release(id: b.tabIds[1])
         let index = SessionIndex(workspaces: b.normalWorkspaces)
         b.action.jump(snapshot: snapshot(for: b.sessionIds[1]), snapshotIndex: index)
         XCTAssertEqual(b.manager.selectedID, b.workspaceIds[0])

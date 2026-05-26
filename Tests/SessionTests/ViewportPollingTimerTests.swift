@@ -3,10 +3,12 @@ import Foundation
 
 @MainActor
 final class MockSurfaceProvider: AgentViewSurfaceProvider {
+    /// P3.5 Day 1.5: SurfaceRegistry key 가 tabId 로 전환됨에 따라 본 mock 의 callCounts
+    /// 도 tabId 기준으로 누적된다. 라벨은 인터페이스에 맞춰 generic `id`.
     var callCounts: [UUID: Int] = [:]
     var fixedText: String = "viewport-text"
-    func readViewportText(paneId: UUID) -> String? {
-        callCounts[paneId, default: 0] += 1
+    func readViewportText(id: UUID) -> String? {
+        callCounts[id, default: 0] += 1
         return fixedText
     }
 }
@@ -24,6 +26,7 @@ final class ViewportPollingTimerTests: XCTestCase {
         let focusedPaneStore: FocusedPaneStore
         let wsId: UUID
         let paneIds: [UUID]
+        let tabIds: [UUID]
         let sessionIds: [UUID]
     }
 
@@ -38,6 +41,7 @@ final class ViewportPollingTimerTests: XCTestCase {
         let wsId = UUID()
         var sessionIds: [UUID] = []
         var paneIds: [UUID] = []
+        var tabIds: [UUID] = []
         var panes: [Pane] = []
         for i in 0..<20 {
             let sId = UUID()
@@ -45,6 +49,7 @@ final class ViewportPollingTimerTests: XCTestCase {
             sessionIds.append(sId)
             paneIds.append(pId)
             let tab = Tab(sessionId: sId, kind: .shell, name: Tab.defaultName(for: .shell))
+            tabIds.append(tab.id)
             panes.append(Pane(
                 id: pId,
                 position: i % 2 == 0 ? .left : .right,
@@ -82,6 +87,7 @@ final class ViewportPollingTimerTests: XCTestCase {
             focusedPaneStore: focusedPaneStore,
             wsId: wsId,
             paneIds: paneIds,
+            tabIds: tabIds,
             sessionIds: sessionIds
         )
     }
@@ -93,9 +99,9 @@ final class ViewportPollingTimerTests: XCTestCase {
         for k in 0..<4 {
             b.timer.tick(now: baseDate.addingTimeInterval(Double(k) * 0.25))
         }
-        XCTAssertEqual(b.provider.callCounts[b.paneIds[0]], 4, "focused 4Hz")
+        XCTAssertEqual(b.provider.callCounts[b.tabIds[0]], 4, "focused 4Hz")
         for i in 1..<20 {
-            XCTAssertEqual(b.provider.callCounts[b.paneIds[i]] ?? 0, 1, "background pane \(i) 1Hz")
+            XCTAssertEqual(b.provider.callCounts[b.tabIds[i]] ?? 0, 1, "background pane \(i) 1Hz")
         }
     }
 
@@ -106,7 +112,7 @@ final class ViewportPollingTimerTests: XCTestCase {
         for k in 0..<4 {
             b.timer.tick(now: baseDate.addingTimeInterval(Double(k) * 0.25))
         }
-        let total = b.paneIds.reduce(0) { $0 + (b.provider.callCounts[$1] ?? 0) }
+        let total = b.tabIds.reduce(0) { $0 + (b.provider.callCounts[$1] ?? 0) }
         XCTAssertEqual(total, 23, "1 focused × 4Hz + 19 bg × 1Hz")
     }
 
@@ -118,7 +124,7 @@ final class ViewportPollingTimerTests: XCTestCase {
             b.timer.tick(now: baseDate.addingTimeInterval(Double(k) * 0.25))
         }
         for i in 0..<20 {
-            XCTAssertEqual(b.provider.callCounts[b.paneIds[i]] ?? 0, 1, "pane \(i) 강등 1Hz")
+            XCTAssertEqual(b.provider.callCounts[b.tabIds[i]] ?? 0, 1, "pane \(i) 강등 1Hz")
         }
     }
 
@@ -128,15 +134,15 @@ final class ViewportPollingTimerTests: XCTestCase {
         let b = makeFixture(focusedIdx: 0, appActive: true)
         // t=0 tick: paneIds[0] focused, paneIds[1] background (1Hz) → 둘 다 1회 polled.
         b.timer.tick(now: baseDate)
-        XCTAssertEqual(b.provider.callCounts[b.paneIds[0]], 1)
-        XCTAssertEqual(b.provider.callCounts[b.paneIds[1]], 1)
+        XCTAssertEqual(b.provider.callCounts[b.tabIds[0]], 1)
+        XCTAssertEqual(b.provider.callCounts[b.tabIds[1]], 1)
         // focused 를 paneIds[1] 로 전환.
         b.focusedPaneStore.setFocus(workspaceId: b.wsId, paneId: b.paneIds[1])
         // t=0.25 tick: 새 focused pane elapsed 250ms == focusedInterval → 즉시 polled.
         b.timer.tick(now: baseDate.addingTimeInterval(0.25))
-        XCTAssertEqual(b.provider.callCounts[b.paneIds[1]] ?? 0, 2, "새 focused 가 250ms 안에 polled")
+        XCTAssertEqual(b.provider.callCounts[b.tabIds[1]] ?? 0, 2, "새 focused 가 250ms 안에 polled")
         // 동시에 이전 focused (paneIds[0]) 는 이제 background → 1Hz → 250ms 후엔 미 poll.
-        XCTAssertEqual(b.provider.callCounts[b.paneIds[0]], 1, "전 focused 는 background tier 로 강등")
+        XCTAssertEqual(b.provider.callCounts[b.tabIds[0]], 1, "전 focused 는 background tier 로 강등")
     }
 
     // MARK: - 5. exited session skip
@@ -148,7 +154,7 @@ final class ViewportPollingTimerTests: XCTestCase {
                 .with(agentStatus: .exited)
         )
         b.timer.tick(now: baseDate)
-        XCTAssertEqual(b.provider.callCounts[b.paneIds[0]] ?? 0, 0, "exited 미 poll")
+        XCTAssertEqual(b.provider.callCounts[b.tabIds[0]] ?? 0, 0, "exited 미 poll")
     }
 
     // MARK: - 6. observer wiring — viewportText 가 observer 로 전달

@@ -10,7 +10,7 @@ final class SessionActionRouterTests: XCTestCase {
     private func makeFixture() -> (
         router: SessionActionRouter,
         observer: SessionStatusObserver,
-        paneId: UUID,
+        tabId: UUID,
         sessionId: UUID,
         userdata: UnsafeMutableRawPointer
     ) {
@@ -18,16 +18,17 @@ final class SessionActionRouterTests: XCTestCase {
             policy: NeedsInputPolicyV1(),
             telemetry: NeedsInputTelemetry()
         )
-        let paneId = UUID()
+        // P3.5 Day 1.5: surfaceUserdata → tabId → sessionId 매핑으로 의미 전환.
+        let tabId = UUID()
         let sessionId = UUID()
         observer.register(sessionId: sessionId, kind: .claude)
         let dummy = UnsafeMutableRawPointer(bitPattern: 0xC0FFEE)!
         let router = SessionActionRouter(
             observer: observer,
-            resolvePaneId: { ud in ud == dummy ? paneId : nil },
-            resolveSessionId: { pid in pid == paneId ? sessionId : nil }
+            resolveTabId: { ud in ud == dummy ? tabId : nil },
+            resolveSessionId: { tid in tid == tabId ? sessionId : nil }
         )
-        return (router, observer, paneId, sessionId, dummy)
+        return (router, observer, tabId, sessionId, dummy)
     }
 
     // MARK: - 1. 4 known tag 변환

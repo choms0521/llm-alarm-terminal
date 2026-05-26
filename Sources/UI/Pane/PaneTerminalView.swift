@@ -37,13 +37,19 @@ struct PaneTerminalView: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let pid = pane.id
         let wid = workspace.id
-        return registry.acquire(paneId: pid) {
+        // P3.5 Day 1.5: SurfaceRegistry key 가 tabId 로 전환. active tab id 를 anchor 로
+        // 사용. 2-tier 해소는 WorkspaceManager.activeTab 정착 패턴과 동일.
+        guard let tid = pane.activeTabId ?? pane.tabs.first?.id else {
+            Logger.r2.error("[R2-DIAG] PaneTerminalView.makeNSView: pane=\(pid.uuidString.prefix(8), privacy: .public) has no tabs — invariant violation")
+            return NSView(frame: .zero)
+        }
+        return registry.acquire(id: tid) {
             let command = Self.buildCommand(workspace: workspace, pane: pane)
             let kindDesc = pane.activeTab.map { String(describing: $0.kind) } ?? "no-active-tab"
-            Logger.r2.info("[R2-DIAG] PaneTerminalView.factory wsId=\(wid.uuidString.prefix(8), privacy: .public) paneId=\(pid.uuidString.prefix(8), privacy: .public) kind=\(kindDesc, privacy: .public)")
+            Logger.r2.info("[R2-DIAG] PaneTerminalView.factory wsId=\(wid.uuidString.prefix(8), privacy: .public) paneId=\(pid.uuidString.prefix(8), privacy: .public) tabId=\(tid.uuidString.prefix(8), privacy: .public) kind=\(kindDesc, privacy: .public)")
             return GhosttyTerminalView(
                 app: ghosttyApp,
-                paneId: pid,
+                tabId: tid,
                 command: command,
                 cwd: workspace.cwd,
                 frame: .zero
