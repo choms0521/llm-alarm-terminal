@@ -25,11 +25,7 @@ ClaudeAlarmTerminal.xcodeproj/
 .DS_Store
 
 # OMC state (working state only; final artifacts go under docs/)
-.omc/state/
-.omc/sessions/
-.omc/notepad.md
-.omc/logs/
-.omc/plans/*.tmp.md
+.omc/
 .claude/
 
 # Vendored Ghostty sources (re-fetch via scripts/bootstrap-ghostty.sh).
