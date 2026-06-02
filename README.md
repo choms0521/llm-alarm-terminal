@@ -1,4 +1,4 @@
-# Claude Alarm Terminal
+#Llm Alarm Terminal
 
 macOS desktop terminal that hosts Claude Code and shell sessions through a single libghostty-backed terminal view, with a future companion mobile chat app for remote interaction.
 
