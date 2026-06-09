@@ -39,6 +39,7 @@ targets:
       - path: Sources/Lifecycle
       - path: Sources/Workspace
       - path: Sources/UI
+      - path: Sources/Daemon
     resources:
       - path: Resources
         excludes:
@@ -245,6 +246,69 @@ targets:
         Release:
           CODE_SIGN_IDENTITY: "-"
 
+  DaemonDevCLI:
+    type: tool
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Sources/PTY
+      - path: Sources/Session
+      - path: Sources/Lifecycle
+      - path: Sources/Workspace
+      - path: Sources/UI
+        excludes:
+          - "Pane/**"
+          - "**/GhosttyViewportProvider.swift"
+      - path: Sources/Daemon
+      - path: Sources/DaemonDevCLI
+    dependencies:
+      - package: AnyCodable
+    settings:
+      base:
+        PRODUCT_NAME: daemon-dev-cli
+        CODE_SIGN_STYLE: Manual
+        HEADER_SEARCH_PATHS:
+          - "$(SRCROOT)/Sources/PTY/include"
+        SWIFT_INCLUDE_PATHS:
+          - "$(SRCROOT)/Sources/PTY/include"
+      configs:
+        Debug:
+          CODE_SIGN_IDENTITY: "-"
+        Release:
+          CODE_SIGN_IDENTITY: "-"
+
+  DaemonTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Sources/PTY
+      - path: Sources/Session
+      - path: Sources/Lifecycle
+      - path: Sources/Workspace
+      - path: Sources/UI
+        excludes:
+          - "Pane/**"
+          - "**/GhosttyViewportProvider.swift"
+      - path: Sources/Daemon
+      - path: Tests/DaemonTests
+    dependencies:
+      - package: AnyCodable
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.choms0521.ClaudeAlarmTerminal.DaemonTests
+        GENERATE_INFOPLIST_FILE: "YES"
+        CODE_SIGN_STYLE: Manual
+        HEADER_SEARCH_PATHS:
+          - "$(SRCROOT)/Sources/PTY/include"
+        SWIFT_INCLUDE_PATHS:
+          - "$(SRCROOT)/Sources/PTY/include"
+      configs:
+        Debug:
+          CODE_SIGN_IDENTITY: "-"
+        Release:
+          CODE_SIGN_IDENTITY: "-"
+
 schemes:
   PTYVerifier:
     build:
@@ -288,3 +352,17 @@ schemes:
       config: Debug
       targets:
         - SessionTests
+  DaemonDevCLI:
+    build:
+      targets:
+        DaemonDevCLI: all
+    run:
+      config: Debug
+  DaemonTests:
+    build:
+      targets:
+        DaemonTests: test
+    test:
+      config: Debug
+      targets:
+        - DaemonTests
