@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P4 상세 계획서 — WebSocket 서버 + 인프로세스 데몬 골격 (foreground only)</title>
+<style>
+  :root {
+    --bg: #fbfaf7;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d8dee4;
+    --accent: #0550ae;
+    --accent-soft: #ddf4ff;
+    --warn: #9a6700;
+    --warn-soft: #fff8c5;
+    --danger: #cf222e;
+    --danger-soft: #ffebe9;
+    --ok: #1a7f37;
+    --ok-soft: #dafbe1;
+    --code-bg: #f3f0ea;
+    --code-fg: #24292f;
+    --table-stripe: #f6f3ec;
+    --table-head: #eceae3;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Helvetica, Arial, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 32px;
+    padding: 32px 24px;
+  }
+
+  aside.toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    border-right: 1px solid var(--border);
+    padding-right: 16px;
+    font-size: 13.5px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+  }
+
+  aside.toc h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin: 0 0 12px 0;
+  }
+
+  aside.toc ol {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+  }
+
+  aside.toc ol li {
+    margin: 4px 0;
+  }
+
+  aside.toc ol ol {
+    padding-left: 14px;
+    margin-top: 4px;
+  }
+
+  aside.toc a {
+    color: var(--fg);
+    text-decoration: none;
+  }
+
+  aside.toc a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+
+  main {
+    max-width: 900px;
+    min-width: 0;
+  }
+
+  h1 {
+    font-size: 28px;
+    margin: 0 0 8px 0;
+    line-height: 1.3;
+  }
+
+  h2 {
+    font-size: 22px;
+    margin-top: 40px;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h3 {
+    font-size: 18px;
+    margin-top: 28px;
+    margin-bottom: 8px;
+  }
+
+  h4 {
+    font-size: 15px;
+    margin-top: 20px;
+    margin-bottom: 6px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  p { margin: 8px 0; }
+
+  .meta {
+    color: var(--muted);
+    font-size: 13.5px;
+    margin-bottom: 24px;
+  }
+
+  .meta strong { color: var(--fg); }
+
+  code {
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+
+  pre {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 14px 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    border: 1px solid var(--border);
+  }
+
+  pre code {
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+  }
+
+  .kw { color: #cf222e; font-weight: 600; }
+  .str { color: #0a3069; }
+  .com { color: #6e7781; font-style: italic; }
+  .num { color: #0550ae; }
+  .typ { color: #953800; }
+  .fn { color: #8250df; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13.5px;
+  }
+
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    background: var(--table-head);
+    font-weight: 600;
+  }
+
+  tbody tr:nth-child(even) {
+    background: var(--table-stripe);
+  }
+
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin: 16px 0;
+  }
+
+  .callout.warn {
+    border-left-color: var(--warn);
+    background: var(--warn-soft);
+  }
+
+  .callout.danger {
+    border-left-color: var(--danger);
+    background: var(--danger-soft);
+  }
+
+  .callout.ok {
+    border-left-color: var(--ok);
+    background: var(--ok-soft);
+  }
+
+  .callout .label {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    margin-bottom: 4px;
+  }
+
+  .day-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin: 18px 0;
+    background: #fff;
+  }
+
+  .day-card h3 {
+    margin-top: 0;
+  }
+
+  .day-card dl {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 6px 16px;
+    margin: 8px 0 12px 0;
+    font-size: 14px;
+  }
+
+  .day-card dt {
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .day-card dd {
+    margin: 0;
+  }
+
+  ul.exit-criteria {
+    list-style: none;
+    padding-left: 0;
+    margin: 8px 0 0 0;
+  }
+
+  ul.exit-criteria li {
+    margin: 4px 0;
+    font-size: 14px;
+  }
+
+  ul.exit-criteria input[type="checkbox"] {
+    margin-right: 8px;
+  }
+
+  .ascii {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.45;
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    background: var(--accent-soft);
+    color: var(--accent);
+    margin-right: 4px;
+  }
+
+  .tag.warn { background: var(--warn-soft); color: var(--warn); }
+  .tag.danger { background: var(--danger-soft); color: var(--danger); }
+  .tag.ok { background: var(--ok-soft); color: var(--ok); }
+
+  .pending {
+    color: var(--warn);
+    font-style: italic;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 28px 0;
+  }
+
+  @media print {
+    aside.toc { display: none; }
+    .layout { display: block; max-width: 100%; padding: 0; }
+    main { max-width: 100%; }
+    .day-card { page-break-inside: avoid; }
+    pre, .ascii { page-break-inside: avoid; }
+    body { font-size: 11pt; }
+    h2 { page-break-after: avoid; }
+  }
+
+  @media (max-width: 900px) {
+    .layout {
+      grid-template-columns: 1fr;
+    }
+    aside.toc {
+      position: static;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      padding-right: 0;
+      padding-bottom: 16px;
+      max-height: none;
+    }
+    .day-card dl {
+      grid-template-columns: 1fr;
+    }
+    .day-card dt {
+      margin-top: 4px;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <h2>목차</h2>
+  <ol>
+    <li><a href="#sec-0">0. 코드 정탐 확증 결과</a></li>
+    <li><a href="#sec-1">1. 개요</a></li>
+    <li><a href="#sec-2">2. RALPLAN-DR Summary</a></li>
+    <li><a href="#sec-3">3. Day-by-Day Work Package</a>
+      <ol>
+        <li><a href="#day-0">Day 0 — project.yml 타깃 등록 + C4 spike</a></li>
+        <li><a href="#day-1">Day 1 — Envelope 모델 + codec v0.9</a></li>
+        <li><a href="#day-2">Day 2 — Ring buffer + drop-and-mark</a></li>
+        <li><a href="#day-3">Day 3 — WS server loopback + bind + seq 검증</a></li>
+        <li><a href="#day-4">Day 4 — Single-writer 큐 (2-executor)</a></li>
+        <li><a href="#day-5">Day 5 — 입출력 양방향 wiring</a></li>
+        <li><a href="#day-6">Day 6 — Dev CLI 라운드트립 데모 + acceptance</a></li>
+      </ol>
+    </li>
+    <li><a href="#sec-4">4. Architecture Diagram</a></li>
+    <li><a href="#sec-5">5. Critical Code Specs</a>
+      <ol>
+        <li><a href="#sec-5-1">5.1 Envelope v0.9 + codec</a></li>
+        <li><a href="#sec-5-2">5.2 Ring buffer</a></li>
+        <li><a href="#sec-5-3">5.3 SerialInputQueue + InputSink</a></li>
+        <li><a href="#sec-5-4">5.4 Session bind API</a></li>
+      </ol>
+    </li>
+    <li><a href="#sec-6">6. ADR 운영화</a></li>
+    <li><a href="#sec-7">7. WS Envelope v0.9 Schema 명세</a></li>
+    <li><a href="#sec-8">8. Acceptance Criteria</a></li>
+    <li><a href="#sec-9">9. Risks &amp; Mitigations</a></li>
+    <li><a href="#sec-10">10. Exit Gate to P5</a></li>
+    <li><a href="#app-a">부록 A. 환경 변수</a></li>
+    <li><a href="#app-b">부록 B. 참고문헌</a></li>
+  </ol>
+</aside>
+
+<main>
+
+<h1>P4 상세 계획서 — WebSocket 서버 + 인프로세스 데몬 골격 (foreground only)</h1>
+<p class="meta">
+  <strong>대상 단계</strong>: 마스터 계획 <code>docs/plans/work-plan-v4.md</code> line 156~184 (P4 절)<br>
+  <strong>문서 버전</strong>: P4-detail v3 (Critic APPROVE 통과)<br>
+  <strong>승인 경로</strong>: ralplan 합의 (Architect → Critic → APPROVE 후 <code>docs/plans/p4/</code>로 이전)
+</p>
+
+<div class="callout warn">
+  <div class="label">정직성 메모 — 합의 이력 배너</div>
+  본 문서는 ralplan 합의 워크플로의 working draft에서 렌더링되었다. 합의 이력: v1 → (사이클 1: P0 5 + P1 5 + P2 2 surgical edit) → v2 → (사이클 2: D1 effort 정합, D2 ExternalSink 에러 배선, carry robustness) → v3. Critic APPROVE 통과(사이클 2).
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-0">0. 코드 정탐 확증 결과 (설계 전 사실 확정 — 가정 금지)</h2>
+
+<p>P4 아키텍처 전체가 아래 사실 위에서 갈라진다. 가정 없이 헤더/소스를 직접 읽어 확정했다.</p>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>확증 질문</th><th>결과</th><th>근거 (file:line)</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>C1</td>
+      <td>libghostty가 surface PTY에 raw byte를 쓰는 공개 API가 있는가?</td>
+      <td><strong>printable만 가능.</strong> <code>ghostty_surface_text(surface, const char*, uintptr_t)</code>로 printable UTF-8 byte 주입 가능. 단 <strong>control byte(&lt; 0x20)는 libghostty가 keycode+mods로 자체 인코딩</strong>하므로 <code>ghostty_surface_text</code>로 보내면 double-encode되고, <code>ghostty_surface_key</code>로 보내려면 byte→keycode 역매핑이 필요한데 ESC 시퀀스(다중 byte)는 단일 keycode로 환원 불가.</td>
+      <td><code>ghostty.h:1127</code>(text), <code>ghostty.h:1123</code>(key), <code>GhosttyTerminalView.swift:412~414</code>(control double-encode 주석), <code>GhosttyTerminalView.swift:785</code>(text 실사용)</td>
+    </tr>
+    <tr>
+      <td>C2</td>
+      <td>비표시(inactive tab) surface에도 입력 주입이 가능한가?</td>
+      <td><strong>가능하다 (구조적으로).</strong> ADR-I(cmux 패턴)상 비가시 surface도 <code>SurfaceRegistry</code> owner가 보유하여 alive. <code>ghostty_surface_text</code>/<code>_key</code>는 surface 핸들만 있으면 displayLayer/focus 없이 C ABI로 호출 가능. focus는 <code>set_focus</code>(<code>ghostty.h:1113</code>)로 분리되어 입력 주입의 전제 조건이 아니다. (런타임 검증은 Day 0 spike + Day 5 종료 조건에서 측정.)</td>
+      <td><code>SurfaceLifecycle.swift:18~46</code>, <code>ghostty.h:1113</code></td>
+    </tr>
+    <tr>
+      <td>C3</td>
+      <td>어떤 origin이 masterFD를 노출하는가?</td>
+      <td><strong><code>.external</code>만 <code>ptyHandle</code> 비-nil → masterFD 노출.</strong> <code>.internal</code>은 <code>ptyHandle=nil</code>(libghostty 소유). masterFD는 spawn 시 <strong>이미 <code>O_NONBLOCK</code></strong> 설정됨.</td>
+      <td><code>Session.swift:39</code>, <code>Session.swift:20~27</code>, <code>PTYSpawner.swift:42</code>(O_NONBLOCK), <code>SessionManager.swift:301</code>(external만 close)</td>
+    </tr>
+    <tr>
+      <td>C4</td>
+      <td><code>.internal</code> 세션에 byte-faithful <strong>출력</strong> tap이 있는가?</td>
+      <td><strong>없다.</strong> libghostty 런타임 콜백(<code>ghostty_runtime_config_s</code>)은 <code>wakeup_cb</code>/<code>action_cb</code>/clipboard/<code>close_surface_cb</code>만 노출 — raw output byte 콜백 부재. <code>ghostty_surface_read_text</code>는 렌더된 viewport grid 텍스트 스냅샷(ANSI/제어바이트 소실, polling). byte 스트림 출력은 <code>.external</code> PTYReader(<code>masterFD</code>)에서만 가능. <strong>해결 옵션 조사는 Day 0 feasibility spike로 전진(아래 §3 Day 0).</strong></td>
+      <td><code>ghostty.h:1018~1027</code>(콜백 set — output 없음), <code>ghostty.h:1159</code>(read_text grid 스냅샷), <code>PTYReader.swift:41</code>, <code>GhosttyViewportProvider.swift:44</code></td>
+    </tr>
+    <tr>
+      <td>C5</td>
+      <td>마스터 계획의 origin enum 명세와 실제 코드가 일치하는가?</td>
+      <td><strong>불일치.</strong> work-plan은 <code>spawned</code>/<code>internal</code>로 표기하나 실제 코드는 <code>external</code>/<code>internal</code>. 본 P4 계획은 <strong><code>.external</code>을 정본으로 사용</strong>하며 enum 리네임은 P4 범위 밖.</td>
+      <td><code>Session.swift:20~27</code></td>
+    </tr>
+    <tr>
+      <td>C6</td>
+      <td>빌드 시스템은 무엇인가?</td>
+      <td><strong>XcodeGen(<code>project.yml</code>) + <code>xcodebuild</code>. SwiftPM 아님(<code>Package.swift</code> 부재).</strong> 테스트는 <code>bundle.unit-test</code> 타깃 + scheme을 <code>xcodebuild test</code>로 실행. tool은 <code>type: tool</code> 타깃. 모든 검증 명령은 SwiftPM <code>swift</code> CLI가 아니라 <code>xcodebuild</code>/<code>xcodegen</code>이어야 한다.</td>
+      <td><code>project.yml:29~290</code>, <code>scripts/build.sh:34~47</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="sec-0-1">C4 + 실사용 origin의 설계 함의 (load-bearing)</h3>
+
+<p>실앱에서 <code>WorkspaceCoordinator</code>는 항상 <code>createInternal</code>만 호출한다(<code>WorkspaceCoordinator.swift:39, 94, 177</code>). <code>.external</code>은 headless verifier/test 전용(<code>SessionManager.swift:128,183</code>, <code>SessionVerifier/main.swift:84,94,125</code>). 즉 <strong>실사용 세션은 100% <code>.internal</code></strong>이며 C1(control 입력 제약) + C4(출력 tap 부재)가 직접 적용된다. 이 사실이 아래 결정을 강제한다.</p>
+
+<ol>
+  <li><strong>P4 데모/acceptance의 byte-faithful 입출력 라운드트립은 <code>.external</code> 세션 기준이다.</strong> dev CLI 라운드트립은 <code>SessionManager.create(...)</code>(external, masterFD)로 spawn한 세션에 attach한다. 입력은 <code>PTYWriter.write(masterFD, ...)</code>, 출력은 <code>PTYReader.onData(Data)</code> → <code>Utf8StreamAccumulator</code> → WS <code>kind=output</code>.</li>
+  <li><strong>실사용(<code>.internal</code>) 경로는 P4에서 printable 입력 주입만 지원한다.</strong> 출력 스트리밍(C4)과 control byte 입력(C1)은 P4 범위에서 명시적 미지원이며, 각각 <code>INTERNAL_OUTPUT_UNSUPPORTED</code> / <code>INTERNAL_CONTROL_INPUT_UNSUPPORTED</code> 신호를 발행한다. 이 한계를 ADR로 명문화한다(§6 ADR-P4-3, ADR-P4-4).</li>
+  <li><strong>C4 해결 경로는 Day 0 feasibility spike에서 옵션을 열거하고 P7 envelope freeze 전 결정 게이트로 넘긴다.</strong> P4 골격은 external-first이되, internal 실사용 출력은 명확히 인지된 부채로 Exit Gate에 기록한다.</li>
+</ol>
+
+<div class="callout warn">
+  <div class="label">정직성 메모</div>
+  본 계획의 R8 single-writer 큐의 본래 시나리오("데스크톱 keystroke + 모바일 WS 입력이 동시 도착")는 external에 GUI keystroke 직접 경로가 없어 <strong>P4에서 실측되지 않는다</strong>(§8 A7 caveat). 큐는 intra-queue strict FIFO만 P4에서 검증되고, cross-origin 비추월은 internal 실사용 wiring phase에서 검증된다.
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-1">1. 개요</h2>
+
+<table>
+  <thead>
+    <tr><th>항목</th><th>내용</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Goal</strong></td><td>앱 내부에 데몬(WS 서버 + SessionManager 연결)을 인프로세스로 띄우고, 로컬 WS 클라이언트가 envelope을 통해 세션과 송수신할 수 있게 한다. <strong><code>.external</code> 세션은 입출력 전체</strong>, <strong>실사용 <code>.internal</code> 세션은 printable 입력 주입만</strong>(출력 스트림과 control 입력은 P4 미지원, 각각 명시 신호 발행). Tailscale/pairing/push는 없다.</td></tr>
+    <tr><td><strong>Side</strong></td><td>desktop</td></tr>
+    <tr><td><strong>Scope (in)</strong></td><td>(1) 인프로세스 데몬: 앱 시작 시 WS server를 loopback(127.0.0.1) 임의 포트에 listen. (2) WS envelope v0.9 codec(preview) + per-client seq 모노토닉 검증. (3) 세션별 in-memory ring buffer(~500) + message-boundary drop-and-mark + <code>BUFFER_OVERFLOW_DROPPED</code> 1회 발행. (4) Session bind API(<code>kind=session.start</code> attach). (5) 입출력 wiring: <code>.external</code>=<code>PTYWriter.write</code>/PTYReader+<code>Utf8StreamAccumulator</code>, <code>.internal</code>=<code>ghostty_surface_text</code> printable 입력 주입(출력·control 미지원 신호). (6) PTY single-writer 큐(origin별 2-path, R8, Option A). (7) loopback dev CLI 라운드트립 데모.</td></tr>
+    <tr><td><strong>Scope (out)</strong></td><td>Tailscale 노출, pairing, Push sender, mobile 클라이언트, <code>.internal</code> byte-faithful 출력 스트림(C4), <code>.internal</code> control byte 입력(C1), agent-view UI 변경, envelope freeze(P7), 인증/암호화.</td></tr>
+    <tr><td><strong>Key Deliverables</strong></td><td>(D0) project.yml 타깃 등록 + C4 spike 결정 문서. (D1) Envelope codec v0.9 + 단위 테스트. (D2) Ring buffer + drop-and-mark. (D3) WS server(loopback) + bind + seq 모노토닉 wire 검증. (D4) origin별 2-executor single-writer 큐. (D5) <code>.external</code> 입출력 양방향(<code>Utf8StreamAccumulator</code> 포함) + <code>.internal</code> printable 입력 주입. (D6) dev CLI 라운드트립 데모.</td></tr>
+    <tr><td><strong>Dependencies</strong></td><td>P1(PTY/SessionManager actor, <code>PTYWriter</code>), P2(workspace-aware create), P3/P3.5(schema v2 Tab, SurfaceRegistry tabId). 모두 충족.</td></tr>
+    <tr><td><strong>Effort</strong></td><td>L (5~8일). 본 계획 분해: 7 Day(Day 0 포함), 직렬 wall-clock 합 8.0일. Day 0은 0.5일(project.yml 등록은 패턴 모방, C4 spike는 document-specialist 병렬 위임으로 직렬 시간 미가산). 마스터 계획 <code>work-plan-v4.md:585</code> P4 contingency 6~10일 범위 내.</td></tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-2">2. RALPLAN-DR Summary</h2>
+
+<h4>Principles (설계 원칙)</h4>
+<ol>
+  <li><strong>순서 정합성 우선.</strong> 동일 sessionId에 대한 PTY write는 어떤 origin에서 와도 단조 FIFO여야 한다. 추월은 금지(R8).</li>
+  <li><strong>메시지 경계 무결성.</strong> ring buffer drop, codec, 스트림 분할은 항상 UTF-8 메시지 경계에서 일어난다. byte 경계 절단은 어떤 경로에서도 발생시키지 않는다. 출력 chunk 경계 재조립은 <code>Utf8StreamAccumulator</code>가 담당한다.</li>
+  <li><strong>origin 비대칭의 명시적 수용.</strong> <code>.external</code>(masterFD/actor)과 <code>.internal</code>(libghostty/MainActor)은 입출력 능력이 비대칭이다. 단일 추상으로 은폐하지 않고 2-path로 드러내며, 미지원 능력은 명시 신호로 통지한다.</li>
+  <li><strong>wire 안전 직렬화.</strong> seq/ackSeq는 u64지만 항상 string으로 직렬화한다. codec은 큰 값 라운드트립을 단위 테스트로 강제한다.</li>
+  <li><strong>골격 우선, 보안 후속.</strong> P4는 loopback foreground 골격이다. 인증/암호화/노출은 P6+로 미루되, attach 정리/리소스 누수 방지 같은 lifecycle 정합성은 지금 확보한다.</li>
+</ol>
+
+<h4>Decision Drivers (Top 3)</h4>
+<table>
+  <thead>
+    <tr><th>#</th><th>Driver</th><th>설명</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>DR1</strong></td><td><strong>로컬 keystroke 지연 vs R8 엄격 순서 보장</strong></td><td>R8은 데스크톱 keystroke도 동일 큐에 enqueue(추월 금지)를 요구한다. 그러나 <code>.internal</code> 로컬 keystroke는 현재 동기 MainActor 호출(actor hop 0, <code>GhosttyTerminalView.swift:388~423</code>)이다. 공유 큐로 funnel하면 keystroke마다 MainActor 왕복이 강제되어 지연이 유발된다. 이 긴장이 큐 설계의 심장이다.</td></tr>
+    <tr><td><strong>DR2</strong></td><td><strong>origin별 입출력 능력 비대칭(C1, C4)</strong></td><td><code>.external</code>만 byte-faithful 출력(PTYReader/masterFD) + raw control 입력을 가지고, <code>.internal</code>은 printable 입력만 + grid 폴링 출력뿐이다. P4 acceptance(byte 단위 UTF-8 경계 테스트)는 external에서만 통과 가능하므로 데모/검증 기준 세션 종류 선택이 전체 wiring을 가른다.</td></tr>
+    <tr><td><strong>DR3</strong></td><td><strong>seq 직렬화 정밀도(53-bit 손실)</strong></td><td>seq를 number로 보내면 JS 측 2^53 초과에서 손실된다. string 직렬화가 unconditional 결정이며 codec 라운드트립 테스트로 강제(2^53+1).</td></tr>
+  </tbody>
+</table>
+
+<h4>Viable Options — single-writer 큐 설계 (≥2 비교)</h4>
+
+<p>R8("동일 sessionId 2개 이상 동시 write 금지, FIFO + per-pane lock, keystroke도 추월 없음")를 만족하는 큐 후보 비교.</p>
+
+<table>
+  <thead>
+    <tr><th>측면</th><th>Option A — 전체 입력 funnel</th><th>Option B — 로컬 fast-path + WS만 큐 경유 (generation guard)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>메커니즘</td><td>모든 입력을 세션별 <code>SerialInputQueue</code>(per-session 단일 consumer drain)로 보낸다.</td><td>로컬 keystroke는 기존 동기 MainActor fast-path 유지. WS input만 큐 경유. 세션별 monotonic generation + per-pane lock으로 상대 순서 보존.</td></tr>
+    <tr><td><code>.external</code> 동작</td><td>큐 consumer가 <code>PTYWriter.write(masterFD,...)</code> 순차 실행. external은 GUI keystroke 직접 경로가 없어 비용 낮음.</td><td>WS input → 큐 → masterFD write. 로컬 직접 경로 없음. 사실상 A와 동일.</td></tr>
+    <tr><td><code>.internal</code> 동작</td><td>큐 consumer가 <code>await MainActor.run { ghostty_surface_text }</code>. keystroke도 큐 경유 → 매 타건 MainActor 왕복(DR1 비용).</td><td>로컬 keystroke = 기존 동기 호출(hop 0). WS input만 큐→MainActor hop. strict FIFO 아님.</td></tr>
+    <tr><td>순서 보장</td><td>strict global FIFO. R8 문자 그대로 충족.</td><td>WS input 간 FIFO. 로컬 vs WS는 best-effort 순서. R8 완화 해석.</td></tr>
+    <tr><td>지연 비용</td><td>로컬 타이핑 지연(왕복 매 타건).</td><td>로컬 타이핑 지연 0.</td></tr>
+    <tr><td>복잡도/리스크</td><td>낮음(단일 메커니즘). keystroke 지연이 UX 회귀.</td><td>높음(generation/lock 정합, race window).</td></tr>
+  </tbody>
+</table>
+
+<p><strong>선택: Option A (전체 입력 funnel) — <code>.external</code> 기준 데모로 DR1 비용을 P4에서 무력화.</strong></p>
+
+<div class="callout ok">
+  <div class="label">선택 근거</div>
+  P4 acceptance/데모는 C4에 따라 <code>.external</code> 세션 기준이다. external은 GUI 직접 keystroke 경로가 없으므로 Option A의 keystroke-지연 비용(DR1)이 P4 범위 내에서는 발현하지 않는다. Option B의 generation/lock 정합 복잡도를 P4 골격 단계에 도입하는 것은 ROI가 낮고 race 리스크가 크다. 따라서 P4는 Option A를 단일 SerialInputQueue로 구현하되, <strong>sink 추상 경계(<code>InputSink</code>)를 깨끗이 유지</strong>하여 후속 phase에서 큐 재설계 없이 internal 로컬 keystroke fast-path(Option B 부분 전환)를 sink 교체만으로 도입 가능하게 한다(§6 ADR-P4-1).
+</div>
+
+<div class="callout">
+  <div class="label">Option B 무효화 근거 (P4 한정)</div>
+  Option B의 유일한 이득(internal 로컬 keystroke 지연 0)은 P4 external 데모에서 측정되지 않는 반면, generation/lock 정합 복잡도는 P4에서 즉시 비용/리스크가 된다. 따라서 P4에서는 채택하지 않고 후속 phase 결정으로 이월한다.
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-3">3. Day-by-Day Work Package (L: 7 Day, Day 0 포함)</h2>
+
+<p>각 Day 종료 조건은 이 빌드 시스템(XcodeGen + xcodebuild)에서 직접 실행 가능한 형태(grep/XCTAssert/xcodebuild exit code/측정값)로 기술한다. "정상 동작", "통과" 같은 모호 표현 금지. SwiftPM <code>swift</code> CLI 명령 사용 금지(C6).</p>
+
+<div class="day-card">
+  <h3 id="day-0">Day 0 — project.yml 타깃 등록 + C4 feasibility spike</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>신규 6개 산출물(<code>Sources/Daemon/*</code>, <code>Sources/DaemonDevCLI</code>, <code>Tests/DaemonTests</code>)을 빌드 그래프에 편입하고, C4(internal 출력 tap) 해결 옵션을 열거하여 P7 freeze 전 결정 게이트를 세운다.</dd>
+    <dt>산출물</dt>
+    <dd><code>project.yml</code> 갱신(앱 타깃 sources에 <code>Sources/Daemon</code> 추가, <code>DaemonTests</code> bundle.unit-test 타깃 신설, <code>DaemonDevCLI</code> tool 타깃 + scheme 신설), <code>docs/p4/c4-output-tap-spike.md</code>(옵션 열거 결정 문서).</dd>
+    <dt>OMC 위임</dt>
+    <dd>executor(sonnet, project.yml), document-specialist(libghostty 출력 콜백 조사, C4 spike 병렬).</dd>
+    <dt>예상 소요</dt>
+    <dd>0.5일(project.yml 등록은 패턴 모방. C4 spike는 document-specialist 병렬 위임으로 직렬 wall-clock 미가산).</dd>
+    <dt>기술 노트</dt>
+    <dd><code>Sources/Daemon</code>은 in-process이므로 <code>ClaudeAlarmTerminal</code> 앱 타깃 <code>sources</code>에 <code>- path: Sources/Daemon</code> 추가(SessionManager actor와 동일 모듈). <code>DaemonTests</code>는 <code>SessionTests</code> 패턴 모방(<code>type: bundle.unit-test</code>, sources에 <code>Sources/PTY</code>, <code>Sources/Session</code>, <code>Sources/Workspace</code>, <code>Sources/Daemon</code>, <code>Tests/DaemonTests</code> + AnyCodable dep + PTY/include HEADER_SEARCH_PATHS). <code>DaemonDevCLI</code>는 <code>SessionVerifier</code> 패턴 모방(<code>type: tool</code> + scheme <code>build.targets</code>). C4 spike는 구현이 아니라 옵션 열거: (a) libghostty upstream에 raw output 콜백 patch 제안, (b) PTY interpose(external처럼 spawn 경로 분기), (c) <code>read_text</code> grid-diff 스트리밍과 그 한계(ANSI/byte 소실). 각 옵션의 근거 API/file:line 포함, P4 종료 후 결정 게이트 1개 명문.</dd>
+  </dl>
+  <h4>측정 가능한 종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>grep -c 'Sources/Daemon' project.yml</code> &gt;= 2 (앱 타깃 + DaemonTests).</li>
+    <li><input type="checkbox" disabled> <code>grep -c 'DaemonDevCLI' project.yml</code> &gt;= 2 (tool 타깃 + scheme).</li>
+    <li><input type="checkbox" disabled> <code>xcodegen generate</code> exit code 0 그리고 <code>xcodebuild -scheme DaemonTests -destination 'platform=macOS' build-for-testing</code> exit code 0(빈 타깃 컴파일).</li>
+    <li><input type="checkbox" disabled> <code>docs/p4/c4-output-tap-spike.md</code> 존재 그리고 옵션 헤더 &gt;= 3개: <code>grep -cE '^### (옵션|Option) ' docs/p4/c4-output-tap-spike.md</code> &gt;= 3.</li>
+  </ul>
+</div>
+
+<div class="day-card">
+  <h3 id="day-1">Day 1 — Envelope 모델 + codec v0.9 (seq u64 string 라운드트립)</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>WS envelope v0.9 struct와 JSON codec을 구현한다. seq/ackSeq를 string으로 직렬화한다.</dd>
+    <dt>산출물</dt>
+    <dd><code>Sources/Daemon/WSEnvelope.swift</code>, <code>Sources/Daemon/EnvelopeCodec.swift</code>, <code>Tests/DaemonTests/EnvelopeCodecTests.swift</code>.</dd>
+    <dt>OMC 위임</dt>
+    <dd>executor(opus), tdd-guide(RED-first).</dd>
+    <dt>예상 소요</dt>
+    <dd>1일.</dd>
+    <dt>기술 노트</dt>
+    <dd>seq/ackSeq는 <code>UInt64</code>로 보유하되 <code>Codable</code>에서 string으로 encode/decode. <code>kind</code>는 <code>EnvelopeKind</code> raw string enum. <code>payload</code>는 항상 완성 UTF-8(부분 byte면 encode 거부).</dd>
+  </dl>
+  <h4>측정 가능한 종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>xcodebuild test -scheme DaemonTests -destination 'platform=macOS' -only-testing:DaemonTests/EnvelopeCodecTests</code> exit 0, 내부에 <code>XCTAssertEqual(decode(encode(env)).seq, 9007199254740993)</code> (2^53+1 라운드트립).</li>
+    <li><input type="checkbox" disabled> codec 산출 JSON에서 seq가 string: <code>EnvelopeCodecTests</code>의 <code>testSeqIsStringInJson</code>이 <code>XCTAssertTrue(jsonString.contains("\"seq\":\""))</code>로 검증(exit 0).</li>
+    <li><input type="checkbox" disabled> monotonic 위반 입력에 <code>EnvelopeCodecError.malformedSeq</code>/<code>nonMonotonicSeq</code> throw: <code>XCTAssertThrowsError</code>.</li>
+    <li><input type="checkbox" disabled> 9개 kind 전수 encode→decode 라운드트립 <code>XCTAssertEqual</code> 통과.</li>
+  </ul>
+</div>
+
+<div class="day-card">
+  <h3 id="day-2">Day 2 — Ring buffer + message-boundary drop-and-mark + BUFFER_OVERFLOW_DROPPED</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>세션별 in-memory ring buffer(~500 메시지)를 구현한다. overflow 시 envelope 단위로 drop하고 <code>BUFFER_OVERFLOW_DROPPED</code>를 1회만 발행한다.</dd>
+    <dt>산출물</dt>
+    <dd><code>Sources/Daemon/SessionRingBuffer.swift</code>, <code>Tests/DaemonTests/SessionRingBufferTests.swift</code>.</dd>
+    <dt>OMC 위임</dt>
+    <dd>executor(opus), tdd-guide.</dd>
+    <dt>예상 소요</dt>
+    <dd>1일.</dd>
+    <dt>기술 노트</dt>
+    <dd>버퍼 원소는 완성된 envelope(byte chunk 아님) — drop은 항상 envelope 단위라 UTF-8 절단 불가능. drop 상태는 per-session 래치로 1회 발행, consumer가 따라잡으면 리셋.</dd>
+  </dl>
+  <h4>측정 가능한 종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> capacity=500에 600개 envelope enqueue → <code>XCTAssertEqual(buffer.count, 500)</code> 그리고 <code>XCTAssertEqual(dropEventCount, 1)</code>.</li>
+    <li><input type="checkbox" disabled> 잔존 envelope 전수 UTF-8 유효: <code>XCTAssertTrue(buffer.allSatisfy { String(data: $0.payloadData, encoding: .utf8) != nil })</code>.</li>
+    <li><input type="checkbox" disabled> drain으로 여유 회복 후 재 overflow 시 <code>XCTAssertEqual(dropEventCount, 2)</code>(래치 리셋).</li>
+    <li><input type="checkbox" disabled> 한국어 payload 500+ enqueue 후 잔존 전수 decode 성공.</li>
+    <li><input type="checkbox" disabled> 실행: <code>xcodebuild test -scheme DaemonTests -destination 'platform=macOS' -only-testing:DaemonTests/SessionRingBufferTests</code> exit 0.</li>
+  </ul>
+</div>
+
+<div class="day-card">
+  <h3 id="day-3">Day 3 — WS server loopback listen + session.start bind + seq 모노토닉 wire 검증</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>앱 시작 시 WS server를 127.0.0.1 임의 포트에 listen한다. WS client가 <code>kind=session.start</code>로 attach하고, per-client seq 모노토닉성을 wire에서 검증하며, 비정상 종료 시 attach가 정리되고 PTY는 생존한다.</dd>
+    <dt>산출물</dt>
+    <dd><code>Sources/Daemon/WSServer.swift</code>(NWListener), <code>Sources/Daemon/SessionBindRegistry.swift</code>(clientId↔sessionId + per-client <code>lastSeq</code>), <code>Tests/DaemonTests/SessionBindTests.swift</code>.</dd>
+    <dt>OMC 위임</dt>
+    <dd>executor(opus), document-specialist(Network.framework NWListener WebSocket).</dd>
+    <dt>예상 소요</dt>
+    <dd>1.5일.</dd>
+    <dt>기술 노트</dt>
+    <dd><code>NWListener</code>(<code>using: .tcp</code>, <code>NWProtocolWebSocket.Options</code>). 포트 0 → OS 할당, 실제 포트를 <code>listener.port</code>로 노출. <code>SessionBindRegistry</code>(actor)가 clientId↔sessionId 매핑과 <strong>per-client <code>lastSeq</code>를 보유</strong>하며, inbound envelope 처리 시 <code>validateMonotonic</code>을 호출(§5.1)하여 out-of-order/중복 seq를 거부(<code>kind=error, code=NON_MONOTONIC_SEQ</code>). disconnect 시 <code>cleanup(clientId:)</code> → 매핑/lastSeq 제거, <code>SessionManager.terminate</code> 미호출(PTY 생존).</dd>
+  </dl>
+  <h4>측정 가능한 종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> 서버 기동 후 <code>lsof -nP -iTCP@127.0.0.1 -sTCP:LISTEN | grep -c &lt;pid&gt;</code> &gt;= 1 그리고 외부 인터페이스 listen 0건: <code>lsof -nP -iTCP -sTCP:LISTEN | grep -E '0\.0\.0\.0|\*:' | wc -l</code> == 0.</li>
+    <li><input type="checkbox" disabled> <code>XCTAssertEqual(SessionBindRegistry.boundSession(clientId:), sessionId)</code> (session.start 후).</li>
+    <li><input type="checkbox" disabled> inbound seq 역행 입력에 <code>NON_MONOTONIC_SEQ</code> 발행: <code>XCTAssertThrowsError</code>/error envelope 1건 (wire-level 검증).</li>
+    <li><input type="checkbox" disabled> client 강제 close 후 5초 이내 <code>boundSession(clientId:)</code> == nil 그리고 <code>await sessionManager.get(id: sid) != nil</code>(PTY 생존) — <code>XCTAssertNotNil</code>.</li>
+    <li><input type="checkbox" disabled> 포트 0 사용으로 연속 10회 기동/종료 시 <code>EADDRINUSE</code> 0건(<code>xcodebuild test ... -only-testing:DaemonTests/SessionBindTests</code> exit 0).</li>
+  </ul>
+</div>
+
+<div class="day-card">
+  <h3 id="day-4">Day 4 — Single-writer 큐 (origin별 2-executor, R8, Option A)</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>동일 sessionId PTY write를 직렬화하는 <code>SerialInputQueue</code>를 구현한다. <code>.external</code>=actor/<code>PTYWriter</code>, <code>.internal</code>=MainActor/libghostty의 2-path(Option A).</dd>
+    <dt>산출물</dt>
+    <dd><code>Sources/Daemon/SerialInputQueue.swift</code>, <code>Sources/Daemon/InputSink.swift</code>(origin별 write 추상), <code>Tests/DaemonTests/SerialInputQueueTests.swift</code>.</dd>
+    <dt>OMC 위임</dt>
+    <dd>executor(opus), architect(actor isolation 경계 검토).</dd>
+    <dt>예상 소요</dt>
+    <dd>1.5일.</dd>
+    <dt>기술 노트</dt>
+    <dd>세션별 <code>AsyncStream&lt;InputItem&gt;</code> 단일 consumer가 각 item write를 <code>await</code>로 완결한 뒤 다음 item을 처리 → strict FIFO. <code>Task { @MainActor in ... }</code>를 매 envelope 분리 생성하면 FIFO가 깨지므로 단일 consumer loop이 hop을 직렬 완결해야 한다(§5.3). 동일 sessionId 동시 consumer 2개 이상은 구조적으로 금지.</dd>
+  </dl>
+  <h4>측정 가능한 종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> 100개 input("0".."99") 동시 enqueue → external sink 수신 byte 순서 == enqueue 순서: <code>XCTAssertEqual(received, Array(0..&lt;100))</code>.</li>
+    <li><input type="checkbox" disabled> 동일 sessionId consumer 단일성: <code>XCTAssertEqual(queue.consumerCount(for: sid), 1)</code>.</li>
+    <li><input type="checkbox" disabled> internal mock sink: 10개 printable input 주입 순서 == 호출 순서(<code>XCTAssertEqual</code>).</li>
+    <li><input type="checkbox" disabled> teardown 후 pending 0: <code>XCTAssertEqual(queue.pendingCount(for: sid), 0)</code>.</li>
+    <li><input type="checkbox" disabled> 실행: <code>xcodebuild test -scheme DaemonTests -destination 'platform=macOS' -only-testing:DaemonTests/SerialInputQueueTests</code> exit 0.</li>
+  </ul>
+</div>
+
+<div class="day-card">
+  <h3 id="day-5">Day 5 — 입출력 양방향 wiring (external FD + UTF-8 누산기 + internal printable 주입)</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>WS input → 큐 → PTY write, PTY output → <code>Utf8StreamAccumulator</code> → WS output 스트림을 연결한다. <code>.external</code>은 입출력 모두, <code>.internal</code>은 printable 입력 주입만(출력·control 미지원 신호).</dd>
+    <dt>산출물</dt>
+    <dd><code>Sources/Daemon/SessionDaemon.swift</code>(통합), <code>Sources/Daemon/Utf8StreamAccumulator.swift</code>(신규 — chunk 경계 재조립), <code>Tests/DaemonTests/RoundTripTests.swift</code>, <code>Tests/DaemonTests/Utf8StreamAccumulatorTests.swift</code>.</dd>
+    <dt>OMC 위임</dt>
+    <dd>executor(opus), architect(통합 경계).</dd>
+    <dt>예상 소요</dt>
+    <dd>1.5일.</dd>
+    <dt>기술 노트</dt>
+    <dd>external 입력은 <code>ExternalSink</code>가 <code>PTYWriter.write(masterFD, Data)</code> 재사용(full-write+EAGAIN, 데이터 손실 0 — §5.3). external 출력은 <code>PTYReader.onData(Data)</code>(lowWater 1로 1바이트 chunk 가능, <code>PTYReader.swift:34</code>) → <code>Utf8StreamAccumulator</code>가 멀티바이트 경계를 누적·재조립하여 완성 UTF-8 문자열만 envelope(kind=output)로 발행(partial byte는 carry로 보관). <code>Utf8BoundaryTruncator</code>는 grapheme truncate 유틸이라 재사용 불가. internal 입력은 <code>InternalSink</code>가 printable만 <code>ghostty_surface_text</code> 주입, control byte 수신 시 <code>INTERNAL_CONTROL_INPUT_UNSUPPORTED</code> 발행. internal 출력 요청 시 <code>INTERNAL_OUTPUT_UNSUPPORTED</code> 발행. C2(inactive surface 입력) 런타임 검증 수행.</dd>
+  </dl>
+  <h4>측정 가능한 종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> external 세션에 한국어 input("가나다\n") write → WS output payload에 "가나다" 포함: <code>XCTAssertTrue(output.contains("가나다"))</code>.</li>
+    <li><input type="checkbox" disabled> <strong>강제 mid-multibyte split</strong>: "가"(0xEA 0xB0 0x80)를 byte 1개 + byte 2개로 2 chunk 분할 주입 → <code>Utf8StreamAccumulator</code>가 완성 "가" 1개로 재조립, 중간 발행 0: <code>XCTAssertEqual(accumulator.emitted, ["가"])</code> 그리고 partial throw 0건.</li>
+    <li><input type="checkbox" disabled> emoji input("👍\n") external 라운드트립 — output payload <code>String(...encoding:.utf8)</code> non-nil 그리고 "👍" 포함.</li>
+    <li><input type="checkbox" disabled> malformed carry flush: 미완 byte가 carry 상한(4 byte) 초과 시 U+FFFD 1회 치환 후 flush(출력 정지 0): 단일 invalid 시퀀스 주입 시 <code>XCTAssertEqual(accumulator.emitted, ["\u{FFFD}"])</code>.</li>
+    <li><input type="checkbox" disabled> inactive(비-focus) internal surface에 printable <code>ghostty_surface_text</code> 주입 후 <code>ghostty_surface_read_text</code>로 반영 확인: <code>XCTAssertTrue(viewport.contains(injected))</code>(C2 런타임 확증).</li>
+    <li><input type="checkbox" disabled> internal control byte(0x03) 입력 시 <code>INTERNAL_CONTROL_INPUT_UNSUPPORTED</code> 정확히 1회, internal 출력 요청 시 <code>INTERNAL_OUTPUT_UNSUPPORTED</code> 정확히 1회: <code>XCTAssertEqual(errorCodes.filter { ... }.count, 1)</code> 각각.</li>
+    <li><input type="checkbox" disabled> external write hard-failure 가시화: <code>PTYWriter.write</code> throw를 mock 주입 시 <code>ExternalSink.onError</code>가 <code>PTY_WRITE_FAILED</code> 정확히 1회 발행(silent drop 0): <code>XCTAssertEqual(errorCodes.filter { $0 == .ptyWriteFailed }.count, 1)</code>.</li>
+    <li><input type="checkbox" disabled> 실행: <code>xcodebuild test -scheme DaemonTests -destination 'platform=macOS' -only-testing:DaemonTests/RoundTripTests</code> 및 <code>.../Utf8StreamAccumulatorTests</code> exit 0.</li>
+  </ul>
+</div>
+
+<div class="day-card">
+  <h3 id="day-6">Day 6 — Dev CLI 라운드트립 데모 + acceptance + P5 인계</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>loopback dev CLI로 end-to-end 라운드트립을 데모한다. acceptance(§8)를 전수 검증하고 Exit Gate를 정리한다.</dd>
+    <dt>산출물</dt>
+    <dd><code>Sources/DaemonDevCLI/main.swift</code>(tool), <code>Tests/DaemonTests/AcceptanceTests.swift</code>, exit-gate 기록.</dd>
+    <dt>OMC 위임</dt>
+    <dd>executor(sonnet), verifier(opus, acceptance 전수).</dd>
+    <dt>예상 소요</dt>
+    <dd>1일.</dd>
+    <dt>기술 노트</dt>
+    <dd>dev CLI 빌드 = <code>xcodebuild -scheme DaemonDevCLI -destination 'generic/platform=macOS' -derivedDataPath build/DerivedData build</code>, 바이너리 = <code>build/DerivedData/Build/Products/Debug/DaemonDevCLI</code>. 포트를 arg로 받아 WS connect → session.start(external sessionId) → input 전송 → output 수신. <code>--flood</code>로 forced overflow.</dd>
+  </dl>
+  <h4>측정 가능한 종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>build/DerivedData/Build/Products/Debug/DaemonDevCLI --roundtrip</code> exit 0 그리고 stdout에 입력 한국어 echo: <code>... --roundtrip | grep -c "가나다"</code> &gt;= 1.</li>
+    <li><input type="checkbox" disabled> <code>... --flood</code> 실행 시 wire의 <code>BUFFER_OVERFLOW_DROPPED</code> 정확히 1회: <code>... --flood | grep -c BUFFER_OVERFLOW_DROPPED</code> == 1.</li>
+    <li><input type="checkbox" disabled> acceptance §8 표 전수 <code>xcodebuild test -scheme DaemonTests -destination 'platform=macOS' -only-testing:DaemonTests/AcceptanceTests</code> exit 0.</li>
+    <li><input type="checkbox" disabled> 디버그 print 잔존 0: <code>grep -rnE 'print\(' Sources/Daemon/ | grep -vE '^\s*//' | wc -l</code> == 0. 빌드 warning 0: <code>xcodebuild -scheme DaemonTests -destination 'platform=macOS' build-for-testing 2&gt;&amp;1 | grep -c 'warning:'</code> == 0.</li>
+  </ul>
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-4">4. Architecture Diagram</h2>
+
+<pre class="ascii">                          앱 프로세스 (foreground, in-process daemon)
+ ┌──────────────────────────────────────────────────────────────────────────┐
+ │                                                                            │
+ │   dev CLI / WS client ──(loopback 127.0.0.1:&lt;rand&gt;)──► WSServer (NWListener)│
+ │        ▲                                                     │             │
+ │        │ kind=output (envelope 스트림)                       │ kind=input  │
+ │        │ kind=error(BUFFER_OVERFLOW_DROPPED / NON_MONOTONIC) │ session.start│
+ │        │                                                     ▼             │
+ │   ┌────┴─────────────┐                          ┌───────────────────────┐  │
+ │   │ SessionRingBuffer│◄── kind=output ──────────│  SessionDaemon (wire) │  │
+ │   │ (~500, 경계 drop)│                          │  + SessionBindRegistry │  │
+ │   └──────────────────┘                          │    (per-client lastSeq)│  │
+ │        ▲                                         └───────────┬───────────┘  │
+ │        │ 완성 UTF-8 문자열                                    │ input        │
+ │   ┌────┴──────────────┐                                      ▼             │
+ │   │ Utf8StreamAccum.  │◄── byte chunk(.external만)  ┌──────────────────────┐ │
+ │   │ (경계 재조립/carry)│                            │ SerialInputQueue(sid) │ │
+ │   └────┬──────────────┘                            │ 단일 consumer, FIFO   │ │
+ │        │ output bytes                              └───┬───────────────┬──┘ │
+ │        │                                origin=.external│   origin=.internal │
+ │        │                                               ▼               ▼    │
+ │        │                            ┌──────────────────┐  ┌──────────────────┐
+ │        │                            │ ExternalSink     │  │ InternalSink     │
+ │        │                            │ (actor)          │  │ (@MainActor)     │
+ │        │                            │ PTYWriter.write  │  │ printable→text    │
+ │        │                            │ (full+EAGAIN)    │  │ control→UNSUPPORTED│
+ │        │                            └────────┬─────────┘  └────────┬─────────┘
+ │        │  PTYReader.onData(Data)             ▼                     ▼
+ │        └──────────────────────────── masterFD (PTY)        libghostty surface
+ │                                       (.external만)         (.internal, 출력 tap 없음 — C4)
+ │                                                                            │
+ │   SessionManager (actor) ── sessions[UUID:Session] ── origin/ptyHandle 보유 │
+ └──────────────────────────────────────────────────────────────────────────┘
+
+ 비대칭 핵심:
+  - .external: 입력 PTYWriter.write(masterFD) / 출력 PTYReader→Utf8StreamAccum  ← P4 데모/acceptance 기준
+  - .internal: 입력 printable만 ghostty_surface_text(MainActor) / 출력 미지원 / control 입력 미지원 ← P5+ deferred
+</pre>
+
+<!-- =================================================================== -->
+<h2 id="sec-5">5. Critical Code Specs (의사 Swift — 구현 수준)</h2>
+
+<h3 id="sec-5-1">5.1 Envelope v0.9 + codec (seq string) + 모노토닉 검증 호출지점</h3>
+
+<pre><code>public enum EnvelopeKind: String, Codable, Sendable {
+    case input, output
+    case sessionStart = "session.start"
+    case sessionExit = "session.exit"
+    case sessionTerminated = "session.terminated"
+    case ack, error, pause, resume
+}
+
+public struct EnvelopeActor: Codable, Sendable, Equatable {
+    public let deviceId: String
+    public let userId: String?
+}
+
+public struct WSEnvelope: Sendable, Equatable {
+    public let seq: UInt64          // wire에서는 string
+    public let ackSeq: UInt64?      // wire에서는 string?
+    public let actor: EnvelopeActor
+    public let kind: EnvelopeKind
+    public let code: String?
+    public let payload: Data        // 항상 완성 UTF-8(§7).
+}
+
+extension WSEnvelope: Codable {
+    enum K: String, CodingKey { case seq, ackSeq, actor, kind, code, payload }
+
+    public init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: K.self)
+        let seqStr = try c.decode(String.self, forKey: .seq)
+        guard let s = UInt64(seqStr) else { throw EnvelopeCodecError.malformedSeq(seqStr) }
+        self.seq = s
+        if let a = try c.decodeIfPresent(String.self, forKey: .ackSeq) {
+            guard let av = UInt64(a) else { throw EnvelopeCodecError.malformedSeq(a) }
+            self.ackSeq = av
+        } else { self.ackSeq = nil }
+        self.actor = try c.decode(EnvelopeActor.self, forKey: .actor)
+        self.kind = try c.decode(EnvelopeKind.self, forKey: .kind)
+        self.code = try c.decodeIfPresent(String.self, forKey: .code)
+        let payloadStr = try c.decode(String.self, forKey: .payload)
+        self.payload = Data(payloadStr.utf8)
+    }
+
+    public func encode(to e: Encoder) throws {
+        var c = e.container(keyedBy: K.self)
+        try c.encode(String(seq), forKey: .seq)            // UInt64 → string
+        try c.encodeIfPresent(ackSeq.map(String.init), forKey: .ackSeq)
+        try c.encode(actor, forKey: .actor)
+        try c.encode(kind, forKey: .kind)
+        try c.encodeIfPresent(code, forKey: .code)
+        guard let s = String(data: payload, encoding: .utf8) else { throw EnvelopeCodecError.nonUtf8Payload }
+        try c.encode(s, forKey: .payload)
+    }
+}
+
+public enum EnvelopeCodecError: Error, Equatable {
+    case malformedSeq(String)
+    case nonMonotonicSeq(prev: UInt64, got: UInt64)
+    case nonUtf8Payload
+}
+
+// 모노토닉 검증은 wire 레벨에서 per-client lastSeq를 보유한 SessionBindRegistry 가 호출(§5.4).
+// 호출지점: WSServer inbound 처리 → SessionBindRegistry.ingestInbound(clientId:env:).
+func validateMonotonic(_ env: WSEnvelope, lastSeq: inout UInt64) throws {
+    guard env.seq &gt; lastSeq else { throw EnvelopeCodecError.nonMonotonicSeq(prev: lastSeq, got: env.seq) }
+    lastSeq = env.seq
+}</code></pre>
+
+<h3 id="sec-5-2">5.2 Ring buffer — message-boundary drop-and-mark</h3>
+
+<pre><code>public final class SessionRingBuffer {
+    private var items: [WSEnvelope] = []
+    private let capacity: Int                  // ~500
+    private var dropEventEmitted = false       // 1회 발행 래치
+    private(set) var dropEventCount = 0
+
+    public init(capacity: Int = 500) { self.capacity = capacity }
+
+    /// envelope 단위 enqueue. overflow 시 가장 오래된 envelope을 통째로 drop
+    /// (byte 절단 불가능 → UTF-8 안전). 반환: 발행할 drop-mark(있으면).
+    public func enqueue(_ env: WSEnvelope) -&gt; WSEnvelope? {
+        items.append(env)
+        guard items.count &gt; capacity else { return nil }
+        items.removeFirst()                    // 메시지(envelope) 경계 drop
+        if !dropEventEmitted {
+            dropEventEmitted = true
+            dropEventCount += 1
+            return Self.makeDropMark()         // kind=error, code=BUFFER_OVERFLOW_DROPPED
+        }
+        return nil
+    }
+
+    public func drain(upTo n: Int) -&gt; [WSEnvelope] {
+        let taken = Array(items.prefix(n))
+        items.removeFirst(min(n, items.count))
+        if items.count &lt; capacity { dropEventEmitted = false }   // 여유 회복 → 래치 리셋
+        return taken
+    }
+}</code></pre>
+
+<h3 id="sec-5-3">5.3 SerialInputQueue + InputSink (origin별 2-executor, strict FIFO) + Utf8StreamAccumulator</h3>
+
+<div class="callout">
+  <div class="label">구현 메모</div>
+  아래 의사코드는 error code를 String 리터럴(<code>onError("PTY_WRITE_FAILED")</code> 등)로 표기하나, 구현 시 단일 enum(<code>DaemonErrorCode</code>)으로 통일하여 테스트의 <code>.ptyWriteFailed</code> case 비교(§3 Day5)와 정합시킨다. String↔enum 매핑 helper는 의사코드에서 생략.
+</div>
+
+<pre><code>struct InputItem: Sendable { let bytes: [UInt8]; let isControl: Bool }
+
+/// 각 sessionId마다 단일 AsyncStream + 단일 consumer. 단일 consumer가 각 item의
+/// origin별 write를 await로 완결한 뒤 다음 item 처리 → strict FIFO. 동시 write 구조적 불가.
+actor SerialInputQueue {
+    private var continuations: [UUID: AsyncStream&lt;InputItem&gt;.Continuation] = [:]
+    private var consumers: [UUID: Task&lt;Void, Never&gt;] = [:]
+
+    func attach(sessionId: UUID, sink: InputSink) {
+        guard consumers[sessionId] == nil else { return }   // 단일 consumer 보장
+        let stream = AsyncStream&lt;InputItem&gt; { cont in continuations[sessionId] = cont }
+        consumers[sessionId] = Task {
+            for await item in stream { await sink.write(item) }  // await 완결 → 다음. 분리 Task 금지.
+        }
+    }
+    func enqueue(_ item: InputItem, for sessionId: UUID) { continuations[sessionId]?.yield(item) }
+    func detach(sessionId: UUID) {
+        continuations[sessionId]?.finish(); continuations[sessionId] = nil
+        consumers[sessionId]?.cancel(); consumers[sessionId] = nil
+    }
+}
+
+protocol InputSink: Sendable { func write(_ item: InputItem) async }
+
+/// .external — actor 소유 masterFD. 기존 PTYWriter.write 재사용(full-write + EAGAIN 루프).
+/// raw Darwin.write 단발 호출 금지: masterFD가 O_NONBLOCK(PTYSpawner.swift:42)이라 EAGAIN/short-write 시 byte 유실.
+actor ExternalSink: InputSink {
+    let masterFD: Int32
+    let onError: (String) -&gt; Void   // PTY_WRITE_FAILED 발행(InternalSink.onUnsupported 와 대칭)
+    func write(_ item: InputItem) async {
+        do { try PTYWriter.write(masterFD, Data(item.bytes)) }   // full-write+EAGAIN, 데이터 손실 0
+        catch { onError("PTY_WRITE_FAILED") }   // hard-failure(PTYError.fcntlFailed) 가시화 — silent drop 금지
+    }
+    // 주의(P4 한정 부채): PTYWriter는 EAGAIN 시 usleep(1ms) spin. PTY가 가득 차면 actor executor 점유.
+    //   P4 데모 부하에서는 미발현. internal 실사용/고부하 wiring 시 DispatchIO write로 전환 검토(§9 Risks).
+}
+
+/// .internal — MainActor에서 libghostty 주입. printable만 지원, control은 미지원 신호.
+@MainActor
+final class InternalSink: InputSink {
+    let surface: ghostty_surface_t
+    let onUnsupported: (String) -&gt; Void   // INTERNAL_CONTROL_INPUT_UNSUPPORTED 발행 콜백
+    nonisolated func write(_ item: InputItem) async {
+        await MainActor.run {
+            if item.isControl {
+                // C1: control byte(&lt;0x20)는 libghostty가 keycode+mods로 자체 인코딩하므로 raw 주입 불가.
+                //   ESC 다중 byte 역매핑도 불가. P4는 미지원 — 명시 신호.
+                onUnsupported("INTERNAL_CONTROL_INPUT_UNSUPPORTED")
+            } else {
+                item.bytes.withUnsafeBytes { raw in
+                    ghostty_surface_text(surface, raw.bindMemory(to: CChar.self).baseAddress, UInt(item.bytes.count))
+                }
+            }
+        }
+    }
+}
+
+/// 출력 chunk 경계 재조립. PTYReader는 lowWater 1(PTYReader.swift:34)이라 멀티바이트가 chunk 경계에서
+/// 쪼개진다. 완성 UTF-8 prefix만 방출하고 미완 byte는 carry에 보관 → 다음 chunk와 결합.
+/// Utf8BoundaryTruncator(grapheme truncate 유틸)는 재사용 불가.
+struct Utf8StreamAccumulator {
+    private var carry: [UInt8] = []
+    /// 입력 chunk를 누적하여 완성 UTF-8 문자열을 방출. 미완 byte는 carry로 이월.
+    /// carry가 상한(4 byte = 최대 UTF-8 시퀀스)을 넘으면 malformed로 간주, U+FFFD 치환 후 flush(무한 적체 방지).
+    mutating func push(_ chunk: Data) -&gt; String? {
+        var buf = carry + Array(chunk)
+        // buf 끝에서 불완전한 멀티바이트 시퀀스 길이를 계산하여 잘라 carry로 보관.
+        let split = Self.completeUtf8PrefixLength(buf)
+        let complete = Array(buf[..&lt;split]); carry = Array(buf[split...])
+        return complete.isEmpty ? nil : String(decoding: complete, as: UTF8.self)
+    }
+}</code></pre>
+
+<h3 id="sec-5-4">5.4 Session bind API + per-client lastSeq + disconnect 정리 (PTY 생존)</h3>
+
+<pre><code>actor SessionBindRegistry {
+    private var bindings: [UUID: UUID] = [:]    // clientId → sessionId
+    private var lastSeq: [UUID: UInt64] = [:]   // clientId → 마지막 inbound seq
+
+    func bind(clientId: UUID, sessionId: UUID) { bindings[clientId] = sessionId; lastSeq[clientId] = 0 }
+    func boundSession(clientId: UUID) -&gt; UUID? { bindings[clientId] }
+
+    /// inbound envelope의 seq 모노토닉성 검증(§5.1). 역행/중복 시 throw → 호출부가 NON_MONOTONIC_SEQ 발행.
+    func ingestInbound(clientId: UUID, env: WSEnvelope) throws {
+        var s = lastSeq[clientId] ?? 0
+        try validateMonotonic(env, lastSeq: &amp;s)
+        lastSeq[clientId] = s
+    }
+
+    /// client 비정상 종료 시. 매핑/lastSeq만 제거 — SessionManager.terminate 미호출(PTY 생존).
+    func cleanup(clientId: UUID) { bindings[clientId] = nil; lastSeq[clientId] = nil }
+}</code></pre>
+
+<!-- =================================================================== -->
+<h2 id="sec-6">6. ADR 운영화</h2>
+
+<h3 id="sec-6-1">ADR-I(cmux surface) 정합</h3>
+
+<p>ADR-I상 모든 surface는 <code>SurfaceRegistry</code> owner가 등록~release까지 보유하여 alive하다(<code>SurfaceLifecycle.swift:18~46</code>). P4의 internal printable 입력 주입은 이 invariant에 의존한다: 비-focus/inactive tab surface도 살아있으므로 <code>ghostty_surface_text</code>를 핸들로 호출 가능(C2). P4는 hibernate/pause 코드를 추가하지 않으며 ADR-I를 그대로 따른다.</p>
+
+<h3 id="sec-6-2">R8(single-writer) 정책의 코드화</h3>
+
+<p>R8을 <code>SerialInputQueue</code>(§5.3)로 운영화한다: (1) 세션별 단일 consumer로 동시 write 2개 이상 구조 금지. (2) consumer가 각 write를 <code>await</code>로 완결 후 다음 → strict FIFO. (3) origin별 sink로 external/internal 비대칭 흡수. R8의 cross-origin(keystroke+WS) 시나리오는 external에 GUI keystroke 경로가 없어 P4 미검증임을 §8 A7에 명기한다.</p>
+
+<h3 id="sec-6-3">ADR-P4-1 — Single-writer 큐: Option A 채택, sink 경계 유지로 Option B 이월</h3>
+<ul>
+  <li><strong>Decision</strong>: P4는 모든 입력을 <code>SerialInputQueue</code>로 funnel하는 Option A를 채택. internal 로컬 keystroke fast-path(Option B)는 후속 phase로 이월하되, <strong><code>InputSink</code> 추상 경계를 깨끗이 유지</strong>하여 후속 phase에서 큐 재설계 없이 sink 교체만으로 전환 가능하게 한다.</li>
+  <li><strong>Drivers</strong>: DR1, DR2.</li>
+  <li><strong>Alternatives</strong>: Option B — internal keystroke 지연 0 이득이 P4 external 데모에서 미측정, generation/lock race 복잡도는 즉시 비용.</li>
+  <li><strong>Why chosen</strong>: external 데모라 Option A의 keystroke-지연 비용이 P4에서 미발현. strict FIFO 정합 이득만 취함.</li>
+  <li><strong>Consequences</strong>: internal 실사용 wiring 시 keystroke 지연이 비용 → 후속 phase에서 Option B 부분 전환 재평가(부채 명시).</li>
+  <li><strong>Follow-ups</strong>: internal 로컬 입력 fast-path를 internal 출력 tap 확보 phase와 함께 결정.</li>
+</ul>
+
+<h3 id="sec-6-4">ADR-P4-2 — seq/ackSeq 직렬화는 unconditional string</h3>
+<ul>
+  <li><strong>Decision</strong>: seq/ackSeq는 wire에서 항상 string. 내부는 UInt64.</li>
+  <li><strong>Drivers</strong>: DR3.</li>
+  <li><strong>Alternatives</strong>: number 직렬화 — 2^53 초과 손실로 거부.</li>
+  <li><strong>Why chosen</strong>: 손실 없는 cross-runtime 호환.</li>
+  <li><strong>Consequences</strong>: codec custom Codable. 라운드트립 테스트에 2^53+1 강제.</li>
+  <li><strong>Follow-ups</strong>: P7 freeze 시 반영.</li>
+</ul>
+
+<h3 id="sec-6-5">ADR-P4-3 — <code>.internal</code> 출력 스트리밍 P4 보류</h3>
+<ul>
+  <li><strong>Decision</strong>: P4는 <code>.internal</code> byte-faithful 출력 미지원(grid polling만). 요청 시 <code>INTERNAL_OUTPUT_UNSUPPORTED</code>. 데모/acceptance는 <code>.external</code> 기준.</li>
+  <li><strong>Drivers</strong>: DR2(C4 — libghostty 출력 byte tap 부재, <code>ghostty.h:1018~1027</code>).</li>
+  <li><strong>Alternatives</strong>: viewport read_text → 스트림 변환은 grid 스냅샷이라 ANSI/byte 정합 소실로 거부.</li>
+  <li><strong>Why chosen</strong>: 런타임 콜백에 raw output tap 부재. P4 골격은 external-first 정당.</li>
+  <li><strong>Consequences</strong>: GUI 실사용 출력 스트리밍은 P4 후 부채. Day 0 spike가 해결 옵션 열거 + P7 freeze 전 결정 게이트.</li>
+  <li><strong>Follow-ups</strong>: <code>docs/p4/c4-output-tap-spike.md</code>의 결정 게이트.</li>
+</ul>
+
+<h3 id="sec-6-6">ADR-P4-4 — <code>.internal</code> control byte 입력 P4 보류</h3>
+<ul>
+  <li><strong>Decision</strong>: P4는 <code>.internal</code>에 printable 입력만 주입. control byte(&lt; 0x20, ESC 시퀀스) 수신 시 <code>INTERNAL_CONTROL_INPUT_UNSUPPORTED</code>. <code>.external</code>은 <code>PTYWriter.write</code>로 raw control 그대로 전달(제약 없음).</li>
+  <li><strong>Drivers</strong>: C1 — control byte는 libghostty가 keycode+mods로 자체 인코딩(<code>GhosttyTerminalView.swift:412~414</code>), raw 주입 시 double-encode, ESC 다중 byte는 단일 keycode 역매핑 불가.</li>
+  <li><strong>Alternatives</strong>: byte→keycode 역매핑 테이블 — ESC 시퀀스/조합키 환원 불가로 부분적·불완전. P4 골격에 부적합.</li>
+  <li><strong>Why chosen</strong>: 미지원을 명시 신호로 정직하게 통지. external 데모는 영향 없음.</li>
+  <li><strong>Consequences</strong>: 모바일에서 internal 세션에 Ctrl/방향키 전송은 후속 phase 과제(libghostty key 주입 설계 필요).</li>
+  <li><strong>Follow-ups</strong>: internal 출력 tap phase와 함께 control 입력 경로 설계.</li>
+</ul>
+
+<!-- =================================================================== -->
+<h2 id="sec-7">7. WS Envelope v0.9 Schema 명세 (특수 섹션)</h2>
+
+<div class="callout">
+  <div class="label">v0.9 = preview</div>
+  freeze는 P7. 모든 정수 seq는 wire에서 string.
+</div>
+
+<h4>공통 필드</h4>
+<table>
+  <thead>
+    <tr><th>필드</th><th>타입(wire)</th><th>필수</th><th>설명</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>seq</code></td><td>string(u64)</td><td>Y</td><td>발신자 단조 증가 시퀀스. 2^53 초과 안전. per-client 검증(§5.4).</td></tr>
+    <tr><td><code>ackSeq</code></td><td>string(u64)</td><td>N</td><td>마지막 수신 확인 seq.</td></tr>
+    <tr><td><code>actor</code></td><td>object</td><td>Y</td><td><code>{ deviceId: string, userId?: string }</code></td></tr>
+    <tr><td><code>kind</code></td><td>string enum</td><td>Y</td><td>아래 kind set.</td></tr>
+    <tr><td><code>code</code></td><td>string</td><td>N</td><td>error kind의 머신 코드.</td></tr>
+    <tr><td><code>payload</code></td><td>string(UTF-8)</td><td>Y</td><td>kind별 의미. 항상 완성 UTF-8.</td></tr>
+  </tbody>
+</table>
+
+<h4>kind별 payload 구조</h4>
+<table>
+  <thead>
+    <tr><th>kind</th><th>payload 의미</th><th>code 예시</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>input</code></td><td>세션에 보낼 입력 텍스트. UTF-8.</td><td>—</td></tr>
+    <tr><td><code>output</code></td><td>세션 PTY 출력(완성 UTF-8 경계 단위, <code>Utf8StreamAccumulator</code> 산출).</td><td>—</td></tr>
+    <tr><td><code>session.start</code></td><td>attach 요청. payload = <code>{ sessionId: string(UUID) }</code>.</td><td>—</td></tr>
+    <tr><td><code>session.exit</code></td><td>세션 정상 종료. payload = <code>{ sessionId, exitCode? }</code>.</td><td>—</td></tr>
+    <tr><td><code>session.terminated</code></td><td>외부 terminate. payload = <code>{ sessionId, reason? }</code>.</td><td>—</td></tr>
+    <tr><td><code>ack</code></td><td>수신 확인. ackSeq에 대상 seq. payload = <code>{}</code>.</td><td>—</td></tr>
+    <tr><td><code>error</code></td><td>오류 통지. payload = <code>{ message }</code>.</td><td><code>BUFFER_OVERFLOW_DROPPED</code>, <code>INTERNAL_OUTPUT_UNSUPPORTED</code>, <code>INTERNAL_CONTROL_INPUT_UNSUPPORTED</code>, <code>PTY_WRITE_FAILED</code>, <code>MALFORMED_SEQ</code>, <code>NON_MONOTONIC_SEQ</code></td></tr>
+    <tr><td><code>pause</code></td><td><strong>v0.9 reserved.</strong> 출력 스트림 일시정지 의도. P4는 round-trip(encode/decode)만 보장하고 <strong>동작은 미구현(후속 Pn 이월)</strong>. 수신 시 무시 + <code>ack</code>.</td><td>—</td></tr>
+    <tr><td><code>resume</code></td><td><strong>v0.9 reserved.</strong> pause 해제 의도. P4 동작 미구현(이월). 수신 시 무시 + <code>ack</code>.</td><td>—</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <div class="label">pause/resume 처리 (ADR 미수립, dead-spec 해소)</div>
+  P4는 두 kind를 envelope 라운드트립 호환을 위해 enum/schema에 두되 동작은 구현하지 않는다. 수신 시 출력 스트림에 영향 없이 <code>ack</code>만 반환한다. 출력 정지/버퍼 누적 정책은 internal 출력 tap을 다루는 후속 phase에서 정의한다.
+</div>
+
+<h4>drop event 형식 (BUFFER_OVERFLOW_DROPPED)</h4>
+<pre><code>{
+  "seq": "10293",
+  "actor": { "deviceId": "daemon-local" },
+  "kind": "error",
+  "code": "BUFFER_OVERFLOW_DROPPED",
+  "payload": "{\"sessionId\":\"...\",\"droppedCount\":1}"
+}</code></pre>
+
+<p>세션별 overflow 첫 회에만 1회 발행. consumer가 따라잡아 여유 회복 시 래치 리셋.</p>
+
+<!-- =================================================================== -->
+<h2 id="sec-8">8. Acceptance Criteria</h2>
+
+<div class="callout">
+  <div class="label">검증 환경</div>
+  모든 명령은 XcodeGen + xcodebuild 기준(C6). SwiftPM <code>swift</code> CLI 미사용.
+</div>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>기준</th><th>검증일</th><th>검증 절차</th><th>통과</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>A0</td><td>신규 타깃 빌드 그래프 편입</td><td>Day 0</td><td><code>xcodegen generate</code> exit 0 그리고 <code>xcodebuild -scheme DaemonTests -destination 'platform=macOS' build-for-testing</code> exit 0</td><td><input type="checkbox" disabled></td></tr>
+    <tr><td>A1</td><td>external attach → 한국어 입력 → output envelope 스트림 도착</td><td>Day 6</td><td><code>build/DerivedData/Build/Products/Debug/DaemonDevCLI --roundtrip | grep -c "가나다"</code> &gt;= 1 (단일 chunk payload — UTF-8 split은 A9가 별도 검증)</td><td><input type="checkbox" disabled></td></tr>
+    <tr><td>A2</td><td>buffer 강제 overflow 시 drop-and-mark 1회만</td><td>Day 6</td><td><code>... DaemonDevCLI --flood | grep -c BUFFER_OVERFLOW_DROPPED</code> == 1</td><td><input type="checkbox" disabled></td></tr>
+    <tr><td>A3</td><td>seq u64 string 라운드트립(2^53+1)</td><td>Day 1</td><td><code>xcodebuild test -scheme DaemonTests -only-testing:DaemonTests/EnvelopeCodecTests</code> 내 <code>XCTAssertEqual(...seq, 9007199254740993)</code> exit 0</td><td><input type="checkbox" disabled></td></tr>
+    <tr><td>A4</td><td>WS client 비정상 종료 → attach 정리 + PTY 생존</td><td>Day 3</td><td>소켓 강제 close 후 5초 내 <code>boundSession==nil</code> 그리고 <code>get(id:)!=nil</code> (<code>XCTAssertNotNil</code>)</td><td><input type="checkbox" disabled></td></tr>
+    <tr><td>A5</td><td>Envelope codec 단위 테스트(한국어/emoji/부분 UTF-8 거부)</td><td>Day 1</td><td><code>xcodebuild test ... -only-testing:DaemonTests/EnvelopeCodecTests</code> exit 0, 부분 UTF-8 payload encode 시 <code>XCTAssertThrowsError(.nonUtf8Payload)</code> (입력 codec 거부 — 출력 재조립은 A9)</td><td><input type="checkbox" disabled></td></tr>
+    <tr><td>A6</td><td>9개 kind 전수 라운드트립(pause/resume은 round-trip만)</td><td>Day 1</td><td><code>xcodebuild test ... -only-testing:DaemonTests/EnvelopeCodecTests/testAllKinds</code> exit 0</td><td><input type="checkbox" disabled></td></tr>
+    <tr><td>A7</td><td>single-writer 추월 0(intra-queue)</td><td>Day 4</td><td><code>XCTAssertEqual(received, Array(0..&lt;100))</code> exit 0. <strong>한계 명기</strong>: R8 cross-origin(데스크톱 keystroke + WS 동시)은 external에 GUI keystroke 경로 부재로 P4 미검증 — internal 실사용 wiring phase에서 검증</td><td><input type="checkbox" disabled></td></tr>
+    <tr><td>A8</td><td>loopback만 listen(외부 인터페이스 0건)</td><td>Day 3</td><td><code>lsof -nP -iTCP -sTCP:LISTEN | grep -E '0\.0\.0\.0|\*:' | wc -l</code> == 0</td><td><input type="checkbox" disabled></td></tr>
+    <tr><td>A9</td><td>UTF-8 출력 chunk 경계 재조립</td><td>Day 5</td><td>"가"를 byte 1+2로 2 chunk 분할 주입 → <code>XCTAssertEqual(accumulator.emitted, ["가"])</code>, 중간 partial 발행/throw 0건 (<code>Utf8StreamAccumulatorTests</code>)</td><td><input type="checkbox" disabled></td></tr>
+    <tr><td>A10</td><td>internal 미지원 능력 명시 신호</td><td>Day 5</td><td>internal control(0x03) → <code>INTERNAL_CONTROL_INPUT_UNSUPPORTED</code> 1회, internal 출력 요청 → <code>INTERNAL_OUTPUT_UNSUPPORTED</code> 1회 (<code>XCTAssertEqual(... .count, 1)</code>)</td><td><input type="checkbox" disabled></td></tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-9">9. Risks &amp; Mitigations</h2>
+
+<table>
+  <thead>
+    <tr><th>위험</th><th>가능성</th><th>영향</th><th>완화</th><th>책임</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>seq number 직렬화 시 JS 53-bit 손실</td><td>중</td><td>높음</td><td>unconditional string(ADR-P4-2) + 2^53+1 라운드트립(A3)</td><td>Day 1</td></tr>
+    <tr><td>byte 경계 drop/chunk 분할로 한국어/emoji 손상</td><td>중</td><td>높음</td><td>ring buffer 원소를 완성 envelope으로(§5.2) + 출력 chunk는 <code>Utf8StreamAccumulator</code> 재조립(§5.3) + encode 시 부분 UTF-8 거부 + A9 강제 split 테스트</td><td>Day 2, Day 5</td></tr>
+    <tr><td><code>Utf8StreamAccumulator</code> carry 무한 적체(비후행 malformed byte가 영영 미완성 → 출력 정지)</td><td>낮음</td><td>중</td><td>carry 길이 상한(예: 4 byte = 최대 UTF-8 시퀀스) 초과 시 U+FFFD 치환 후 flush. Day 5 종료조건에 malformed carry flush 테스트 1건</td><td>Day 5</td></tr>
+    <tr><td><code>ExternalSink</code> write의 EAGAIN/short-write 데이터 손실 + hard-failure silent drop</td><td>중</td><td>높음</td><td>단발 <code>Darwin.write</code> 금지, <code>PTYWriter.write</code>(full-write+EAGAIN, <code>PTYSpawner.swift:160</code>) 재사용(공통 경로 손실 0). hard-failure(<code>PTYError.fcntlFailed</code>)는 <code>onError</code>→<code>PTY_WRITE_FAILED</code> 발행으로 가시화(silent drop 금지) — Day5 mock throw 주입 직접 검증</td><td>Day 5</td></tr>
+    <tr><td>2-executor 큐 race(MainActor hop 순서 깨짐)</td><td>중</td><td>높음</td><td><code>Task{ @MainActor }</code> 분리 생성 금지. 단일 consumer가 hop을 <code>await</code> 완결 후 다음(§5.3) + A7 순서 테스트</td><td>Day 4</td></tr>
+    <tr><td><code>PTYWriter</code> usleep spin이 actor executor 점유(고부하)</td><td>낮음(P4)</td><td>중</td><td>P4 external 데모 부하에서 미발현. internal 실사용/고부하 wiring 시 DispatchIO write 전환(ADR-P4-1 follow-up)</td><td>Day 5 메모</td></tr>
+    <tr><td><code>.internal</code> 출력/control 미지원이 GUI 실사용 누락으로 오인</td><td>높음</td><td>중</td><td>ADR-P4-3/P4-4 명문화 + <code>INTERNAL_OUTPUT_UNSUPPORTED</code>/<code>INTERNAL_CONTROL_INPUT_UNSUPPORTED</code> 명시 발행(A10) + Exit Gate 부채 기록</td><td>Day 5</td></tr>
+    <tr><td>신규 6개 타깃 미등록으로 빌드 실패</td><td>중</td><td>높음</td><td>Day 0 project.yml 등록 step + <code>xcodegen generate</code> + A0 빌드 검증</td><td>Day 0</td></tr>
+    <tr><td>WS client leak(disconnect 후 binding/buffer/큐 잔존)</td><td>중</td><td>중</td><td><code>cleanup(clientId:)</code> binding/lastSeq 제거 + queue detach + buffer 해제. A4 + queue pendingCount==0</td><td>Day 3, Day 4</td></tr>
+    <tr><td>loopback 포트 충돌(EADDRINUSE)</td><td>낮음</td><td>중</td><td>포트 0(OS 할당). 연속 10회 기동/종료 exit 0(Day 3)</td><td>Day 3</td></tr>
+    <tr><td>origin enum 명세 불일치(spawned vs external)</td><td>중</td><td>낮음</td><td>C5 명문화, <code>.external</code> 정본, 리네임 P4 범위 밖</td><td>전 Day</td></tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-10">10. Exit Gate to P5 (Push Sender)</h2>
+
+<p>P5 진입 전 아래 체크리스트를 충족한다.</p>
+
+<ul class="exit-criteria">
+  <li><input type="checkbox" disabled> Day 0: project.yml 신규 타깃 등록 + <code>xcodegen generate</code>/<code>build-for-testing</code> exit 0(A0). C4 spike 결정 문서 옵션 &gt;= 3.</li>
+  <li><input type="checkbox" disabled> Envelope codec v0.9 + 9 kind 라운드트립(pause/resume round-trip) + seq string(2^53+1) green.</li>
+  <li><input type="checkbox" disabled> SessionRingBuffer 메시지 경계 drop + BUFFER_OVERFLOW_DROPPED 1회 래치 green.</li>
+  <li><input type="checkbox" disabled> WS server loopback listen + session.start bind + per-client seq 모노토닉 wire 거부 + disconnect 시 attach 정리/PTY 생존 green.</li>
+  <li><input type="checkbox" disabled> SerialInputQueue 2-executor strict FIFO + 동시 write 구조 금지 + A7 intra-queue 순서 green.</li>
+  <li><input type="checkbox" disabled> external 입출력 라운드트립(한국어/emoji) + <code>Utf8StreamAccumulator</code> 강제 split 재조립(A9) + internal printable 입력 주입(inactive surface 포함) green.</li>
+  <li><input type="checkbox" disabled> internal 미지원 능력 명시 신호(A10) green.</li>
+  <li><input type="checkbox" disabled> dev CLI 라운드트립/flood 데모 exit 0.</li>
+  <li><input type="checkbox" disabled> <strong>부채 명시 기록</strong>: (a) <code>.internal</code> byte-faithful 출력 미지원(ADR-P4-3) — Day 0 spike 결정 게이트 → 후속 phase. (b) <code>.internal</code> control byte 입력 미지원(ADR-P4-4). (c) R8 cross-origin 비추월 P4 미검증(A7) — internal 실사용 wiring phase. (d) <code>PTYWriter</code> spin 블로킹 고부하 대안(DispatchIO).</li>
+  <li><input type="checkbox" disabled> WS envelope v0.9가 P5 push envelope spec의 base로 재사용 가능한 형태(공통 필드 안정).</li>
+</ul>
+
+<!-- =================================================================== -->
+<h2 id="app-a">부록 A. 환경 변수</h2>
+
+<table>
+  <thead>
+    <tr><th>변수</th><th>기본값</th><th>설명</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>CHAT_TERMINAL_MAX_SESSIONS</code></td><td>20</td><td>기존(P2) 최대 동시 세션 수. P4 데몬도 동일 한계 준수.</td></tr>
+    <tr><td><code>CHAT_TERMINAL_WS_PORT</code></td><td>0</td><td>WS server 바인드 포트. 0=OS 임의 할당(권장). dev/test 고정 포트 디버깅용.</td></tr>
+    <tr><td><code>CHAT_TERMINAL_RING_CAPACITY</code></td><td>500</td><td>세션별 ring buffer 용량. drop-and-mark 테스트에서 override.</td></tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="app-b">부록 B. 참고문헌</h2>
+
+<ul>
+  <li>마스터 계획: <code>docs/plans/work-plan-v4.md</code> (P4 절 line 156~184, Effort Calendar P4 행 line 585).</li>
+  <li>빌드 시스템: <code>project.yml</code>(targets/schemes, line 29~290), <code>scripts/build.sh</code>(xcodebuild 패턴 line 34~47).</li>
+  <li>ghostty C ABI 헤더: <code>Frameworks/GhosttyKit.xcframework/.../ghostty.h</code>(surface_text:1127, surface_key:1123, read_text:1159, runtime 콜백 set:1018~1027, set_focus:1113).</li>
+  <li>입력 경로: <code>Sources/TerminalView/GhosttyTerminalView.swift</code>(keyAction:388~423, control double-encode 주석:412~414, insertText surface_text:785).</li>
+  <li>세션 모델: <code>Sources/Session/Session.swift</code>(origin/ptyHandle), <code>Sources/Session/SessionManager.swift</code>(actor, create/createInternal/terminate:301).</li>
+  <li>PTY: <code>Sources/PTY/PTYHandle.swift</code>(masterFD), <code>Sources/PTY/PTYSpawner.swift</code>(O_NONBLOCK:42, <code>PTYWriter.write</code> full-write+EAGAIN:159~178), <code>Sources/PTY/PTYReader.swift</code>(onData, lowWater:34).</li>
+  <li>surface lifecycle: <code>Sources/UI/SurfaceLifecycle.swift</code>(SurfaceRegistry, ADR-I).</li>
+  <li>viewport 출력 현황: <code>Sources/UI/AgentView/GhosttyViewportProvider.swift</code>(read_text grid 폴링), <code>Sources/UI/AgentView/ViewportPollingTimer.swift</code>.</li>
+  <li>형식 규약: <code>~/.claude/rules/plan-documents.md</code>, 표준 형식 참조 <code>docs/plans/p1/p1-detailed.html</code>.</li>
+</ul>
+
+</main>
+</div>
+</body>
+</html>
