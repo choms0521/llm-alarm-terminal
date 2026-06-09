@@ -77,6 +77,53 @@ public final class WorkspaceCoordinator {
             .panes.first(where: { $0.id == pane.id })
     }
 
+    // MARK: - addTab / closeTab (P3.5 Day 3, REQ-2/REQ-4)
+
+    /// pane 에 새 tab 을 추가하고 session 을 부착한다(REQ-2).
+    ///
+    /// 모델은 `WorkspaceManager.addTab` 이, session 부착은 본 메서드가 담당한다.
+    /// `createInternal` 은 ptyHandle=nil 의 논리적 session 레코드만 만들고 실제 PTY 는
+    /// libghostty surface 가 mount 될 때 spawn 하므로, 비활성 탭에 유령 PTY 가 생기지 않는다.
+    @discardableResult
+    public func addTab(workspaceId: UUID, paneId: UUID, kind: PaneKind) async -> Tab? {
+        guard let tab = manager.addTab(workspaceId: workspaceId, paneId: paneId, kind: kind) else {
+            return nil
+        }
+        guard let ws = manager.workspaces.first(where: { $0.id == workspaceId }) else { return tab }
+        do {
+            let session = try await sessionManager.createInternal(
+                workspace: ws, paneId: paneId, kind: kind
+            )
+            manager.assignSession(
+                workspaceId: workspaceId, paneId: paneId, tabId: tab.id, sessionId: session.id
+            )
+        } catch {
+            KoreanLogger.error("탭 session 부착 실패: \(error.localizedDescription)")
+        }
+        return manager.workspaces
+            .first(where: { $0.id == workspaceId })?
+            .panes.first(where: { $0.id == paneId })?
+            .tabs.first(where: { $0.id == tab.id })
+    }
+
+    /// tab close: 해당 tab 의 session terminate + surface release → 모델 cascade(REQ-4).
+    ///
+    /// surface 는 tabId 단위로만 release 하므로 같은 pane 의 다른(비활성) tab surface 는
+    /// 유지된다(ADR-I: 등록된 surface 는 명시적 close 까지 alive). 모델 cascade(빈 pane/
+    /// 빈 workspace 제거)는 `WorkspaceManager.closeTab` 이 수행한다.
+    public func closeTab(workspaceId: UUID, paneId: UUID, tabId: UUID) async {
+        guard let ws = manager.workspaces.first(where: { $0.id == workspaceId }),
+              let pane = ws.panes.first(where: { $0.id == paneId }),
+              let tab = pane.tabs.first(where: { $0.id == tabId }) else { return }
+
+        if let sessionId = tab.sessionId {
+            try? await sessionManager.terminate(id: sessionId)
+            await sessionManager.remove(id: sessionId)
+        }
+        surfaceRegistry.release(id: tabId)
+        manager.closeTab(workspaceId: workspaceId, paneId: paneId, tabId: tabId)
+    }
+
     // MARK: - closePane / closeWorkspace
 
     /// pane close: 세션 terminate + remove → surface release → workspace 모델에서 pane 제거.

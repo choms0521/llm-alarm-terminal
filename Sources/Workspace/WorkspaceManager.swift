@@ -252,3 +252,101 @@ public final class WorkspaceManager: ObservableObject {
         return NSHomeDirectory()
     }
 }
+
+// MARK: - Tab API + 자동 정리 cascade (P3.5 Day 3, REQ-2/REQ-4)
+
+extension WorkspaceManager {
+
+    /// pane 에 새 Tab 을 추가하고 activeTabId 를 새 tab 으로 갱신한다(REQ-2).
+    ///
+    /// 순수 모델 변경만 수행한다. session 부착은 `WorkspaceCoordinator.addTab` 이
+    /// 담당한다(Manager=순수 모델 / Coordinator=세션 lifecycle 분리 유지).
+    /// agent-view 워크스페이스나 미존재 pane 에 대해서는 nil 을 반환한다.
+    @discardableResult
+    public func addTab(workspaceId: UUID, paneId: UUID, kind: PaneKind, name: String? = nil) -> Tab? {
+        guard let wsIdx = workspaces.firstIndex(where: { $0.id == workspaceId }) else { return nil }
+        let ws = workspaces[wsIdx]
+        guard ws.kind == .normal else {
+            KoreanLogger.warn("agent-view 워크스페이스에는 탭을 추가할 수 없습니다.")
+            return nil
+        }
+        guard let paneIdx = ws.panes.firstIndex(where: { $0.id == paneId }) else { return nil }
+        let pane = ws.panes[paneIdx]
+        let tab = Tab(kind: kind, name: name ?? Tab.defaultName(for: kind))
+        let newPane = pane.with(tabs: pane.tabs + [tab], activeTabId: .some(tab.id))
+        var newPanes = ws.panes
+        newPanes[paneIdx] = newPane
+        workspaces[wsIdx] = ws.with(panes: newPanes)
+        persistCurrent()
+        return tab
+    }
+
+    /// pane 의 activeTabId 를 지정한 tab 으로 전환한다(REQ-2 탭 선택).
+    /// 존재하지 않는 tab 이거나 이미 활성인 경우 noop.
+    public func selectTab(workspaceId: UUID, paneId: UUID, tabId: UUID) {
+        guard let wsIdx = workspaces.firstIndex(where: { $0.id == workspaceId }) else { return }
+        let ws = workspaces[wsIdx]
+        guard let paneIdx = ws.panes.firstIndex(where: { $0.id == paneId }) else { return }
+        let pane = ws.panes[paneIdx]
+        guard pane.tabs.contains(where: { $0.id == tabId }), pane.activeTabId != tabId else { return }
+        let newPane = pane.with(activeTabId: .some(tabId))
+        var newPanes = ws.panes
+        newPanes[paneIdx] = newPane
+        workspaces[wsIdx] = ws.with(panes: newPanes)
+        persistCurrent()
+    }
+
+    /// tab 을 닫고 비어지는 컨테이너를 cascade 로 정리한다(REQ-4).
+    ///
+    /// 순수 모델 cascade: tab 제거 → `pane.tabs.isEmpty` 시 pane 제거(`.left` 승격 포함)
+    /// → `workspace.panes.isEmpty && canClose` 시 workspace 제거. session terminate /
+    /// surface release 는 `WorkspaceCoordinator.closeTab` 이 본 메서드 호출 전에 수행한다.
+    /// `canClose == false`(agent-view)는 `removeWorkspace` 가 자연 보호하므로 추가 분기 불필요.
+    public func closeTab(workspaceId: UUID, paneId: UUID, tabId: UUID) {
+        guard let wsIdx = workspaces.firstIndex(where: { $0.id == workspaceId }) else { return }
+        let ws = workspaces[wsIdx]
+        guard let paneIdx = ws.panes.firstIndex(where: { $0.id == paneId }) else { return }
+        let pane = ws.panes[paneIdx]
+        guard pane.tabs.contains(where: { $0.id == tabId }) else { return }
+
+        var newTabs = pane.tabs
+        newTabs.removeAll { $0.id == tabId }
+
+        if newTabs.isEmpty {
+            // cascade 1: 마지막 tab → pane 제거(.left 승격 + persist 는 removePane 이 수행).
+            removePane(workspaceId: workspaceId, paneId: paneId)
+            // cascade 2: 마지막 pane → workspace 제거. canClose 는 removeWorkspace 가 가드.
+            if let after = workspaces.first(where: { $0.id == workspaceId }),
+               after.panes.isEmpty, after.canClose {
+                removeWorkspace(id: workspaceId)
+            }
+            return
+        }
+
+        // 닫은 tab 이 활성이었으면 남은 첫 tab 으로 active 이전.
+        let newActiveId: UUID? = (pane.activeTabId == tabId) ? newTabs.first?.id : pane.activeTabId
+        let newPane = pane.with(tabs: newTabs, activeTabId: .some(newActiveId))
+        var newPanes = ws.panes
+        newPanes[paneIdx] = newPane
+        workspaces[wsIdx] = ws.with(panes: newPanes)
+        persistCurrent()
+    }
+
+    /// 특정 tabId 의 session 을 부착(또는 clear)한다. `addTab` 후 coordinator 가
+    /// 생성한 session 을 정확한 tab 에 바인딩할 때 사용한다. active tab 기준의
+    /// `assignSession(workspaceId:paneId:sessionId:)` 와 구분되는 tab 타깃 버전.
+    public func assignSession(workspaceId: UUID, paneId: UUID, tabId: UUID, sessionId: UUID?) {
+        guard let wsIdx = workspaces.firstIndex(where: { $0.id == workspaceId }) else { return }
+        let ws = workspaces[wsIdx]
+        guard let paneIdx = ws.panes.firstIndex(where: { $0.id == paneId }) else { return }
+        let pane = ws.panes[paneIdx]
+        guard let tabIdx = pane.tabs.firstIndex(where: { $0.id == tabId }) else { return }
+        var newTabs = pane.tabs
+        newTabs[tabIdx] = pane.tabs[tabIdx].with(sessionId: .some(sessionId))
+        let newPane = pane.with(tabs: newTabs)
+        var newPanes = ws.panes
+        newPanes[paneIdx] = newPane
+        workspaces[wsIdx] = ws.with(panes: newPanes)
+        persistCurrent()
+    }
+}

@@ -251,12 +251,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         newWS.target = self
         wsMenu.addItem(newWS)
 
+        // P3.5 Day 3 (REQ-4): 워크스페이스 닫기를 Cmd+W → Cmd+Shift+W 로 이전.
+        // Cmd+W 는 활성 탭 닫기(탭 메뉴)로 재매핑됨.
         let closeWS = NSMenuItem(
             title: "워크스페이스 닫기",
             action: #selector(closeCurrentWorkspaceFromMenu(_:)),
             keyEquivalent: "w"
         )
-        closeWS.keyEquivalentModifierMask = [.command]
+        closeWS.keyEquivalentModifierMask = [.command, .shift]
         closeWS.target = self
         wsMenu.addItem(closeWS)
 
@@ -312,17 +314,63 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         splitPane.target = self
         paneMenu.addItem(splitPane)
 
+        // P3.5 Day 3: Cmd+Shift+W 는 워크스페이스 닫기로 이전됨. Pane 닫기는
+        // 단축키 없이 메뉴 항목으로만 유지(탭 cascade 가 주된 정리 경로).
         let closePane = NSMenuItem(
             title: "Pane 닫기",
             action: #selector(closeCurrentPane(_:)),
-            keyEquivalent: "w"
+            keyEquivalent: ""
         )
-        closePane.keyEquivalentModifierMask = [.command, .shift]
         closePane.target = self
         paneMenu.addItem(closePane)
 
         paneMenuItem.submenu = paneMenu
         mainMenu.addItem(paneMenuItem)
+
+        // 탭 menu (Cmd+T 새 탭, Cmd+W 활성 탭 닫기, Cmd+Shift+] / [ 탭 전환) — P3.5 Day 3 REQ-2/REQ-4
+        let tabMenuItem = NSMenuItem()
+        let tabMenu = NSMenu(title: "탭")
+
+        let newTab = NSMenuItem(
+            title: "새 탭",
+            action: #selector(newTabFromMenu(_:)),
+            keyEquivalent: "t"
+        )
+        newTab.keyEquivalentModifierMask = [.command]
+        newTab.target = self
+        tabMenu.addItem(newTab)
+
+        let closeTab = NSMenuItem(
+            title: "탭 닫기",
+            action: #selector(closeActiveTabFromMenu(_:)),
+            keyEquivalent: "w"
+        )
+        closeTab.keyEquivalentModifierMask = [.command]
+        closeTab.target = self
+        tabMenu.addItem(closeTab)
+
+        tabMenu.addItem(NSMenuItem.separator())
+
+        let nextTab = NSMenuItem(
+            title: "다음 탭",
+            action: #selector(cycleActiveTabNext(_:)),
+            keyEquivalent: "]"
+        )
+        nextTab.keyEquivalentModifierMask = [.command, .shift]
+        nextTab.target = self
+        tabMenu.addItem(nextTab)
+
+        let prevTab = NSMenuItem(
+            title: "이전 탭",
+            action: #selector(cycleActiveTabPrev(_:)),
+            keyEquivalent: "["
+        )
+        prevTab.keyEquivalentModifierMask = [.command, .shift]
+        prevTab.target = self
+        tabMenu.addItem(prevTab)
+
+        tabMenuItem.submenu = tabMenu
+        mainMenu.addItem(tabMenuItem)
 
         NSApp.mainMenu = mainMenu
     }
@@ -346,6 +394,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 return manager.canSplit(workspaceId: id)
             case #selector(jumpToWorkspaceByIndex(_:)):
                 return menuItem.tag - 1 < manager.workspaces.count
+            case #selector(closeActiveTabFromMenu(_:)),
+                 #selector(newTabFromMenu(_:)),
+                 #selector(cycleActiveTabNext(_:)),
+                 #selector(cycleActiveTabPrev(_:)):
+                // 탭 조작은 normal workspace + pane 존재 시에만 활성.
+                // agent-view 는 pane/tab 구조가 없으므로 비활성(invariant 자연 보호).
+                guard let id = manager.selectedID,
+                      let ws = manager.workspaces.first(where: { $0.id == id }) else { return false }
+                return ws.kind == .normal && !ws.panes.isEmpty
             default:
                 return true
             }
@@ -428,5 +485,67 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             // Day 8 단축키 기본: 마지막 pane 을 닫음. Day 9 가 focus 기반 close 로 확장 가능.
             await coordinator.closePane(workspaceId: id, paneId: pane.id)
         }
+    }
+
+    // MARK: - Tab shortcut handlers (P3.5 Day 3, REQ-2/REQ-4)
+
+    /// 선택된 workspace 의 focus 된 pane 을 반환. focus 미설정 시 첫 pane fallback.
+    @MainActor
+    private func focusedPane(in ws: Workspace) -> Pane? {
+        if let pid = focusedPaneStore.currentFocus(workspaceId: ws.id),
+           let p = ws.panes.first(where: { $0.id == pid }) {
+            return p
+        }
+        return ws.panes.first
+    }
+
+    /// Cmd+W: focus 된 pane 의 활성 탭을 닫는다. 마지막 탭이면 pane → workspace cascade(REQ-4).
+    @objc private func closeActiveTabFromMenu(_ sender: Any?) {
+        Task { @MainActor [weak self] in
+            guard let self,
+                  let coordinator = self.coordinator,
+                  let id = coordinator.manager.selectedID,
+                  let ws = coordinator.manager.workspaces.first(where: { $0.id == id }),
+                  ws.kind == .normal,
+                  let pane = self.focusedPane(in: ws),
+                  let tabId = pane.activeTabId ?? pane.tabs.first?.id else { return }
+            await coordinator.closeTab(workspaceId: id, paneId: pane.id, tabId: tabId)
+        }
+    }
+
+    /// Cmd+T: focus 된 pane 에 새 shell 탭을 추가한다(default kind = shell).
+    @objc private func newTabFromMenu(_ sender: Any?) {
+        Task { @MainActor [weak self] in
+            guard let self,
+                  let coordinator = self.coordinator,
+                  let id = coordinator.manager.selectedID,
+                  let ws = coordinator.manager.workspaces.first(where: { $0.id == id }),
+                  ws.kind == .normal,
+                  let pane = self.focusedPane(in: ws) else { return }
+            await coordinator.addTab(workspaceId: id, paneId: pane.id, kind: .shell)
+        }
+    }
+
+    @objc private func cycleActiveTabNext(_ sender: Any?) {
+        MainActor.assumeIsolated { cycleActiveTab(by: +1) }
+    }
+
+    @objc private func cycleActiveTabPrev(_ sender: Any?) {
+        MainActor.assumeIsolated { cycleActiveTab(by: -1) }
+    }
+
+    @MainActor
+    private func cycleActiveTab(by delta: Int) {
+        guard let manager = workspaceManager,
+              let id = manager.selectedID,
+              let ws = manager.workspaces.first(where: { $0.id == id }),
+              ws.kind == .normal,
+              let pane = focusedPane(in: ws),
+              !pane.tabs.isEmpty,
+              let activeId = pane.activeTabId ?? pane.tabs.first?.id,
+              let idx = pane.tabs.firstIndex(where: { $0.id == activeId }) else { return }
+        let count = pane.tabs.count
+        let next = (idx + delta + count) % count
+        manager.selectTab(workspaceId: id, paneId: pane.id, tabId: pane.tabs[next].id)
     }
 }
