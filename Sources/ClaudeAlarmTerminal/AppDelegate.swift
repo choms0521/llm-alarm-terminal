@@ -49,6 +49,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             NSApp.terminate(nil)
             return
         }
+
+        // P3.5 Day 3 (종료조건 #7): v1 → v2 schema migration 을 부팅 시 1회 실행.
+        // load() 안이 아니라 manager 생성 전에 orchestrate 하는 이유 — migrateIfNeeded 의
+        // `.aborted` 분기는 backup 실패 시 원본 v1 을 보존한다. 만약 load() 안에서 migration
+        // 후 곧바로 decode 하면, abort 가 보존한 v1 을 bootstrap 의 decode-실패 catch 가
+        // default workspace 로 overwrite 하여 사용자 데이터를 소실시킨다. 따라서 migration 을
+        // 분리 실행하고 abort 시 halt 하여 원본을 지킨다.
+        let migrationResult: WorkspaceSchemaMigration.Result
+        do {
+            migrationResult = try WorkspaceSchemaMigration.migrateIfNeeded(at: store.fileURL)
+        } catch {
+            Self.logger.error("schema 변환 실패: \(error.localizedDescription, privacy: .public)")
+            let alert = NSAlert()
+            alert.messageText = "워크스페이스 스키마 변환에 실패했습니다."
+            alert.informativeText = "원본 파일은 변경되지 않았습니다.\n\n\(error.localizedDescription)"
+            alert.addButton(withTitle: "종료")
+            alert.runModal()
+            NSApp.terminate(nil)
+            return
+        }
+        if case .aborted(let reason) = migrationResult {
+            // backup 생성 실패 → 원본 v1 보존됨. overwrite 방지 위해 halt (manager 미생성).
+            SchemaMigrationDialogs.presentBackupFailure(reason: reason)
+            NSApp.terminate(nil)
+            return
+        }
+
         let manager = WorkspaceManager(store: store)
         self.workspaceManager = manager
         let registry = SurfaceRegistry()
@@ -166,6 +193,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
         configureMainMenu()
         powerObserver.start()
+
+        // 종료조건 #7: v1 → v2 변환이 일어났으면 윈도우 표시 후 한국어 성공 다이얼로그 1회.
+        // (modal 이 부팅을 막지 않도록 makeKeyAndOrderFront 이후에 표시.)
+        if case .migrated(let backupURL) = migrationResult {
+            SchemaMigrationDialogs.presentSuccess(backupURL: backupURL, in: window)
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
