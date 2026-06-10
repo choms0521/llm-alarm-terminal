@@ -42,11 +42,3 @@ public enum PushError: Error, Equatable {
         }
     }
 }
-
-/// Encodes a `PushEnvelope` to the shared wire JSON and enforces the 4KB push
-/// limit. Day 0 ships the model + the size constant; the encoder/decoder and the
-/// `encode` validator land in Day 1 (`PushEnvelopeCodec.swift`).
-public enum PushEnvelopeCodec {
-    /// 4KB push payload ceiling (FCM/APNs hard limit).
-    public static let maxPayloadBytes = 4096
-}
