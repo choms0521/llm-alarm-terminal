@@ -98,7 +98,12 @@ public final class WorkspaceCoordinator {
                 workspaceId: workspaceId, paneId: paneId, tabId: tab.id, sessionId: session.id
             )
         } catch {
-            KoreanLogger.error("탭 session 부착 실패: \(error.localizedDescription)")
+            // createInternal 실패(예: maxSessionsReached) 시 방금 추가한 tab 은
+            // sessionId == nil 의 고아로 남는다. "tab 추가 + session 부착" 계약을
+            // 지키도록 모델에서 tab 을 롤백하고 nil 을 반환한다(부분 상태 누적 방지).
+            KoreanLogger.error("탭 session 부착 실패, 추가된 탭 롤백: \(error.localizedDescription)")
+            manager.closeTab(workspaceId: workspaceId, paneId: paneId, tabId: tab.id)
+            return nil
         }
         return manager.workspaces
             .first(where: { $0.id == workspaceId })?

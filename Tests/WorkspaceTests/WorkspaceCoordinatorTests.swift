@@ -107,6 +107,38 @@ final class WorkspaceCoordinatorTests: XCTestCase {
                        "agent-view 는 closeWorkspace 호출에도 제거되지 않음")
     }
 
+    // MARK: - addTab rollback on session-creation failure
+
+    func test_addTab_rollsBackOrphanTab_whenSessionCreationFails() async throws {
+        // session cap=1: 기본 workspace pane 이 유일 세션을 소진 → 다음 createInternal 은 throw.
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("WorkspaceCoordinatorTest-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let store = try WorkspaceStore(fileURL: dir.appendingPathComponent("workspaces.json"))
+        let manager = WorkspaceManager(store: store)
+        let sessionManager = SessionManager(maxSessionsOverride: 1)
+        let coordinator = WorkspaceCoordinator(manager: manager, sessionManager: sessionManager)
+
+        let ws = await coordinator.addWorkspace(cwd: "/tmp/ws-orphan", name: "orphan")
+        guard let pane = ws.panes.first else { XCTFail("default pane 부재"); return }
+        let tabsBefore = manager.workspaces
+            .first(where: { $0.id == ws.id })?
+            .panes.first(where: { $0.id == pane.id })?
+            .tabs.count ?? -1
+        XCTAssertEqual(tabsBefore, 1, "기본 pane 은 tab 1개로 시작")
+
+        // cap 도달 상태에서 addTab → createInternal 이 maxSessionsReached 로 throw.
+        let result = await coordinator.addTab(workspaceId: ws.id, paneId: pane.id, kind: .claude)
+        XCTAssertNil(result, "session 생성 실패 시 addTab 은 nil 을 반환")
+
+        let tabsAfter = manager.workspaces
+            .first(where: { $0.id == ws.id })?
+            .panes.first(where: { $0.id == pane.id })?
+            .tabs.count ?? -1
+        XCTAssertEqual(tabsAfter, tabsBefore,
+                       "session 부착 실패 시 추가된 tab 이 롤백되어 고아 tab 이 잔존하지 않음")
+    }
+
     // MARK: - Helpers
 
     private func makeFixture() throws -> (WorkspaceManager, SessionManager) {

@@ -1126,7 +1126,7 @@ struct Utf8StreamAccumulator {
   </thead>
   <tbody>
     <tr><td><code>CHAT_TERMINAL_MAX_SESSIONS</code></td><td>20</td><td>기존(P2) 최대 동시 세션 수. P4 데몬도 동일 한계 준수.</td></tr>
-    <tr><td><code>CHAT_TERMINAL_WS_PORT</code></td><td>0</td><td>WS server 바인드 포트. 0=OS 임의 할당(권장). dev/test 고정 포트 디버깅용.</td></tr>
+    <tr><td><code>CHAT_TERMINAL_WS_PORT</code></td><td>0</td><td>(계획됨 · P4 미구현) WS server 바인드 포트. 현재 WSServer 는 이 env 를 읽지 않고 항상 127.0.0.1:any(OS 임의 할당)로 바인드한다. 고정 포트 지정은 후속 과제.</td></tr>
     <tr><td><code>CHAT_TERMINAL_RING_CAPACITY</code></td><td>500</td><td>세션별 ring buffer 용량. drop-and-mark 테스트에서 override.</td></tr>
   </tbody>
 </table>

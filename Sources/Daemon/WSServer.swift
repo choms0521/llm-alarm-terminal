@@ -176,7 +176,8 @@ public actor WSServer {
         do {
             try await registry.ingestInbound(clientId: clientId, env: env)
         } catch {
-            send(makeError(code: "NON_MONOTONIC_SEQ", message: "seq \(env.seq) not monotonic"),
+            send(makeError(code: DaemonErrorCode.nonMonotonicSeq.rawValue,
+                           message: "seq \(env.seq) not monotonic"),
                  to: connection, clientId: clientId)
             return
         }
