@@ -27,8 +27,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     /// Day 7 lifecycle hook. P1 keeps the body of the will-sleep / did-wake
     /// handlers empty (logs only). P5 Day 5 reconstructs this with an
-    /// `AttachmentInvalidator` so sleep arms the push fallback. See `DaemonBootstrap`.
-    private let powerObserver = PowerEventObserver()
+    /// `AttachmentInvalidator` so sleep arms the push fallback. `var` because the
+    /// reconstruction needs the registry, which only exists after `DaemonBootstrap`.
+    private var powerObserver = PowerEventObserver()
 
     /// P5 Day 3 (g): in-process WebSocket daemon launched at startup by
     /// `DaemonBootstrap`. Before P5 only the dev CLI / tests started the daemon;
@@ -208,6 +209,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             do {
                 let handle = try await DaemonBootstrap().start()
                 self.daemonHandle = handle
+                // P5 Day 5: lid-close → invalidate all WS attachments so push
+                // fallback fires during sleep. Reconstruct powerObserver (let→var)
+                // with the willSleep handler now that the registry exists.
+                let invalidator = AttachmentInvalidator(registry: handle.registry)
+                self.powerObserver.stop()
+                self.powerObserver = PowerEventObserver(
+                    willSleep: { Task { await invalidator.invalidateAllAttached() } }
+                )
+                self.powerObserver.start()
                 // P5 Day 4 (h): live-wire internal (Claude) input once the daemon
                 // is up. Runtime firing is verified by manual C2 sign-off.
                 let coordinator = InternalInputCoordinator(
