@@ -28,6 +28,9 @@ ClaudeAlarmTerminal.xcodeproj/
 .omc/
 .claude/
 
+# Copilot review skill cycle state (local only)
+.copilot-review-state.json
+
 # Vendored Ghostty sources (re-fetch via scripts/bootstrap-ghostty.sh).
 # The whole vendor/ tree is excluded because Zig build artifacts and
 # downloaded dependencies push the working tree to several GB.
