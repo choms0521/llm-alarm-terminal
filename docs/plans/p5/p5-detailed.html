@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P5 상세 계획서 — Push Sender + FCM/APNs 인프라 골격 (mock-first) (2026-06-10)</title>
+<style>
+  :root {
+    --bg: #fbfaf7;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d8dee4;
+    --accent: #0550ae;
+    --accent-soft: #ddf4ff;
+    --warn: #9a6700;
+    --warn-soft: #fff8c5;
+    --danger: #cf222e;
+    --danger-soft: #ffebe9;
+    --ok: #1a7f37;
+    --ok-soft: #dafbe1;
+    --code-bg: #f3f0ea;
+    --code-fg: #24292f;
+    --table-stripe: #f6f3ec;
+    --table-head: #eceae3;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Helvetica, Arial, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 32px;
+    padding: 32px 24px;
+  }
+
+  aside.toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    border-right: 1px solid var(--border);
+    padding-right: 16px;
+    font-size: 13.5px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+  }
+
+  aside.toc h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin: 0 0 12px 0;
+  }
+
+  aside.toc ol {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+  }
+
+  aside.toc ol li {
+    margin: 4px 0;
+  }
+
+  aside.toc ol ol {
+    padding-left: 14px;
+    margin-top: 4px;
+  }
+
+  aside.toc a {
+    color: var(--fg);
+    text-decoration: none;
+  }
+
+  aside.toc a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+
+  main {
+    max-width: 900px;
+    min-width: 0;
+  }
+
+  h1 {
+    font-size: 28px;
+    margin: 0 0 8px 0;
+    line-height: 1.3;
+  }
+
+  h2 {
+    font-size: 22px;
+    margin-top: 40px;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h3 {
+    font-size: 18px;
+    margin-top: 28px;
+    margin-bottom: 8px;
+  }
+
+  h4 {
+    font-size: 15px;
+    margin-top: 20px;
+    margin-bottom: 6px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  p { margin: 8px 0; }
+
+  .meta {
+    color: var(--muted);
+    font-size: 13.5px;
+    margin-bottom: 24px;
+  }
+
+  .meta strong { color: var(--fg); }
+
+  code {
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+
+  pre {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 14px 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    border: 1px solid var(--border);
+  }
+
+  pre code {
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+  }
+
+  .kw { color: #cf222e; font-weight: 600; }
+  .str { color: #0a3069; }
+  .com { color: #6e7781; font-style: italic; }
+  .num { color: #0550ae; }
+  .typ { color: #953800; }
+  .fn { color: #8250df; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13.5px;
+  }
+
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    background: var(--table-head);
+    font-weight: 600;
+  }
+
+  tbody tr:nth-child(even) {
+    background: var(--table-stripe);
+  }
+
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin: 16px 0;
+  }
+
+  .callout.warn {
+    border-left-color: var(--warn);
+    background: var(--warn-soft);
+  }
+
+  .callout.danger {
+    border-left-color: var(--danger);
+    background: var(--danger-soft);
+  }
+
+  .callout.ok {
+    border-left-color: var(--ok);
+    background: var(--ok-soft);
+  }
+
+  .callout .label {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    margin-bottom: 4px;
+  }
+
+  .day-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin: 18px 0;
+    background: #fff;
+  }
+
+  .day-card h3 {
+    margin-top: 0;
+  }
+
+  .day-card dl {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 6px 16px;
+    margin: 8px 0 12px 0;
+    font-size: 14px;
+  }
+
+  .day-card dt {
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .day-card dd {
+    margin: 0;
+  }
+
+  ul.exit-criteria {
+    list-style: none;
+    padding-left: 0;
+    margin: 8px 0 0 0;
+  }
+
+  ul.exit-criteria li {
+    margin: 4px 0;
+    font-size: 14px;
+  }
+
+  ul.exit-criteria input[type="checkbox"] {
+    margin-right: 8px;
+  }
+
+  .ascii {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.45;
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    background: var(--accent-soft);
+    color: var(--accent);
+    margin-right: 4px;
+  }
+
+  .tag.warn { background: var(--warn-soft); color: var(--warn); }
+  .tag.danger { background: var(--danger-soft); color: var(--danger); }
+  .tag.ok { background: var(--ok-soft); color: var(--ok); }
+
+  .pending {
+    color: var(--warn);
+    font-style: italic;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 28px 0;
+  }
+
+  @media print {
+    aside.toc { display: none; }
+    .layout { display: block; max-width: 100%; padding: 0; }
+    main { max-width: 100%; }
+    .day-card { page-break-inside: avoid; }
+    pre, .ascii { page-break-inside: avoid; }
+    body { font-size: 11pt; }
+    h2 { page-break-after: avoid; }
+  }
+
+  @media (max-width: 900px) {
+    .layout {
+      grid-template-columns: 1fr;
+    }
+    aside.toc {
+      position: static;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      padding-right: 0;
+      padding-bottom: 16px;
+      max-height: none;
+    }
+    .day-card dl {
+      grid-template-columns: 1fr;
+    }
+    .day-card dt {
+      margin-top: 4px;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <h2>목차</h2>
+  <ol>
+    <li><a href="#sec-1">1. 개요</a></li>
+    <li><a href="#sec-2">2. RALPLAN-DR Summary</a></li>
+    <li><a href="#sec-3">3. Day-by-Day Work Package</a>
+      <ol>
+        <li><a href="#day-0">Day 0 — scoping + PushTransport seam + ADR-D stub</a></li>
+        <li><a href="#day-1">Day 1 — Push envelope v0.9 codec + 4KB validator + preview</a></li>
+        <li><a href="#day-2">Day 2 — PushSender + MockPushTransport + WS-skip 정책</a></li>
+        <li><a href="#day-3">Day 3 — (g) 앱 데몬 기동 배선</a></li>
+        <li><a href="#day-4">Day 4 — (h) internal 입력 live 배선</a></li>
+        <li><a href="#day-5">Day 5 — lid-close → attached 무효화 + 통합 테스트</a></li>
+        <li><a href="#day-6">Day 6 — skip 토글 UI + Deferred 문서 + Exit Gate</a></li>
+      </ol>
+    </li>
+    <li><a href="#sec-4">4. Architecture Diagram</a></li>
+    <li><a href="#sec-5">5. Critical Code Specs</a></li>
+    <li><a href="#sec-6">6. ADR 운영화 (ADR-D stub 포함)</a></li>
+    <li><a href="#sec-7">7. Deferred Items for P6/S1 + mock seam</a></li>
+    <li><a href="#sec-8">8. Acceptance Criteria</a></li>
+    <li><a href="#sec-9">9. Risks &amp; Mitigations</a></li>
+    <li><a href="#sec-10">10. Exit Gate to P6</a></li>
+    <li><a href="#app-a">부록 A. 환경 변수</a></li>
+    <li><a href="#app-b">부록 B. 참고 문헌</a></li>
+  </ol>
+</aside>
+
+<main>
+
+<h1>P5 상세 계획서 — Push Sender + FCM/APNs 인프라 골격 (mock-first)</h1>
+<p class="meta">
+  <strong>대상 단계</strong>: v4 마스터 계획 § P5 (lines 186~215)<br>
+  <strong>문서 버전</strong>: P5-detail (ralplan 합의 APPROVE)<br>
+  <strong>문서 작성일</strong>: 2026-06-10<br>
+  <strong>예상 작업 일수</strong>: 기본 4~7일 + 1.2배 컨틴전시 = 5~8 working days<br>
+  <strong>승인 경로</strong>: ralplan 합의 (Architect → Critic → APPROVE 후 <code>docs/plans/p5/</code>로 이전)
+</p>
+
+<!-- =================================================================== -->
+<h2 id="sec-1">1. 개요</h2>
+
+<h4>Goal</h4>
+<p>데스크톱 데몬이 push envelope을 <code>PushTransport</code> 추상화 뒤로 전송할 수 있게 합니다. P5에서는 실 FCM/APNs 대신 <code>MockPushTransport</code>를 사용하며, 모든 수락 기준은 mock 또는 단위 테스트로 측정 가능합니다. 실 FCM(Firebase 프로젝트) / 실 APNs(.p8 key) 셋업과 실 디바이스 수신은 후속(P6/S1)으로 이연합니다. 본 단계는 그 이연 항목을 측정 가능한 1급 섹션(§7)으로 기록합니다. 더불어 P4에서 이연된 부채 (g) 앱 데몬 기동과 (h) internal 입력 live 배선을 본 단계에서 함께 land 합니다.</p>
+<p><strong>dead-until-C4 seam</strong>: <code>PushSender</code>는 P5에서 production caller가 없는 deliberate-staged seam이다. 새 Claude 메시지를 감지하는 internal output tap이 C4(<code>INTERNAL_OUTPUT_UNSUPPORTED</code>)로 막혀 있어, 첫 production caller 배선은 C4 해소 후(§7 D7, P6+)에 일어난다. P5 테스트는 <code>PushEnvelope</code>을 직접 주입하여 전 경로를 검증한다.</p>
+<p><strong>lid-close grace supersession</strong>: 마스터 계획의 lid-close "5분 grace"는 P5에서 willSleep-즉시 무효화로 대체한다(슬립 진입 = 즉시 not-attached가 push fallback 정확성에 부합. 상세 근거는 §Day 5).</p>
+
+<h4>Side</h4>
+<p>desktop (macOS, Apple Silicon) + shared push envelope spec</p>
+
+<h4>Scope (in) — 이번 단계에서 반드시 끝낸다</h4>
+<ul>
+  <li>Push envelope v0.9 모델 + codec: <code>sessionId, messageId, preview (≤200 chars, message-boundary), chatRoomId, timestamp, fetchHint</code>. ≤4KB validator를 codec 안에 둠.</li>
+  <li><code>PushTransport</code> protocol seam + <code>MockPushTransport</code> 구현. 실 FCM/APNs transport가 깨끗이 swap-in 되는 경계를 명시.</li>
+  <li><code>PushSender</code>: envelope 인코딩 → 4KB 검증 → transport 위임. WS-attached skip 정책 분기 포함.</li>
+  <li>WS-attached skip 정책: <code>SessionBindRegistry.boundClient(forSession:) != nil</code>을 권위 source로 질의(주입 가능 predicate seam 뒤). attached이면 skip(설정 가능 토글), 없으면 발송.</li>
+  <li>(g) 앱 데몬 기동: <code>AppDelegate.applicationDidFinishLaunching</code>이 <code>SessionDaemon</code>+<code>WSServer</code>를 기동(현재 <code>DaemonDevCLI</code>에만 존재). 기동 배선 로직을 testable 컴포넌트로 추출.</li>
+  <li>(h) internal 입력 live 배선: <code>PaneKind.claude</code> 세션의 live surface에 <code>InternalSink(GhosttySurfaceInjector(surface))</code> 부착. surface-acquire 시점에 발화.</li>
+  <li>lid-close → attached 무효화: <code>PowerEventObserver(willSleep:)</code> 핸들러가 모든 attached binding을 not-attached로 무효화 → push fallback 경로 발동. 무효화 로직을 testable 함수로 추출.</li>
+  <li>push skip 토글 최소 설정 UI(진입점만).</li>
+  <li>환경 변수: <code>CHAT_TERMINAL_FCM_KEY_ID</code>, <code>CHAT_TERMINAL_APNS_KEY_ID</code>(필수, Keychain item ID). 에러 코드: <code>PUSH_PAYLOAD_TOO_LARGE</code>.</li>
+</ul>
+
+<h4>Out of scope — 이번 단계에서 절대 손대지 않는다</h4>
+<ul>
+  <li>실 FCM HTTP v1 transport, 실 APNs HTTP/2 transport (P6/S1). ADR-D는 deferred-decision stub으로만 남김.</li>
+  <li>실 디바이스/시뮬레이터 push 수신, 실 Firebase 콘솔/.apns drag-drop 검증 (P6/S1).</li>
+  <li>pairing flow, device registry, WS auth, 토큰 lifecycle (P6a/P6b).</li>
+  <li>모바일 측 push 수신 / fetchHint resolver API (P6/S1).</li>
+  <li><code>chatRoomId</code> 실 매핑 source (아직 없음 → sessionId placeholder로 reserved).</li>
+  <li><strong>push trigger source</strong> — 새 Claude 메시지를 감지하여 <code>PushSender.send()</code>를 호출하는 주체. P4가 internal output 스트림을 미지원으로 막았으므로(<code>SessionDaemon.requestInternalOutput</code> → <code>INTERNAL_OUTPUT_UNSUPPORTED</code>, C4), "무엇이 새 메시지를 감지하는가"는 P6+ 설계 질문이다. P5는 trigger를 만들지 않으며, 모든 P5 테스트는 <code>PushEnvelope</code>을 직접 주입하여 <code>PushSender.send()</code>를 호출한다. §4 다이어그램의 진입 노드는 미래 trigger의 placeholder이며 P5 산출물이 아니다.</li>
+</ul>
+
+<h4>Key Deliverables</h4>
+<ol>
+  <li>Push envelope v0.9 codec + 4KB validator + 한국어 포함 message-boundary preview + 단위 테스트.</li>
+  <li><code>PushTransport</code> protocol + <code>MockPushTransport</code> + <code>PushSender</code> + WS-skip 정책 + 단위 테스트.</li>
+  <li>(g) 앱 데몬 기동 컴포넌트 + (h) internal 입력 live 배선 + lid-close 무효화 함수 + 통합 테스트.</li>
+  <li>push skip 토글 최소 UI.</li>
+  <li>Deferred Items 1급 섹션(§7) — P6/S1에서 무엇을 측정 가능하게 끝내야 하는지.</li>
+  <li>ADR-D deferred-decision stub.</li>
+</ol>
+
+<h4>Dependencies</h4>
+<p>P4 (데몬 I/O 골격, <code>WSServer</code>/<code>SessionDaemon</code>/<code>SessionBindRegistry</code>). v4 마스터 계획 § P5 명시.</p>
+
+<h4>Effort 추정</h4>
+<table>
+  <thead>
+    <tr><th>구분</th><th>일수</th><th>비고</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>기본 effort</td><td>4~7일</td><td>v4 § P5 원본 (M)</td></tr>
+    <tr><td>1.2배 컨틴전시 적용</td><td>5~8일</td><td>v4 § 4.7 Effort Calendar</td></tr>
+    <tr><td>본 문서 기본 분배</td><td>7일 (Day 0~6)</td><td>(g)/(h) 부채 동시 처리로 중상값 채택</td></tr>
+    <tr><td>컨틴전시 밴드</td><td>+1일</td><td>surface 핸들 추출 seam 미스매치 / C2 sign-off 지연 / Keychain item 조회 권한 이슈</td></tr>
+  </tbody>
+</table>
+
+<div class="callout warn">
+  <div class="label">mock-first 수락 기준 재구성 (CRITICAL)</div>
+  v4 § P5의 원본 수락 기준은 실발송 전제다("FCM 테스트 디바이스 수신", "APNs simulator 수신"). 인프라 없이 이를 P5 exit로 두면 측정 불가가 되어 <code>plan-documents.md</code> §5(측정 가능한 종료 조건)를 위반한다. 따라서 본 P5는 수락 기준을 <strong>전부 mock/unit-testable</strong>로 재구성하고, 실발송·실수신은 §7 Deferred Items로 이전한다. 이는 확정된 작전 방침이며 재논의 대상이 아니다.
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-2">2. RALPLAN-DR Summary</h2>
+
+<h4>Principles (5)</h4>
+<ol>
+  <li><strong>Mock-first, infra-deferred.</strong> 외부 인프라(FCM/APNs)는 P5의 측정 대상이 아니다. 모든 수락 기준은 <code>MockPushTransport</code> 또는 단위 테스트로 측정 가능해야 한다. 실 transport는 <code>PushTransport</code> protocol 뒤로 swap-in 되며, 그 경계가 본 단계의 1급 산출물이다.</li>
+  <li><strong>Reject, not drop.</strong> 4KB 초과 payload는 조용히 잘리거나 버려지지 않고 명시적으로 거부되며 <code>PUSH_PAYLOAD_TOO_LARGE</code>가 로깅된다. P4의 ring-buffer drop-mark 정책과 구별되는, push 경로 고유의 reject 정책이다.</li>
+  <li><strong>Korean-safe message-boundary preview.</strong> preview는 ≤200 chars이되 UTF-8 다바이트(한국어) 경계에서만 자른다. P4 drop-and-mark 원칙(byte 경계 손상 금지)을 push preview에도 적용한다.</li>
+  <li><strong>Testable seam over AppKit coupling.</strong> (g)/(h)/lid-close 부채는 AppKit lifecycle에 닿지만, 의사결정 로직은 <code>DaemonTests</code>에서 device/app-launch/network 없이 실행 가능한 seam으로 추출한다. 얇은 AppKit 배선은 비-게이팅 매뉴얼 노트로 남긴다.</li>
+  <li><strong>Authoritative attached source.</strong> "WS attached" 판정은 단일 권위 source(<code>SessionBindRegistry.boundClient(forSession:) != nil</code>)에서만 나온다. push-skip 정책과 lid-close 무효화가 동일 source를 질의·변경한다.</li>
+</ol>
+
+<h4>Decision Drivers (Top 3)</h4>
+<ol>
+  <li><strong>인프라 없이 측정 가능해야 한다.</strong> Firebase 프로젝트와 APNs .p8 key가 아직 없으므로, P5 exit가 실발송에 의존하면 측정 불가가 된다. 모든 결정은 "mock으로 측정 가능한가"로 평가한다.</li>
+  <li><strong>(g)/(h) 부채를 P5에서 닫아야 한다.</strong> P4가 앱 데몬 기동과 internal 입력 live 배선을 이연했고, push fallback 경로(lid-close → attached 무효화)는 이 두 배선이 land해야 end-to-end로 검증된다. 부채 closure가 push 정책의 전제 조건이다.</li>
+  <li><strong>실 transport swap-in 비용 최소화.</strong> P6/S1에서 실 FCM/APNs를 붙일 때 <code>PushSender</code>/codec/skip 정책을 다시 짜지 않도록, 변경 지점을 transport 구현 1개로 격리한다.</li>
+</ol>
+
+<h4>Viable Options Considered (≥2)</h4>
+
+<table>
+  <thead>
+    <tr><th>옵션</th><th>설명</th><th>장점</th><th>단점</th><th>판정</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>A. PushTransport protocol + MockPushTransport (mock-first)</strong></td>
+      <td>발송 경로를 <code>PushTransport</code> protocol 뒤에 두고 P5에서는 <code>MockPushTransport</code>만 구현. codec/4KB validator/skip 정책/(g)(h) 부채/lid-close 무효화를 모두 mock에 대해 end-to-end 단위·통합 테스트. 실 FCM/APNs transport는 P6/S1.</td>
+      <td>인프라 0으로 모든 수락 기준 측정 가능, swap-in 경계 단일 격리, <code>DaemonTests</code>에서 전 경로 검증, (g)(h) 부채 동시 closure.</td>
+      <td>실 wire 검증이 P5에 없음(§7로 이연). 실 transport 통합 시 추가 사이클 필요.</td>
+      <td><span class="tag ok">선택</span></td>
+    </tr>
+    <tr>
+      <td>B. 실 FCM/APNs transport를 P5에 포함 (PoC 1일)</td>
+      <td>v4 § P5 원안. Firebase 프로젝트 + APNs .p8 key를 셋업하고 실 디바이스/시뮬레이터로 push 수신을 P5 exit로 검증.</td>
+      <td>실 wire가 P5에서 즉시 검증됨. ADR-D를 P5에서 확정.</td>
+      <td>인프라 셋업 의존 → exit가 측정 불가/비결정적(<code>plan-documents.md</code> §5 위반). 모바일 클라이언트 부재로 실수신 검증 자체가 반쪽. 단일 개발자 예산을 인프라 셋업이 잠식.</td>
+      <td><span class="tag danger">거부</span> — 측정 가능성과 예산 둘 다 위반. 확정 방침으로 §7 이연.</td>
+    </tr>
+    <tr>
+      <td>C. push 경로를 WS envelope에 case 추가로 통합</td>
+      <td><code>EnvelopeKind</code>에 push case를 추가하여 WS 프로토콜로 push를 운반.</td>
+      <td>코덱 하나로 통합.</td>
+      <td>push payload 형태(<code>chatRoomId/fetchHint</code>)가 WS envelope과 다름. WS 프로토콜 오염 → S1 wire validation 부담 증가. 4KB 제약은 push 고유.</td>
+      <td><span class="tag danger">거부</span> — push는 별도 <code>PushEnvelope</code>로 분리(WS 프로토콜과 독립).</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <div class="label">선택 근거</div>
+  Option A는 인프라 부재 상태에서 P5의 모든 수락 기준을 측정 가능하게 유지하는 유일한 경로다. <code>PushTransport</code> protocol seam은 실 FCM/APNs를 P6/S1에서 transport 구현 1개 추가로 swap-in 하도록 변경 지점을 격리한다. Option B는 측정 가능성·예산을 동시에 위반하므로 §7로 이연한다. Option C는 push의 4KB 제약·<code>chatRoomId</code> 필드가 WS 프로토콜과 이질적이므로 별도 <code>PushEnvelope</code>로 분리한다.
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-3">3. Day-by-Day Work Package</h2>
+
+<p>본 단계는 기본 4~7일 + 1.2배 컨틴전시 = 5~8일이 v4 § 4.7에서 할당되었습니다. 본 문서는 <strong>7일 + 1일 컨틴전시</strong> 분포를 채택합니다((g)/(h) 부채 동시 처리 비용 반영). 각 Day의 "측정 가능한 종료 조건"은 device/app-launch/network 없이 <code>xcodebuild test -scheme DaemonTests</code>로 실행 가능한 형태로 작성합니다. AppKit 배선 자체의 육안 확인은 비-게이팅 매뉴얼 노트로 분리합니다.</p>
+
+<!-- Day 0 -->
+<section class="day-card" id="day-0">
+  <h3>Day 0 — 인프라 scoping + PushTransport seam 설계 + ADR-D stub</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd><code>PushTransport</code> protocol과 <code>PushEnvelope</code> 모델 seam을 정의하고, 실 FCM/APNs로 이연할 결정(ADR-D)을 stub으로 기록합니다. Push 코드의 컴파일 위치를 <code>DaemonTests</code>가 GhosttyKit 의존 없이 컴파일하도록 배치합니다.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>Sources/Push/PushTransport.swift</code> — <code>protocol PushTransport</code> + <code>enum PushTarget { case fcm, apns }</code></li>
+        <li><code>Sources/Push/PushEnvelope.swift</code> — v0.9 필드 모델(<code>Codable</code> 포함, 빈 codec stub)</li>
+        <li><code>Sources/Push/PushPolicyConfig.swift</code> — <code>struct PushPolicyConfig { skipWhenAttached: Bool }</code>. <strong>공유 위치 pin</strong>: UI 토글(앱 타깃)과 <code>PushSender</code>(Daemon 타깃)가 양쪽에서 참조하므로 <code>Sources/Push</code>에 둔다.</li>
+        <li><code>Sources/Push/PushLog.swift</code> — push 경로 전용 로거(<code>os.Logger</code> wrapper). key/token은 절대 로깅하지 않고 preview/에러 코드만(§6.1). §5.3/§5.4가 참조하므로 deliverable로 pin.</li>
+        <li><code>project.yml</code> sources에 <code>Sources/Push</code>를 <strong>양쪽 타깃 모두</strong> 추가: (1) <code>DaemonTests</code>(line 285~294, seam 테스트 컴파일) + (2) <strong>메인 앱 타깃 <code>ClaudeAlarmTerminal</code></strong>(line 34~42). 앱 타깃 누락 시 <code>PushSettingsView</code>(Sources/UI)가 <code>PushPolicyConfig</code>를 참조하지 못해 앱 컴파일 실패한다.</li>
+        <li>ADR-D deferred-decision stub(§6에 기록): "APNs HTTP/2 native vs 외부 라이브러리" 최종 선택 기준만 나열, 강제 선택 금지</li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (sonnet) — protocol/모델 seam은 표준 스캐폴딩</dd>
+    <dt>예상 소요</dt>
+    <dd>0.5일</dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li>Push 코드는 <code>Sources/Push/</code> 신규 디렉터리에 두고 <code>DaemonTests</code> sources에 추가한다. <code>DaemonTests</code>는 <code>Sources/Daemon</code> 전체를 이미 컴파일하므로 동일 경계(GhosttyKit 비의존)를 유지한다.</li>
+        <li>(빌드 함정) 신규 <code>.swift</code> 추가 + <code>project.yml</code> sources 변경 후 반드시 <code>xcodegen generate</code> → <code>xcodebuild</code>. 생략 시 신규 파일이 타깃에 포함되지 않아 "0 tests executed" false-pass가 발생한다.</li>
+        <li>push는 <code>WSEnvelope</code>/<code>EnvelopeKind</code>를 재사용하지 않는다. 별도 <code>PushEnvelope</code>로 분리(Option C 거부 근거).</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>grep -nE 'protocol PushTransport' Sources/Push/PushTransport.swift</code>가 1건 반환한다</li>
+    <li><input type="checkbox" disabled> <code>grep -cE 'sessionId|messageId|preview|chatRoomId|timestamp|fetchHint' Sources/Push/PushEnvelope.swift</code>가 6 이상을 반환한다(v0.9 6개 필드 모두 존재)</li>
+    <li><input type="checkbox" disabled> <code>grep -cE 'Sources/Push' project.yml</code>가 2 이상(DaemonTests + 메인 앱 타깃 양쪽 멤버십)</li>
+    <li><input type="checkbox" disabled> <code>xcodegen generate</code> exit code 0, 이어 <code>xcodebuild build -scheme DaemonTests</code> exit code 0, 그리고 <code>xcodebuild build -scheme ClaudeAlarmTerminal</code> exit code 0(앱 타깃이 Sources/Push를 포함해 컴파일)</li>
+    <li><input type="checkbox" disabled> <code>grep -cE 'EnvelopeKind|WSEnvelope' Sources/Push/</code>가 0을 반환한다(push가 WS 프로토콜을 재사용하지 않음)</li>
+  </ul>
+</section>
+
+<!-- Day 1 -->
+<section class="day-card" id="day-1">
+  <h3>Day 1 — Push envelope v0.9 codec + 4KB validator + 한국어 message-boundary preview</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>v0.9 envelope을 직렬화/역직렬화하고, ≤4KB validator를 codec 안에 두며, 한국어 포함 ≤200 chars message-boundary preview를 구현합니다.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>Sources/Push/PushEnvelopeCodec.swift</code> — encode/decode + 4KB validator(reject + <code>PUSH_PAYLOAD_TOO_LARGE</code>)</li>
+        <li><code>Sources/Push/PreviewBuilder.swift</code> — ≤200 chars, UTF-8/grapheme 경계 보존 절단</li>
+        <li><code>Tests/DaemonTests/PushEnvelopeCodecTests.swift</code>, <code>PreviewBuilderTests.swift</code></li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (sonnet) → tdd-guide 보조 (RED→GREEN)</dd>
+    <dt>예상 소요</dt>
+    <dd>1.0일</dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li>4KB 한도는 인코딩된 최종 payload byte 길이 기준으로 검증한다. 다른 필드(UUID, timestamp, chatRoomId=sessionId, ≤200 char preview)는 모두 bounded이므로, 4KB를 실제로 넘길 수 있는 유일한 필드는 unbounded <code>fetchHint</code>다. 따라서 validator는 codec 안(인코딩 직후 최종 byte 길이)에 두고, A1 테스트는 큰 <code>fetchHint</code>로 4097-byte payload를 구성한다.</li>
+        <li>preview 절단은 Swift <code>String.prefix(200)</code>을 사용한다. Swift <code>String.prefix(n)</code>은 <code>Character</code>(extended grapheme cluster) 단위로 동작하므로 한국어 조합 문자(NFD 분해된 자모 포함)가 경계에서 깨지지 않는다. UnicodeScalar 루프를 직접 작성할 필요가 없다(P4 message-boundary 원칙과 동일하게 grapheme 경계 보존).</li>
+        <li><code>chatRoomId</code>는 reserved: 인코딩 시 <code>sessionId</code>와 동일 값 placeholder를 채운다(매핑 source 부재).</li>
+        <li>shared push envelope spec이므로 <code>JSONEncoder</code> 전략을 P5에서 고정한다: <code>dateEncodingStrategy = .millisecondsSince1970</code>(epoch-millis), <code>outputFormatting = [.sortedKeys, .withoutEscapingSlashes]</code>. P6 모바일 파서가 swap-in 없이 동일 형태를 읽도록 P5에서 박아 P6 비용을 절감한다.</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>xcodebuild test -scheme DaemonTests -only-testing:DaemonTests/PushEnvelopeCodecTests</code> exit code 0</li>
+    <li><input type="checkbox" disabled> 4097-byte payload(큰 <code>fetchHint</code>로 구성) 인코딩 시 codec이 <code>PushError.payloadTooLarge</code>를 throw하고 <code>XCTAssertEqual(error.code, "PUSH_PAYLOAD_TOO_LARGE")</code>가 통과한다(drop 아닌 reject)</li>
+    <li><input type="checkbox" disabled> preview 길이 불변식: 임의 입력에서 <code>XCTAssertLessThanOrEqual(preview.count, 200)</code></li>
+    <li><input type="checkbox" disabled> 한국어 250자 입력 시 <code>XCTAssertEqual(preview.count, 200)</code>(정확히 200으로 절단) 이고 마지막 <code>Character</code>가 온전하다(grapheme 경계 보존)</li>
+    <li><input type="checkbox" disabled> round-trip: <code>XCTAssertEqual(decode(encode(env)), env)</code>가 6개 필드 모두에서 통과. 단 <code>timestamp</code>는 ms 인코딩이라 sub-ms 정밀도가 손실되므로 테스트 fixture를 ms 경계(<code>Date(timeIntervalSince1970: floor(t*1000)/1000)</code>)로 구성하거나 해당 필드만 tolerance 비교한다(<code>Date ==</code>는 exact)</li>
+    <li><input type="checkbox" disabled> <code>grep -nE '4096|4 \* 1024' Sources/Push/PushEnvelopeCodec.swift</code>가 1건 이상(validator가 codec 내부)</li>
+  </ul>
+</section>
+
+<!-- Day 2 -->
+<section class="day-card" id="day-2">
+  <h3>Day 2 — PushSender + MockPushTransport + WS-attached skip 정책</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd><code>PushSender</code>가 envelope을 인코딩·검증·transport 위임하고, WS-attached skip 정책을 주입 가능 predicate 뒤에서 분기하도록 구현합니다.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>Sources/Push/MockPushTransport.swift</code> — 전송된 envelope을 in-memory에 기록(테스트 검증용)</li>
+        <li><code>Sources/Push/PushSender.swift</code> — encode → validate → skip 분기 → transport.send</li>
+        <li><code>Sources/Push/AttachmentPolicy.swift</code> — <code>protocol AttachmentQuerying { func isAttached(_ sessionId: UUID) async -> Bool }</code> + <code>SessionBindRegistry</code> 어댑터</li>
+        <li><code>PushSender</code>는 Day 0에서 정의한 공유 <code>PushPolicyConfig</code>(<code>Sources/Push/PushPolicyConfig.swift</code>)를 주입받아 <code>skipWhenAttached</code> 분기를 제어(UI 토글과 동일 타입 참조)</li>
+        <li><code>Tests/DaemonTests/PushSenderTests.swift</code></li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (sonnet) → tdd-guide 보조</dd>
+    <dt>예상 소요</dt>
+    <dd>1.0일</dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li>skip 결정은 주입된 <code>AttachmentQuerying</code> predicate로 평가한다. 단위 테스트는 mock predicate로 attached/not-attached를 라이브 서버 없이 구동한다.</li>
+        <li>권위 source 어댑터는 <code>SessionBindRegistry.boundClient(forSession:) != nil</code>을 그대로 위임한다. 정책은 source를 직접 들여다보지 않고 predicate만 본다.</li>
+        <li>skip 토글은 <code>PushPolicyConfig { skipWhenAttached: Bool = true }</code>로 주입. 토글 off면 attached여도 발송.</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>xcodebuild test -scheme DaemonTests -only-testing:DaemonTests/PushSenderTests</code> exit code 0</li>
+    <li><input type="checkbox" disabled> attached predicate=true + skipWhenAttached=true → <code>XCTAssertEqual(mockTransport.sentCount, 0)</code>(skip)</li>
+    <li><input type="checkbox" disabled> attached predicate=false → <code>XCTAssertEqual(mockTransport.sentCount, 1)</code>(발송)</li>
+    <li><input type="checkbox" disabled> attached predicate=true + skipWhenAttached=false → <code>XCTAssertEqual(mockTransport.sentCount, 1)</code>(토글 off 발송)</li>
+    <li><input type="checkbox" disabled> 4097-byte payload 전달 시 <code>mockTransport.sentCount == 0</code> 이고 <code>PUSH_PAYLOAD_TOO_LARGE</code>가 로깅된다(sender가 reject 후 transport 미호출)</li>
+  </ul>
+</section>
+
+<!-- Day 3 -->
+<section class="day-card" id="day-3">
+  <h3>Day 3 — (g) 앱 데몬 기동 배선</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd><code>AppDelegate.applicationDidFinishLaunching</code>이 <code>SessionDaemon</code>+<code>WSServer</code>를 기동하도록 합니다. 기동 로직은 testable 컴포넌트로 추출하여 <code>DaemonTests</code>가 직접 호출·검증합니다.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>Sources/Daemon/DaemonBootstrap.swift</code> — <code>SessionDaemon</code>+<code>WSServer</code>+<code>SessionBindRegistry</code> 구성 + <code>start()</code>를 캡슐화(<code>DaemonDevCLI</code>와 동일 shape). 반환: 기동된 컴포넌트 핸들.</li>
+        <li><code>AppDelegate</code> 수정: <code>applicationDidFinishLaunching</code>에서 <code>DaemonBootstrap</code> 호출(얇은 배선). line 29~30 주석의 "P4 will ... arm push fallback here"를 실제 배선으로 대체.</li>
+        <li><code>Tests/DaemonTests/DaemonBootstrapTests.swift</code></li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (sonnet). AppKit 배선부는 직접 검토.</dd>
+    <dt>예상 소요</dt>
+    <dd>1.0일</dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li>게이팅 exit는 <code>lsof -p &lt;app pid&gt;</code>가 아니다. 기동 로직을 <code>DaemonBootstrap</code>으로 추출하여 <code>DaemonTests</code>가 호출 → <code>server.start()</code>가 포트를 반환하는지로 검증한다. 앱 실행 후 <code>lsof</code> 확인은 §8의 비-게이팅 매뉴얼 통합 노트로 분리.</li>
+        <li><code>DaemonDevCLI/main.swift</code> 56~58, 91, 153의 구성 패턴(<code>SessionBindRegistry()</code> → <code>SessionDaemon()</code> → <code>WSServer(registry:)</code> → <code>server.start()</code>)을 그대로 추출한다. 새 로직을 발명하지 않는다.</li>
+        <li><code>AppDelegate</code>는 <code>@MainActor</code>이고 <code>WSServer.start()</code>는 async이므로 <code>Task { @MainActor in await bootstrap.start() }</code>로 hop한다. 기존 <code>powerObserver.start()</code>(line 195) 인접 위치에 배선.</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>xcodebuild test -scheme DaemonTests -only-testing:DaemonTests/DaemonBootstrapTests</code> exit code 0</li>
+    <li><input type="checkbox" disabled> 테스트가 <code>DaemonBootstrap().start()</code> 호출 후 반환 포트 > 0 임을 <code>XCTAssertGreaterThan(port, 0)</code>로 검증한다</li>
+    <li><input type="checkbox" disabled> <code>grep -nE 'DaemonBootstrap|SessionDaemon|WSServer' Sources/ClaudeAlarmTerminal/AppDelegate.swift</code>가 1건 이상 반환한다(배선 land 증거)</li>
+    <li><input type="checkbox" disabled> <code>grep -nE 'P4 will invalidate WS-attached' Sources/ClaudeAlarmTerminal/AppDelegate.swift</code>가 0건(미이행 주석 제거)</li>
+    <li><input type="checkbox" disabled> <strong>앱 타깃 컴파일 게이트</strong>: <code>xcodebuild build -scheme ClaudeAlarmTerminal</code> exit code 0 — (g) 배선이 실제로 컴파일됨을 증명(grep 텍스트 존재만으로는 false-pass 가능하므로 앱 타깃 build를 게이팅)</li>
+    <li><input type="checkbox" disabled> (매뉴얼 통합 노트, 비-게이팅) 앱 실행 후 <code>lsof -p &lt;pid&gt; | grep LISTEN</code>이 WS 포트를 1건 표시</li>
+  </ul>
+</section>
+
+<!-- Day 4 -->
+<section class="day-card" id="day-4">
+  <h3>Day 4 — (h) internal 입력 live 배선 + C2 sign-off 준비</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd><code>PaneKind.claude</code>(internal) 세션의 live surface에 <code>InternalSink(GhosttySurfaceInjector(surface))</code>를 부착합니다. 부착은 surface-acquire 시점에 발화하며, surface 핸들 추출은 protocol seam 뒤에서 testable하게 둡니다.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><strong>레이어 (a) daemon seam — Daemon 타깃, DaemonTests 게이팅</strong>: <code>Sources/Daemon/InternalSessionWiring.swift</code> — <code>SessionDaemon.attachInternalSession(sessionId:sink:)</code>(현재 external 경로만 존재) + <code>SurfaceHandleProviding</code> protocol(GhosttyKit 비의존, 주입 가능). 입력 주입 경로는 <code>SerialInputQueue</code>(R8 직렬화)를 경유.</li>
+        <li><strong>레이어 (b) app glue — 앱 타깃 전용, DaemonTests 밖·비-게이팅 매뉴얼 노트</strong>: <code>RegistrySurfaceProvider</code>(<code>SurfaceRegistry.acquireExisting(id: tabId) as? GhosttyTerminalView → .surfaceHandle</code>) + <code>GhosttySurfaceInjector(surface:)</code> + polling hook. <code>GhosttyTerminalView</code>는 internal(final class)이고 <code>project.yml</code>의 DaemonTests sources에 <code>Sources/TerminalView</code>가 없으므로 이 캐스팅은 DaemonTests에서 컴파일 불가 → 앱 타깃에만 둔다.</li>
+        <li><code>Tests/DaemonTests/InternalSessionWiringTests.swift</code> — mock <code>SurfaceHandleProviding</code> + <code>PrintableTextInjecting</code> spy로 레이어 (a)만 검증.</li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (opus) — surface seam이 미묘하므로 opus. 앱 타깃 hook은 직접 검토.</dd>
+    <dt>예상 소요</dt>
+    <dd>1.5일</dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li>surface 핸들 seam 확정(정탐 결과): <code>GhosttyTerminalView.surfaceHandle: ghostty_surface_t?</code>(line 40)가 read-only 노출. NSView를 <code>as? GhosttyTerminalView</code> 캐스팅 후 <code>.surfaceHandle</code>로 raw 핸들 추출. 단 이 캐스팅은 앱 타깃 전용(레이어 b) — DaemonTests에는 protocol seam(레이어 a)만 노출.</li>
+        <li>타이밍 결정: surface는 draw 시점 lazy 생성(<code>ghostty_surface_new</code>, <code>GhosttyTerminalView.swift:143-147</code>)이므로 <code>registry.acquire</code> 직후 <code>surfaceHandle == nil</code>이다. 즉시 조회는 silent no-op 위험이 있다. <strong>채택</strong>: 기존 <code>ViewportPollingTimer</code>/<code>GhosttyViewportProvider</code>(<code>AppDelegate:130-141</code>) polling을 재사용하여 첫 non-nil surface가 관측되는 시점에 attach를 발화한다(별도 surface-ready 콜백 신설 안 함). guard 실패 시 <code>return</code>이 아니라 <strong>신호 emit(로그)</strong>으로 silent no-op을 제거하고 다음 폴링에서 재시도한다.</li>
+        <li><code>InternalSink</code>는 control byte를 거부(C1, <code>INTERNAL_CONTROL_INPUT_UNSUPPORTED</code>)하므로 live 배선 후에도 printable-only 제약이 유지된다.</li>
+        <li>(빌드 함정) <code>SessionDaemon</code> 신규 메서드 추가 후 <code>xcodegen generate</code> → <code>xcodebuild</code>. 신규 파일 미포함 시 false-pass.</li>
+        <li>C2 sign-off(<code>docs/p4/c2-internal-input-signoff.md</code>)는 이 배선이 land한 뒤에만 가능한 <strong>수동 후기 단계</strong>다. 자동 exit 조건이 아니라 land 후 별도 수동 검증으로 시퀀싱한다.</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>grep -nE 'func attachInternalSession' Sources/Daemon/InternalSessionWiring.swift</code>가 1건 반환한다</li>
+    <li><input type="checkbox" disabled> <code>xcodebuild test -scheme DaemonTests -only-testing:DaemonTests/InternalSessionWiringTests</code> exit code 0</li>
+    <li><input type="checkbox" disabled> 신규 경로 검증: spy injector를 <code>attachInternalSession(sessionId:sink:)</code>로 부착 → printable bytes 주입(<code>SerialInputQueue</code> 경유) → <code>XCTAssertEqual(spy.injectedBytes, inputBytes)</code>(P4부터 있던 control 필터가 아니라 신규 attach 경로를 단언)</li>
+    <li><input type="checkbox" disabled> 직렬화 검증: 동일 세션에 다건 주입 시 spy의 <code>injectedBytes</code> 순서가 입력 순서와 일치(<code>SerialInputQueue</code> R8)</li>
+    <li><input type="checkbox" disabled> control byte(0x03)를 신규 경로로 주입 시 injector 미호출 + <code>INTERNAL_CONTROL_INPUT_UNSUPPORTED</code> 발화(C1 거부를 신규 경로 위에서 단언)</li>
+    <li><input type="checkbox" disabled> (수동 후기, 비-게이팅) <code>docs/p4/c2-internal-input-signoff.md</code>가 live 배선 land 이후 수동 sign-off 절차를 가리킨다</li>
+  </ul>
+</section>
+
+<!-- Day 5 -->
+<section class="day-card" id="day-5">
+  <h3>Day 5 — lid-close → attached 무효화 + 통합 테스트</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>시스템 슬립/lid-close 진입 시 모든 WS-attached binding을 not-attached로 무효화하여 push fallback 경로가 발동하도록 합니다. 무효화 로직을 testable 함수로 추출합니다.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>Sources/Daemon/AttachmentInvalidator.swift</code> — <code>invalidateAllAttached()</code> 함수. <strong>신규 <code>invalidateAllBindings()</code> 진입점</strong>(bindings-only 무효화, <code>lastSeq</code> 보존)은 <code>bindings</code>/<code>lastSeq</code>가 <code>private var</code>이므로 반드시 <code>SessionBindRegistry.swift</code> 동일 파일(또는 동일 파일 내 extension)에 추가한다(별도 파일 extension은 private 접근 불가로 컴파일 실패). 기존 <code>cleanup(clientId:)</code>(<code>SessionBindRegistry.swift:57-60</code>)은 <code>bindings</code>+<code>lastSeq</code> 둘 다 삭제하므로 호출하지 않는다.</li>
+        <li><code>AppDelegate</code> 수정: <code>powerObserver</code>는 현재 <code>let</code>(<code>line 31</code>)이고 <code>line 195</code>에서 이미 <code>.start()</code> 호출됨 → 재할당 불가. (1) <code>let</code>→<code>var</code> 변경, (2) <code>DaemonBootstrap().start()</code>가 반환한 <code>registry</code>로 <code>AttachmentInvalidator</code> 구성, (3) <code>applicationDidFinishLaunching</code> 안에서 <code>powerObserver</code>를 <code>PowerEventObserver(willSleep:didWake:)</code>로 재구성 후 <code>start()</code> 재호출. <strong>생성 순서 의존</strong>: registry(via <code>DaemonBootstrap.start()</code> 반환 핸들) → invalidator → powerObserver 순.</li>
+        <li><code>Tests/DaemonTests/AttachmentInvalidationTests.swift</code>(무효화 함수 직접 호출 + push fallback 발동 + <code>lastSeq</code> 보존 검증)</li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (sonnet) → tdd-guide 보조</dd>
+    <dt>예상 소요</dt>
+    <dd>1.0일</dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li>게이팅 exit는 실 <code>NSWorkspace.willSleepNotification</code>이 아니다. <code>willSleep:</code> 클로저의 본문을 <code>invalidateAllAttached()</code> 함수로 추출하고, 테스트는 그 함수를 직접 호출한 뒤 attached 판정이 무효화되어 <code>PushSender</code>가 발송하는지로 검증한다.</li>
+        <li>추가로 in-process <code>NSWorkspace.shared.notificationCenter.post(name: .willSleep)</code> emit으로 핸들러 발화를 시뮬레이션할 수 있으나(v4 § P5 "NSWorkspace 슬립 노티 emit으로 검증"), 게이팅 assertion은 무효화 함수의 결과다.</li>
+        <li>무효화는 <code>bindings</code>만 비우고 <code>lastSeq</code>(seq tracking)는 반드시 보존한다. 슬립 후 재연결(P6) 시 seq monotonic 검증이 연속되어야 하므로 <code>clientCount</code>(=<code>lastSeq.count</code>)는 불변이어야 한다.</li>
+        <li>무효화 후 <code>boundClient(forSession:)</code>이 nil을 반환해야 한다 → 동일 권위 source가 skip 정책과 일관.</li>
+        <li>마스터 계획의 lid-close "5분 grace"는 P5에서 <strong>willSleep-즉시 무효화</strong>로 대체한다. 슬립 진입 = 즉시 not-attached가 push fallback 정확성에 부합한다(슬립 중 WS 스트림은 도달 불가하므로 grace를 두면 그 사이 메시지가 양쪽 다 누락).</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>xcodebuild test -scheme DaemonTests -only-testing:DaemonTests/AttachmentInvalidationTests</code> exit code 0</li>
+    <li><input type="checkbox" disabled> N개 client가 bind된 상태에서 <code>invalidateAllAttached()</code> 호출 후 <code>XCTAssertNil(registry.boundClient(forSession:))</code></li>
+    <li><input type="checkbox" disabled> <code>lastSeq</code> 보존: 동일 호출 후 <code>XCTAssertEqual(registry.clientCount, N)</code>(seq tracking 불변, bindings만 무효화)</li>
+    <li><input type="checkbox" disabled> 무효화 후 동일 세션에 <code>PushSender</code> 발송 시 <code>XCTAssertEqual(mockTransport.sentCount, 1)</code>(attached→not-attached로 fallback 발동)</li>
+    <li><input type="checkbox" disabled> 통합 테스트: attached 상태에서 push skip(sentCount==0) → <code>invalidateAllAttached()</code> → push 발송(sentCount==1) 시퀀스가 한 테스트에서 통과</li>
+    <li><input type="checkbox" disabled> <code>grep -nE 'var powerObserver' Sources/ClaudeAlarmTerminal/AppDelegate.swift</code>가 1건 반환한다(let→var 변경 증거)</li>
+    <li><input type="checkbox" disabled> <code>grep -nE 'willSleep:' Sources/ClaudeAlarmTerminal/AppDelegate.swift</code>가 비어있지 않은 클로저 배선을 1건 반환한다</li>
+  </ul>
+</section>
+
+<!-- Day 6 -->
+<section class="day-card" id="day-6">
+  <h3>Day 6 — push skip 토글 UI + Deferred Items 문서 + Acceptance + Exit Gate</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>push skip 토글의 최소 설정 진입점을 만들고, §7 Deferred Items 1급 섹션을 확정하며, Acceptance Criteria와 Exit Gate를 채웁니다.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>Sources/UI/Settings/PushSettingsView.swift</code> — skip 토글 1개(진입점만, 최소). <code>PushPolicyConfig.skipWhenAttached</code>에 바인딩</li>
+        <li>§7 Deferred Items 확정(D1~D7: 실 FCM/APNs transport, 실수신, S1 wire validation, ADR-D 결정 기준, chatRoomId 매핑, push trigger source/C4 해소)</li>
+        <li>§8 Acceptance Criteria 검증 절차 실행 + 체크박스 채움</li>
+        <li>§10 Exit Gate to P6 체크리스트</li>
+      </ul>
+    </dd>
+    <dt>OMC 위임</dt>
+    <dd>executor (sonnet) + writer (문서)</dd>
+    <dt>예상 소요</dt>
+    <dd>1.0일</dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li>토글 UI는 진입점만. 실제 설정 화면 IA는 P6 pairing UI에서 확장하므로 여기서는 단일 토글로 최소화.</li>
+        <li>토글 값은 <code>PushPolicyConfig</code>에 반영되어 <code>PushSender</code> skip 분기를 제어. UI 자체는 게이팅 단위 테스트 대상이 아니며, config 바인딩만 단위 테스트.</li>
+        <li>Deferred Items는 "측정 가능하게 무엇을 끝내야 하는가"를 P6/S1 기준으로 기록(§7).</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>grep -nE 'skipWhenAttached' Sources/UI/Settings/PushSettingsView.swift</code>가 1건 이상(토글 바인딩)</li>
+    <li><input type="checkbox" disabled> config 바인딩 단위 테스트: 토글 off → <code>PushPolicyConfig.skipWhenAttached == false</code>가 <code>XCTAssertFalse</code>로 통과</li>
+    <li><input type="checkbox" disabled> §7 Deferred Items가 D1~D7 항목을 각각 측정 가능한 P6/S1 종료 기준과 함께 나열(특히 D7 push trigger source/C4 해소 포함)</li>
+    <li><input type="checkbox" disabled> §8 Acceptance 8개 행 전부 검증 절차가 <code>xcodebuild test</code> 또는 grep으로 실행 가능</li>
+    <li><input type="checkbox" disabled> <code>xcodebuild test -scheme DaemonTests</code> 전체 exit code 0(P4 기존 44 tests + P5 신규 회귀 없음) + <code>xcodebuild build -scheme ClaudeAlarmTerminal</code> exit code 0(앱 타깃 컴파일)</li>
+  </ul>
+</section>
+
+<!-- =================================================================== -->
+<h2 id="sec-4">4. Architecture Diagram</h2>
+
+<div class="ascii">  Claude 메시지 도착 (trigger source — P6+, C4로 막힘, P5 미구현)
+   P5 테스트: PushEnvelope 을 직접 주입하여 send() 호출
+            │
+            ▼
+  ┌───────────────────────┐      ┌──────────────────────────┐
+  │   PushSender          │      │  AttachmentQuerying       │
+  │  (encode→validate→    │─────▶│  (protocol seam)          │
+  │   skip 분기→send)     │      │  └ adapter: SessionBind   │
+  └──────────┬────────────┘      │     Registry.boundClient  │
+             │                   │     (forSession:) != nil  │
+   ┌─────────┴──────────┐        └──────────────────────────┘
+   │ skipWhenAttached?  │                  ▲
+   │  & isAttached?     │                  │ invalidateAllAttached()
+   └─────┬───────┬──────┘                  │ (lid-close)
+   skip  │       │ send                    │
+  (no-op)│       ▼                ┌─────────┴─────────┐
+         │  ┌──────────────┐      │ PowerEventObserver │
+         │  │ PushEnvelope  │      │  willSleep: {...}  │
+         │  │ Codec         │      └────────────────────┘
+         │  │ ≤4KB validator│
+         │  │ (reject +     │
+         │  │  PUSH_PAYLOAD_│
+         │  │  TOO_LARGE)   │
+         │  └──────┬───────┘
+         │         ▼
+         │  ┌──────────────────┐    P5: MockPushTransport
+         │  │ PushTransport    │    ─────────────────────
+         │  │ (protocol)       │───▶ P6/S1: FcmTransport
+         │  └──────────────────┘            ApnsTransport (swap-in)
+
+  ── (g)/(h) 부채 배선 (P5에서 closure) ─────────────────────────
+  AppDelegate.applicationDidFinishLaunching
+     ├─ DaemonBootstrap().start()  ← (g) SessionDaemon+WSServer 기동
+     └─ powerObserver = PowerEventObserver(willSleep: invalidate, ...)
+
+  claude tab surface-acquire (PaneTerminalView)
+     └─ GhosttyTerminalView.surfaceHandle
+          └─ GhosttySurfaceInjector(surface)
+               └─ InternalSink(injector)  ← (h) internal 입력 live
+                    └─ SessionDaemon.attachInternalSession(sessionId:sink:)
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-5">5. Critical Code Specs</h2>
+
+<h4>5.1 PushEnvelope v0.9 + codec (4KB validator 내장)</h4>
+<pre><code><span class="kw">public struct</span> <span class="typ">PushEnvelope</span>: <span class="typ">Codable</span>, <span class="typ">Equatable</span>, <span class="typ">Sendable</span> {
+    <span class="kw">public let</span> sessionId: <span class="typ">UUID</span>
+    <span class="kw">public let</span> messageId: <span class="typ">UUID</span>
+    <span class="kw">public let</span> preview: <span class="typ">String</span>        <span class="com">// ≤200 chars, message-boundary</span>
+    <span class="kw">public let</span> chatRoomId: <span class="typ">String</span>     <span class="com">// reserved: P5에서 sessionId placeholder</span>
+    <span class="kw">public let</span> timestamp: <span class="typ">Date</span>
+    <span class="kw">public let</span> fetchHint: <span class="typ">String</span>?
+}
+
+<span class="kw">public enum</span> <span class="typ">PushError</span>: <span class="typ">Error</span> {
+    <span class="kw">case</span> payloadTooLarge   <span class="com">// code = "PUSH_PAYLOAD_TOO_LARGE"</span>
+    <span class="kw">var</span> code: <span class="typ">String</span> { <span class="kw">switch</span> <span class="kw">self</span> { <span class="kw">case</span> .payloadTooLarge: <span class="kw">return</span> <span class="str">"PUSH_PAYLOAD_TOO_LARGE"</span> } }
+}
+
+<span class="kw">public enum</span> <span class="typ">PushEnvelopeCodec</span> {
+    <span class="kw">static let</span> maxPayloadBytes = <span class="num">4096</span>   <span class="com">// 4KB push 한도</span>
+
+    <span class="com">// shared push envelope spec: 인코더 전략을 P5 에서 고정하여 P6 모바일 파싱이</span>
+    <span class="com">// swap-in 없이 동작하게 한다. timestamp 는 epoch-millis(Int64), 키 순서 고정.</span>
+    <span class="kw">static let</span> encoder: <span class="typ">JSONEncoder</span> = {
+        <span class="kw">let</span> e = <span class="typ">JSONEncoder</span>()
+        e.dateEncodingStrategy = .millisecondsSince1970
+        e.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        <span class="kw">return</span> e
+    }()
+    <span class="kw">static let</span> decoder: <span class="typ">JSONDecoder</span> = {
+        <span class="kw">let</span> d = <span class="typ">JSONDecoder</span>()
+        d.dateDecodingStrategy = .millisecondsSince1970
+        <span class="kw">return</span> d
+    }()
+
+    <span class="com">// 4KB 검증을 codec 안(인코딩 직후)에 둔다 — preview 절단 후에도 unbounded</span>
+    <span class="com">// fetchHint 가 한도를 넘길 수 있으므로 최종 byte 길이로 reject.</span>
+    <span class="kw">public static func</span> <span class="fn">encode</span>(<span class="kw">_</span> env: <span class="typ">PushEnvelope</span>) <span class="kw">throws</span> -> <span class="typ">Data</span> {
+        <span class="kw">let</span> data = <span class="kw">try</span> encoder.encode(env)
+        <span class="kw">guard</span> data.count &lt;= maxPayloadBytes <span class="kw">else</span> {
+            <span class="kw">throw</span> <span class="typ">PushError</span>.payloadTooLarge   <span class="com">// reject, drop 아님</span>
+        }
+        <span class="kw">return</span> data
+    }
+}</code></pre>
+
+<h4>5.2 PreviewBuilder — 한국어 grapheme 경계 보존</h4>
+<pre><code><span class="kw">public enum</span> <span class="typ">PreviewBuilder</span> {
+    <span class="kw">static let</span> maxChars = <span class="num">200</span>
+
+    <span class="com">// grapheme cluster(Character) 단위 절단으로 한국어 조합 문자가</span>
+    <span class="com">// 경계에서 깨지지 않게 한다(P4 message-boundary 원칙과 동일).</span>
+    <span class="kw">public static func</span> <span class="fn">build</span>(from message: <span class="typ">String</span>) -> <span class="typ">String</span> {
+        <span class="kw">if</span> message.count &lt;= maxChars { <span class="kw">return</span> message }
+        <span class="kw">return</span> <span class="typ">String</span>(message.prefix(maxChars))  <span class="com">// Character 단위 prefix → grapheme 경계 보존</span>
+    }
+}</code></pre>
+
+<h4>5.3 PushSender — skip 분기 + reject</h4>
+<pre><code><span class="kw">public protocol</span> <span class="typ">AttachmentQuerying</span>: <span class="typ">Sendable</span> {
+    <span class="kw">func</span> <span class="fn">isAttached</span>(<span class="kw">_</span> sessionId: <span class="typ">UUID</span>) <span class="kw">async</span> -> <span class="typ">Bool</span>
+}
+
+<span class="com">// 권위 source 어댑터: boundClient(forSession:) != nil 을 그대로 위임.</span>
+<span class="kw">struct</span> <span class="typ">BindRegistryAttachment</span>: <span class="typ">AttachmentQuerying</span> {
+    <span class="kw">let</span> registry: <span class="typ">SessionBindRegistry</span>
+    <span class="kw">func</span> <span class="fn">isAttached</span>(<span class="kw">_</span> sessionId: <span class="typ">UUID</span>) <span class="kw">async</span> -> <span class="typ">Bool</span> {
+        <span class="kw">await</span> registry.boundClient(forSession: sessionId) != <span class="kw">nil</span>
+    }
+}
+
+<span class="kw">public actor</span> <span class="typ">PushSender</span> {
+    <span class="kw">let</span> transport: <span class="kw">any</span> <span class="typ">PushTransport</span>
+    <span class="kw">let</span> attachment: <span class="kw">any</span> <span class="typ">AttachmentQuerying</span>
+    <span class="kw">let</span> config: <span class="typ">PushPolicyConfig</span>   <span class="com">// skipWhenAttached: Bool = true</span>
+
+    <span class="kw">public func</span> <span class="fn">send</span>(<span class="kw">_</span> env: <span class="typ">PushEnvelope</span>, target: <span class="typ">PushTarget</span>) <span class="kw">async</span> {
+        <span class="com">// 1) WS-attached skip 분기 (주입된 predicate seam)</span>
+        <span class="kw">if</span> config.skipWhenAttached, <span class="kw">await</span> attachment.isAttached(env.sessionId) {
+            <span class="kw">return</span>   <span class="com">// foreground 사용자 → WS 스트림이 처리, push skip</span>
+        }
+        <span class="com">// 2) encode + 4KB reject (codec 내부 validator)</span>
+        <span class="kw">let</span> data: <span class="typ">Data</span>
+        <span class="kw">do</span> { data = <span class="kw">try</span> <span class="typ">PushEnvelopeCodec</span>.encode(env) }
+        <span class="kw">catch</span> { <span class="typ">PushLog</span>.error(<span class="str">"PUSH_PAYLOAD_TOO_LARGE"</span>); <span class="kw">return</span> }  <span class="com">// reject, transport 미호출</span>
+        <span class="com">// 3) transport 위임 (P5: mock, P6/S1: 실 FCM/APNs swap-in)</span>
+        <span class="kw">await</span> transport.send(data, target: target, sessionId: env.sessionId)
+    }
+}</code></pre>
+
+<h4>5.4 (h) internal 입력 live 배선 — surface 핸들 seam</h4>
+<pre><code><span class="com">// SessionDaemon 신규 메서드 (현재 external 경로만 존재).</span>
+<span class="kw">extension</span> <span class="typ">SessionDaemon</span> {
+    <span class="kw">public func</span> <span class="fn">attachInternalSession</span>(sessionId: <span class="typ">UUID</span>, sink: <span class="kw">any</span> <span class="typ">InputSink</span>) <span class="kw">async</span> {
+        <span class="kw">await</span> attachInput(sessionId: sessionId, sink: sink)  <span class="com">// SerialInputQueue 재사용(R8)</span>
+    }
+}
+
+<span class="com">// ── 레이어 (a) daemon seam: surface 핸들 조회 protocol (Daemon 타깃, GhosttyKit 비의존) ──</span>
+<span class="com">// 반환 타입은 OpaquePointer?: ghostty_surface_t 는 typedef void* → Swift 가 OpaquePointer 로</span>
+<span class="com">// import 하나 그 typealias 는 GhosttyKit(앱 타깃)에만 보인다. Daemon 타깃이 GhosttyKit 를</span>
+<span class="com">// import 하지 않도록 protocol 은 하위 타입 OpaquePointer 를 직접 쓴다. 앱 타깃 conformer 가</span>
+<span class="com">// 돌려주는 ghostty_surface_t?(== OpaquePointer?)가 그대로 conformance 를 만족한다.</span>
+<span class="kw">protocol</span> <span class="typ">SurfaceHandleProviding</span>: <span class="typ">Sendable</span> {
+    <span class="nf">@MainActor</span> <span class="kw">func</span> <span class="fn">surface</span>(forTab tabId: <span class="typ">UUID</span>) -> <span class="typ">OpaquePointer</span>?
+}
+
+<span class="com">// ── 레이어 (b) app glue: 앱 타깃 전용, DaemonTests 밖(비-게이팅 매뉴얼 노트) ──</span>
+<span class="com">// 이유: project.yml 의 DaemonTests sources 에 Sources/TerminalView 가 없고,</span>
+<span class="com">// GhosttyTerminalView 는 internal(final class)이라 DaemonTests 에서 캐스팅 불가.</span>
+<span class="com">// 따라서 surface 핸들 조회 seam 의 protocol 만 Daemon 타깃(레이어 a)에 두고,</span>
+<span class="com">// 실 캐스팅 어댑터는 앱 타깃에 둔다.</span>
+<span class="com">//</span>
+<span class="com">// 어댑터 — 정탐 확정 좌표:</span>
+<span class="com">//   SurfaceRegistry.acquireExisting(id:) -> NSView?  (Sources/UI/SurfaceLifecycle.swift)</span>
+<span class="com">//   GhosttyTerminalView.surfaceHandle: ghostty_surface_t?  (line 40, read-only)</span>
+<span class="nf">@MainActor</span>
+<span class="kw">struct</span> <span class="typ">RegistrySurfaceProvider</span>: <span class="typ">SurfaceHandleProviding</span> {
+    <span class="kw">let</span> registry: <span class="typ">SurfaceRegistry</span>
+    <span class="kw">func</span> <span class="fn">surface</span>(forTab tabId: <span class="typ">UUID</span>) -> <span class="typ">ghostty_surface_t</span>? {
+        (registry.acquireExisting(id: tabId) <span class="kw">as</span>? <span class="typ">GhosttyTerminalView</span>)?.surfaceHandle
+    }
+}
+
+<span class="com">// 부착 hook — 타이밍 결정: surface 는 draw 시점 lazy 생성</span>
+<span class="com">// (ghostty_surface_new, GhosttyTerminalView.swift:143-147)이므로 registry.acquire</span>
+<span class="com">// 직후 surfaceHandle == nil 이다. 따라서 즉시 조회는 silent no-op 위험이 있다.</span>
+<span class="com">// 결정: 기존 ViewportPollingTimer/GhosttyViewportProvider(AppDelegate:130-141)</span>
+<span class="com">// polling 을 재사용하여 첫 non-nil surface 가 관측되는 시점에 attach 를 발화한다.</span>
+<span class="com">// 이미 매 폴링마다 surface 를 조회하므로 별도 surface-ready 콜백을 신설하지 않는다.</span>
+<span class="com">// idempotency: 폴링은 250ms 마다 반복되므로 최초 1회만 attach 하고 이미 부착된 세션은</span>
+<span class="com">// skip 한다(중복 InternalSink/injector 생성 방지). 앱 타깃이 attachedTabs: Set&lt;UUID&gt;</span>
+<span class="com">// 가드를 들고 wireInternalInput 호출 전에 contains 검사 후 insert 한다.</span>
+<span class="nf">@MainActor</span>
+<span class="kw">func</span> <span class="fn">wireInternalInput</span>(tabId: <span class="typ">UUID</span>, sessionId: <span class="typ">UUID</span>,
+                       provider: <span class="kw">any</span> <span class="typ">SurfaceHandleProviding</span>, daemon: <span class="typ">SessionDaemon</span>) <span class="kw">async</span> {
+    <span class="kw">guard let</span> surface = provider.surface(forTab: tabId) <span class="kw">else</span> {
+        <span class="com">// silent no-op 금지: surface 미준비를 신호로 emit(다음 폴링에서 재시도).</span>
+        <span class="typ">PushLog</span>.debug(<span class="str">"wireInternalInput: surface not ready tab=\(tabId) — retry next poll"</span>)
+        <span class="kw">return</span>
+    }
+    <span class="kw">let</span> injector = <span class="typ">GhosttySurfaceInjector</span>(surface: surface)
+    <span class="kw">let</span> sink = <span class="typ">InternalSink</span>(injector: injector)   <span class="com">// C1: control byte 거부 유지</span>
+    <span class="kw">await</span> daemon.attachInternalSession(sessionId: sessionId, sink: sink)
+}</code></pre>
+
+<div class="callout">
+  <div class="label">레이어 분리</div>
+  <strong>레이어 (a) daemon seam</strong>: <code>SessionDaemon.attachInternalSession(sessionId:sink:)</code> + <code>SurfaceHandleProviding</code> protocol은 <code>Sources/Daemon/InternalSessionWiring.swift</code>에 두며 GhosttyKit 비의존, <strong>DaemonTests 게이팅</strong>(mock provider로 검증). <strong>레이어 (b) app glue</strong>: <code>RegistrySurfaceProvider</code>(<code>as? GhosttyTerminalView</code> 캐스팅) + <code>GhosttySurfaceInjector</code> + 실 polling hook은 앱 타깃 전용, <strong>DaemonTests 밖·비-게이팅 매뉴얼 노트</strong>. 근거: <code>project.yml</code>의 DaemonTests sources에 <code>Sources/TerminalView</code>가 없고 <code>GhosttyTerminalView</code>가 internal이라 DaemonTests에서 캐스팅 불가.
+</div>
+
+<h4>5.5 (g) 데몬 기동 + lid-close 무효화 배선</h4>
+<pre><code><span class="com">// DaemonDevCLI/main.swift 56~58 의 구성 패턴을 그대로 추출(새 로직 발명 금지).</span>
+<span class="kw">public struct</span> <span class="typ">DaemonBootstrap</span> {
+    <span class="kw">public func</span> <span class="fn">start</span>() <span class="kw">async throws</span> -> (server: <span class="typ">WSServer</span>, daemon: <span class="typ">SessionDaemon</span>,
+                                          registry: <span class="typ">SessionBindRegistry</span>, port: <span class="typ">UInt16</span>) {
+        <span class="kw">let</span> registry = <span class="typ">SessionBindRegistry</span>()
+        <span class="kw">let</span> daemon = <span class="typ">SessionDaemon</span>()
+        <span class="kw">let</span> server = <span class="typ">WSServer</span>(registry: registry)
+        <span class="kw">let</span> port = <span class="kw">try await</span> server.start()    <span class="com">// 테스트: XCTAssertGreaterThan(port, 0)</span>
+        <span class="kw">return</span> (server, daemon, registry, port)
+    }
+}
+
+<span class="com">// AppDelegate 배선 — powerObserver 는 let 이고 line 195 에서 이미 .start()</span>
+<span class="com">// 호출됨. 재할당 불가하므로 let→var 로 바꾸고, registry 를 먼저 확보한 뒤</span>
+<span class="com">// applicationDidFinishLaunching 안에서 powerObserver 를 재구성·재기동한다.</span>
+<span class="com">// 생성 순서 의존: DaemonBootstrap.start() 가 반환한 registry → AttachmentInvalidator</span>
+<span class="com">// → PowerEventObserver(willSleep:) 순.</span>
+<span class="com">//</span>
+<span class="com">//   // 1) (g) 데몬 기동 + registry 확보 (먼저)</span>
+<span class="com">//   let h = try await DaemonBootstrap().start()</span>
+<span class="com">//   self.daemonHandle = h</span>
+<span class="com">//   // 2) registry 로 invalidator 구성</span>
+<span class="com">//   let invalidator = AttachmentInvalidator(registry: h.registry)</span>
+<span class="com">//   // 3) powerObserver 재구성(var) + 재기동</span>
+<span class="com">//   self.powerObserver = PowerEventObserver(</span>
+<span class="com">//     willSleep: { Task { await invalidator.invalidateAllAttached() } },  // push fallback 발동</span>
+<span class="com">//     didWake:   { /* 재연결은 P6 */ })</span>
+<span class="com">//   self.powerObserver.start()</span>
+
+<span class="com">// M4: SessionBindRegistry 에 cleanupAllBindings 부재. 기존 cleanup(clientId:)</span>
+<span class="com">// (SessionBindRegistry.swift:57-60)은 bindings + lastSeq 둘 다 삭제하므로 호출 금지.</span>
+<span class="com">// 신규 진입점은 bindings-only 무효화로 작성하고 lastSeq 는 반드시 보존한다</span>
+<span class="com">// (seq tracking 불변 → clientCount 카운트 불변).</span>
+<span class="com">// 배치 제약: bindings/lastSeq 는 private var 이므로 이 메서드는 반드시</span>
+<span class="com">// SessionBindRegistry.swift 와 동일 파일(또는 동일 파일 내 extension)에 둔다.</span>
+<span class="com">// 별도 파일 extension 은 private 멤버 접근 불가로 컴파일 실패한다.</span>
+<span class="kw">extension</span> <span class="typ">SessionBindRegistry</span> {   <span class="com">// 동일 파일 내</span>
+    <span class="com">// 신규: bindings 만 비움, lastSeq(seq tracking)는 보존.</span>
+    <span class="kw">public func</span> <span class="fn">invalidateAllBindings</span>() {
+        bindings.removeAll(keepingCapacity: <span class="kw">true</span>)   <span class="com">// lastSeq 는 건드리지 않음</span>
+    }
+}
+
+<span class="kw">public struct</span> <span class="typ">AttachmentInvalidator</span>: <span class="typ">Sendable</span> {
+    <span class="kw">let</span> registry: <span class="typ">SessionBindRegistry</span>
+    <span class="com">// 게이팅 테스트: 이 함수를 직접 호출 → boundClient(forSession:) == nil,</span>
+    <span class="com">// 단 clientCount(=lastSeq.count)는 불변 검증.</span>
+    <span class="kw">public func</span> <span class="fn">invalidateAllAttached</span>() <span class="kw">async</span> {
+        <span class="kw">await</span> registry.invalidateAllBindings()   <span class="com">// bindings-only 무효화, lastSeq 보존</span>
+    }
+}</code></pre>
+
+<!-- =================================================================== -->
+<h2 id="sec-6">6. ADR 운영화 (ADR-D deferred-decision stub 포함)</h2>
+
+<h4>6.1 본 단계 ADR 적용</h4>
+<ul>
+  <li><strong>§4.5 보안 정책 적용</strong>: FCM/APNs key는 Keychain 전용. 코드/로그에 직접 노출 금지. <code>PushSender</code>/transport는 Keychain item ID(<code>CHAT_TERMINAL_FCM_KEY_ID</code>, <code>CHAT_TERMINAL_APNS_KEY_ID</code>)만 참조하며, key material을 메모리에 장기 보관하지 않는다. <code>PushLog</code>는 payload preview를 로깅하되 key/token은 절대 로깅하지 않는다.</li>
+  <li><strong>Authoritative attached source</strong>: skip 정책과 lid-close 무효화가 동일하게 <code>SessionBindRegistry</code>를 권위 source로 삼는다(이중 판정 source 금지).</li>
+  <li><strong>Push/WS 프로토콜 분리</strong>: push는 <code>PushEnvelope</code>로 분리하여 WS 프로토콜(<code>EnvelopeKind</code>)을 오염시키지 않는다(Option C 거부 근거를 정책화).</li>
+</ul>
+
+<h4>6.2 ADR-D — APNs HTTP/2 라이브러리 선택 (deferred-decision stub)</h4>
+<div class="callout warn">
+  <div class="label">ADR-D 상태: DEFERRED (P5에서 확정하지 않음)</div>
+  <p><strong>결정 대상</strong>: 실 APNs HTTP/2 transport를 Swift native(<code>Network.framework</code>/<code>URLSession</code> HTTP/2)로 구현할 것인가, 외부 패키지를 도입할 것인가.</p>
+  <p><strong>왜 deferred인가</strong>: P5는 mock transport만 구현하므로(<code>MockPushTransport</code>) 실 라이브러리 선택은 P5 exit의 전제가 아니다. 지금 라이브러리를 강제 선택하면 실 통합 시점(P6/S1)의 제약 조건(인증 방식, 토큰 갱신, connection pooling)을 알기 전 결정이 되어 재논의 비용이 든다.</p>
+  <p><strong>최종 선택 기준(P6/S1에서 평가)</strong>:</p>
+  <ul>
+    <li>APNs token-based auth(.p8 JWT) 갱신 주기(≤1h)를 native로 다룰 수 있는가</li>
+    <li>HTTP/2 multiplexing + connection 재사용을 표준 라이브러리로 충분히 다루는가</li>
+    <li>외부 패키지 도입 시 코드사이닝/노타라이즈 영향(library validation entitlement)</li>
+    <li>FCM HTTP v1과 transport 추상화를 공유 가능한가</li>
+  </ul>
+  <p><strong>금지</strong>: P5에서 특정 라이브러리를 강제 선택하지 않는다. 마커만 남기고 기준만 나열한다.</p>
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-7">7. Deferred Items for P6/S1 (1급 섹션) + mock transport seam</h2>
+
+<div class="callout">
+  <div class="label">왜 1급 섹션인가</div>
+  P5는 mock-first다. 실 인프라가 없으므로 "다음 계획에서 측정 가능하게 무엇을 끝내야 하는가"를 명시적·측정 가능한 형태로 기록한다. 본 섹션의 각 항목은 P6/S1의 exit 후보다.
+</div>
+
+<h4>7.1 mock transport swap-in seam</h4>
+<p><code>PushTransport</code> protocol이 swap-in 경계다. P6/S1에서 실 transport를 붙일 때 변경 지점은 transport 구현 1개 추가뿐이며 <code>PushSender</code>/codec/skip 정책/(g)(h) 배선은 재작성하지 않는다.</p>
+<pre><code><span class="kw">public protocol</span> <span class="typ">PushTransport</span>: <span class="typ">Sendable</span> {
+    <span class="kw">func</span> <span class="fn">send</span>(<span class="kw">_</span> payload: <span class="typ">Data</span>, target: <span class="typ">PushTarget</span>, sessionId: <span class="typ">UUID</span>) <span class="kw">async</span>
+}
+<span class="com">// P5:  MockPushTransport  (in-memory 기록)</span>
+<span class="com">// P6/S1: FcmTransport (FCM HTTP v1), ApnsTransport (APNs HTTP/2)  ← 여기만 추가</span></code></pre>
+
+<h4>7.2 Deferred Items 목록 (각 항목은 P6/S1 측정 가능 종료 기준 포함)</h4>
+<table>
+  <thead>
+    <tr><th>#</th><th>이연 항목</th><th>이연 사유</th><th>P6/S1 측정 가능 종료 기준(후보)</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>D1</td>
+      <td>실 FCM HTTP v1 transport</td>
+      <td>Firebase 프로젝트/서비스 계정 미셋업</td>
+      <td>dev 데몬 trigger → FCM 콘솔/테스트 디바이스가 push 1건 수신, preview 한국어가 mojibake 없이 표시(스크린샷 + 수신 로그)</td>
+    </tr>
+    <tr>
+      <td>D2</td>
+      <td>실 APNs HTTP/2 transport</td>
+      <td>APNs .p8 key 미발급 + ADR-D 미확정</td>
+      <td>Xcode <code>.apns</code> drag-drop으로 iOS simulator가 push 1건 수신, preview 정상(스크린샷)</td>
+    </tr>
+    <tr>
+      <td>D3</td>
+      <td>실 디바이스/시뮬레이터 push 수신 + 모바일 클라이언트</td>
+      <td>모바일 클라이언트 부재(P9)</td>
+      <td>모바일 측 수신 핸들러가 envelope 6개 필드를 파싱, fetchHint resolver 호출 1건 round-trip</td>
+    </tr>
+    <tr>
+      <td>D4</td>
+      <td>ADR-D 최종 결정(APNs HTTP/2 native vs 외부)</td>
+      <td>실 통합 제약 미파악</td>
+      <td>§6.2 4개 기준에 대한 평가표 + 선택 라이브러리 + ADR APPROVE 문서 1건</td>
+    </tr>
+    <tr>
+      <td>D5</td>
+      <td>S1 wire validation(실 transport on-wire 형태 검증)</td>
+      <td>실 transport 미구현</td>
+      <td>실제 FCM/APNs payload byte가 4KB 이내 + 필드 손실 0 + 한국어 boundary 유지(on-wire capture diff 0건)</td>
+    </tr>
+    <tr>
+      <td>D6</td>
+      <td><code>chatRoomId</code> 실 매핑 source</td>
+      <td>매핑 source(pairing) 부재 → P6a</td>
+      <td>pairing 시 chatRoomId 발급/등록 → sessionId placeholder 대체, 매핑 테이블 round-trip 검증</td>
+    </tr>
+    <tr>
+      <td>D7</td>
+      <td>push trigger source — internal output tap 해소 + <code>PushSender</code> 첫 production caller 배선</td>
+      <td>internal output이 C4(<code>INTERNAL_OUTPUT_UNSUPPORTED</code>)로 막힘. P5의 <code>PushSender</code>는 dead-until-C4 seam(production caller 없음)</td>
+      <td>C4 internal output tap 해소 → 새 Claude 메시지 1건 감지 → <code>PushSender.send()</code> 1회 호출 round-trip(메시지 감지 → envelope 생성 → mock/실 transport send 1건 검증)</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-8">8. Acceptance Criteria</h2>
+
+<p>모든 행은 mock 또는 단위 테스트로 측정 가능하다. 실발송/실수신은 §7로 이연했다.</p>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>기준</th><th>검증 일자</th><th>검증 절차</th><th>통과</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>A1</td>
+      <td>4KB 초과 payload가 명시적으로 거부되고 <code>PUSH_PAYLOAD_TOO_LARGE</code>가 로깅된다(drop 아닌 reject)</td>
+      <td><span class="pending">미검증</span></td>
+      <td><code>xcodebuild test -scheme DaemonTests -only-testing:DaemonTests/PushEnvelopeCodecTests</code> → 4097-byte에서 <code>PushError.payloadTooLarge</code> throw + code 일치</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A2</td>
+      <td>한국어 포함 preview가 ≤200 chars이고 message-boundary(grapheme)가 깨지지 않는다</td>
+      <td><span class="pending">미검증</span></td>
+      <td><code>-only-testing:DaemonTests/PreviewBuilderTests</code> → 한국어 250자 입력 시 <code>preview.count == 200</code> + 마지막 Character 온전</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A3</td>
+      <td>WS-attached일 때 push가 skip된다(토글 on)</td>
+      <td><span class="pending">미검증</span></td>
+      <td><code>-only-testing:DaemonTests/PushSenderTests</code> → attached=true & skipWhenAttached=true에서 <code>mockTransport.sentCount == 0</code></td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A4</td>
+      <td>not-attached이거나 토글 off면 push가 발송된다</td>
+      <td><span class="pending">미검증</span></td>
+      <td>위 테스트 → attached=false에서 <code>sentCount == 1</code>, skipWhenAttached=false에서 <code>sentCount == 1</code></td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A5</td>
+      <td>(g) 앱 데몬 기동 로직이 server 포트를 반환한다</td>
+      <td><span class="pending">미검증</span></td>
+      <td><code>-only-testing:DaemonTests/DaemonBootstrapTests</code> → <code>XCTAssertGreaterThan(port, 0)</code>; <code>grep 'DaemonBootstrap' AppDelegate.swift</code> 1건</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A6</td>
+      <td>(h) internal 입력 live 배선이 printable bytes를 injector로 전달하고 control byte를 거부한다(C1)</td>
+      <td><span class="pending">미검증</span></td>
+      <td><code>-only-testing:DaemonTests/InternalSessionWiringTests</code> → printable spy 일치 + 0x03에서 <code>INTERNAL_CONTROL_INPUT_UNSUPPORTED</code></td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A7</td>
+      <td>lid-close 무효화 후 attached 판정이 무효화되어 push fallback이 발동한다</td>
+      <td><span class="pending">미검증</span></td>
+      <td><code>-only-testing:DaemonTests/AttachmentInvalidationTests</code> → <code>invalidateAllAttached()</code> 후 <code>boundClient(forSession:) == nil</code> + push <code>sentCount == 1</code></td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A8</td>
+      <td>P4 기존 테스트 회귀 0 + P5 신규 테스트 포함 전체 green + 앱 타깃 컴파일</td>
+      <td><span class="pending">미검증</span></td>
+      <td><code>xcodegen generate &amp;&amp; xcodebuild test -scheme DaemonTests</code> exit code 0(P4 44 tests + P5 신규) <strong>그리고</strong> <code>xcodebuild build -scheme ClaudeAlarmTerminal</code> exit code 0((g)/(h)/lid-close 앱 타깃 배선 컴파일 증명)</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <div class="label">비-게이팅 매뉴얼 통합 노트(exit 아님)</div>
+  앱 실행 후 <code>lsof -p &lt;pid&gt; | grep LISTEN</code>으로 WS 포트 육안 확인(A5 보강), C2 internal-input sign-off(<code>docs/p4/c2-internal-input-signoff.md</code>, A6 land 이후 수동), in-process <code>NSWorkspace.willSleep</code> emit 시뮬레이션(A7 보강)은 매뉴얼 노트이며 게이팅 exit가 아니다. 게이팅 assertion은 위 표의 <code>xcodebuild test</code>/grep 절차다.
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-9">9. Risks &amp; Mitigations</h2>
+
+<table>
+  <thead>
+    <tr><th>위험</th><th>가능성</th><th>영향</th><th>완화</th><th>책임</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>surface 핸들 추출 seam 미스매치 — <code>SurfaceRegistry</code>가 NSView를 반환하고 <code>ghostty_surface_t</code>를 직접 노출하지 않음</td>
+      <td>낮음</td>
+      <td>높음(h 배선 차단)</td>
+      <td>정탐으로 확정: <code>GhosttyTerminalView.surfaceHandle</code>(line 40)가 read-only 노출. <code>as? GhosttyTerminalView → .surfaceHandle</code>로 추출. seam을 <code>SurfaceHandleProviding</code> protocol 뒤에 두어 테스트는 mock으로 검증. 부착 타이밍 확정: surface lazy 생성이므로 즉시 조회 대신 기존 <code>ViewportPollingTimer</code> polling 재사용 → 첫 non-nil surface에서 attach 발화, guard 실패 시 신호 emit(silent no-op 제거).</td>
+      <td>executor(opus, Day 4)</td>
+    </tr>
+    <tr>
+      <td>push trigger source가 C4(<code>INTERNAL_OUTPUT_UNSUPPORTED</code>) 해소 전까지 없음 → <code>PushSender</code>가 production caller 없는 seam</td>
+      <td>높음(설계상 의도된 staging)</td>
+      <td>중간(P5 자체 가치는 mock 검증으로 확보, 실 trigger는 P6+)</td>
+      <td>deliberate-staged seam으로 명시. §7 D7로 추적. P5 테스트는 <code>PushEnvelope</code>을 직접 주입하여 전 경로 검증. §4 다이어그램 진입 노드는 future trigger placeholder로 표기.</td>
+      <td>Planner/§7 D7</td>
+    </tr>
+    <tr>
+      <td>(g)/(h) AppKit 배선의 exit가 실수로 app-launch/lsof에 의존 → 측정 불가</td>
+      <td>중간</td>
+      <td>높음(<code>plan-documents.md</code> §5 위반)</td>
+      <td>모든 게이팅 로직을 <code>DaemonBootstrap</code>/<code>SurfaceHandleProviding</code>/<code>AttachmentInvalidator</code> seam으로 추출. <code>DaemonTests</code>가 직접 호출. lsof/육안 확인은 비-게이팅 매뉴얼 노트로 명시 분리.</td>
+      <td>Planner/Architect</td>
+    </tr>
+    <tr>
+      <td>4KB 한도가 preview 절단 후에도 깨질 가능성(다른 필드 합산)</td>
+      <td>중간</td>
+      <td>중간</td>
+      <td>validator를 codec 안(인코딩 직후 최종 byte 길이)에 둠. preview 절단은 한도의 일부일 뿐 보장이 아님을 테스트로 명시(전체 envelope 4KB 케이스).</td>
+      <td>executor(Day 1)</td>
+    </tr>
+    <tr>
+      <td>FCM/APNs key material leakage(코드/로그 노출)</td>
+      <td>낮음</td>
+      <td>높음(보안)</td>
+      <td>Keychain item ID만 참조. key/token을 로깅하지 않음(<code>PushLog</code>는 preview만). P5는 mock이므로 실 key 미사용이나 정책을 transport 추상화에 미리 박는다(§6.1).</td>
+      <td>executor + security-reviewer</td>
+    </tr>
+    <tr>
+      <td>신규 <code>.swift</code> 추가 후 <code>xcodegen generate</code> 누락 → "0 tests executed" false-pass</td>
+      <td>중간</td>
+      <td>높음(가짜 통과)</td>
+      <td>모든 Day 종료 조건에 <code>xcodegen generate</code> → <code>xcodebuild</code> 순서 명시. A8이 전체 재생성 후 green을 게이팅.</td>
+      <td>executor(모든 Day)</td>
+    </tr>
+    <tr>
+      <td>C2 internal-input sign-off가 자동 exit로 오인되어 Day 4를 차단</td>
+      <td>낮음</td>
+      <td>중간(일정)</td>
+      <td>C2 sign-off를 (h) land 이후 수동 후기 단계로 명시 시퀀싱(§Day 4, §8 비-게이팅 노트). 자동 종료 조건에서 제외.</td>
+      <td>Planner/승인자</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-10">10. Exit Gate to P6</h2>
+
+<p>아래 체크리스트가 모두 충족되면 P5를 종료하고 P6(pairing UI + 토큰 발급)로 진군한다.</p>
+
+<ul class="exit-criteria">
+  <li><input type="checkbox" disabled> §8 Acceptance A1~A8 전부 통과(<code>xcodebuild test -scheme DaemonTests</code> exit code 0 <strong>및</strong> <code>xcodebuild build -scheme ClaudeAlarmTerminal</code> exit code 0 — 앱 타깃 (g)/(h)/lid-close 배선 컴파일)</li>
+  <li><input type="checkbox" disabled> <code>PushTransport</code> protocol + <code>MockPushTransport</code> + <code>PushSender</code> + codec(4KB validator) + preview가 land하고 단위 테스트 green</li>
+  <li><input type="checkbox" disabled> (g) <code>AppDelegate</code>가 <code>DaemonBootstrap</code>으로 데몬 기동(미이행 주석 제거 확인)</li>
+  <li><input type="checkbox" disabled> (h) <code>SessionDaemon.attachInternalSession</code> + surface 핸들 seam land, C1 control 거부 유지</li>
+  <li><input type="checkbox" disabled> lid-close 무효화 함수가 attached를 not-attached로 만들고 push fallback 발동을 테스트로 검증</li>
+  <li><input type="checkbox" disabled> push skip 토글 진입점 UI land + config 바인딩 단위 테스트 통과</li>
+  <li><input type="checkbox" disabled> §7 Deferred Items(D1~D7)가 각각 P6/S1 측정 가능 종료 기준과 함께 기록</li>
+  <li><input type="checkbox" disabled> ADR-D deferred-decision stub이 기록(라이브러리 강제 선택 없음, 기준만)</li>
+  <li><input type="checkbox" disabled> (수동 후기) C2 internal-input sign-off가 (h) land 이후 수행됨</li>
+</ul>
+
+<!-- =================================================================== -->
+<h2 id="app-a">부록 A. 환경 변수</h2>
+
+<table>
+  <thead>
+    <tr><th>변수</th><th>필수</th><th>의미</th><th>비고</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>CHAT_TERMINAL_FCM_KEY_ID</code></td><td>예(실 transport 시)</td><td>FCM 서비스 계정 key의 Keychain item ID</td><td>P5(mock)에서는 미사용. 코드/로그 노출 금지(§6.1).</td></tr>
+    <tr><td><code>CHAT_TERMINAL_APNS_KEY_ID</code></td><td>예(실 transport 시)</td><td>APNs .p8 key의 Keychain item ID</td><td>P5(mock)에서는 미사용. ADR-D 확정 후 P6/S1에서 활성.</td></tr>
+    <tr><td><code>CHAT_TERMINAL_PUSH_SKIP_WHEN_ATTACHED</code></td><td>아니오</td><td>skip 토글 기본값 override(기본 true)</td><td><code>PushPolicyConfig.skipWhenAttached</code> 초기값. UI 토글과 연동.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout danger">
+  <div class="label">보안</div>
+  FCM/APNs key material은 Keychain 전용이다. <code>CHAT_TERMINAL_*_KEY_ID</code>는 key 자체가 아니라 Keychain item ID(참조)만 담는다. 어떤 경우에도 key/token을 환경 변수 값·코드 상수·로그에 직접 넣지 않는다(<code>~/.claude/rules/security.md</code>, v4 § 4.5).
+</div>
+
+<!-- =================================================================== -->
+<h2 id="app-b">부록 B. 참고 문헌</h2>
+
+<ul>
+  <li>v4 마스터 계획: <code>docs/plans/work-plan-v4.md</code> § P5 (lines 186~215)</li>
+  <li>형식 표준: <code>docs/plans/p1/p1-detailed.html</code>(<code>&lt;style&gt;</code> 블록 출처)</li>
+  <li>상세 계획서 규약: <code>~/.claude/rules/plan-documents.md</code></li>
+  <li>P4 데몬 좌표:
+    <ul>
+      <li><code>Sources/ClaudeAlarmTerminal/AppDelegate.swift</code>(line 29~30 미이행 주석, 31 powerObserver=let, 195 powerObserver.start)</li>
+      <li><code>Sources/Daemon/SessionDaemon.swift</code>(internal attach 경로 부재)</li>
+      <li><code>Sources/Daemon/ExternalSessionWiring.swift</code>(external만 배선)</li>
+      <li><code>Sources/Daemon/InputSink.swift</code>(<code>InternalSink</code>, <code>PrintableTextInjecting</code>)</li>
+      <li><code>Sources/Daemon/SessionBindRegistry.swift</code>(<code>boundClient(forSession:)</code> 권위 source)</li>
+      <li><code>Sources/Lifecycle/PowerEventObserver.swift</code>(<code>willSleep:didWake:</code> 빈 핸들러)</li>
+      <li><code>Sources/TerminalView/GhosttySurfaceInjector.swift</code>(<code>init(surface:)</code>)</li>
+      <li><code>Sources/TerminalView/GhosttyTerminalView.swift</code>(<code>surfaceHandle</code> line 40)</li>
+      <li><code>Sources/UI/SurfaceLifecycle.swift</code>(<code>SurfaceRegistry.acquireExisting(id:)</code>)</li>
+      <li><code>Sources/DaemonDevCLI/main.swift</code>(데몬 구성 패턴 56~58, 91, 153)</li>
+    </ul>
+  </li>
+  <li>C2 sign-off 절차: <code>docs/p4/c2-internal-input-signoff.md</code></li>
+  <li>보안/테스트 규약: <code>~/.claude/rules/security.md</code>, <code>~/.claude/rules/testing.md</code></li>
+</ul>
+
+</main>
+</div>
+</body>
+</html>
