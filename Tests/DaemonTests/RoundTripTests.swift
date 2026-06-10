@@ -17,6 +17,43 @@ final class RoundTripTests: XCTestCase {
         try await assertOutputContains("👍\n", expected: "👍")
     }
 
+    // EOF must flush the accumulator's trailing incomplete UTF-8 carry as U+FFFD
+    // instead of dropping it silently (Copilot PR #1 review).
+    func testExternalOutputFlushesIncompleteUtf8OnEOF() async throws {
+        var fds = [Int32](repeating: 0, count: 2)
+        XCTAssertEqual(pipe(&fds), 0)
+        let readFD = fds[0], writeFD = fds[1]
+
+        let daemon = SessionDaemon()
+        let collected = EnvelopeCollector()
+        let readerClosed = expectation(description: "output reader saw EOF")
+        let sid = UUID()
+        await daemon.attachExternalOutput(
+            sessionId: sid,
+            masterFD: readFD,
+            emit: { collected.append($0) },
+            onClosed: { readerClosed.fulfill() }
+        )
+
+        // "가" = EA B0 80; write only the first two bytes -> incomplete trailing seq.
+        let incomplete = Data([0xEA, 0xB0])
+        _ = incomplete.withUnsafeBytes { write(writeFD, $0.baseAddress, incomplete.count) }
+
+        // Closing the write end induces EOF; the carry must flush before onClosed.
+        close(writeFD)
+        await fulfillment(of: [readerClosed], timeout: 5)
+
+        let joined = collected.all()
+            .filter { $0.kind == .output }
+            .compactMap { $0.payloadText }
+            .joined()
+        XCTAssertTrue(joined.contains("\u{FFFD}"),
+                      "EOF should flush the incomplete UTF-8 carry as U+FFFD; got \(joined)")
+
+        await daemon.detach(sessionId: sid)
+        close(readFD)
+    }
+
     private func assertOutputContains(_ source: String, expected: String) async throws {
         var fds = [Int32](repeating: 0, count: 2)
         XCTAssertEqual(pipe(&fds), 0)

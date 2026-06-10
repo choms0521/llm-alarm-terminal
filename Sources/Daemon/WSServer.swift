@@ -91,9 +91,15 @@ public actor WSServer {
 
     /// Cancels all connections and the listener, awaiting `.cancelled`.
     public func stop() async {
+        // Capture clientIds before teardown so registry state is cleared
+        // proactively. The async stateUpdateHandler -> handleDisconnect path is
+        // best-effort and may not fire before stop() returns; cleanup() is
+        // idempotent, so a later disconnect callback is harmless.
+        let clientIds = Array(connections.keys)
         for (_, connection) in connections { connection.cancel() }
         connections.removeAll()
         outboundSeq.removeAll()
+        for clientId in clientIds { await registry.cleanup(clientId: clientId) }
 
         guard let listener = self.listener else { return }
         await withCheckedContinuation { continuation in

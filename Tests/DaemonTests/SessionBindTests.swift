@@ -173,6 +173,34 @@ final class SessionBindTests: XCTestCase {
         }
     }
 
+    // stop() must clear registry bindings for every client deterministically by
+    // the time it returns, not rely on async disconnect callbacks (Copilot PR #1).
+    func testStopClearsRegistryStateDeterministically() async throws {
+        let registry = SessionBindRegistry()
+        let server = WSServer(registry: registry)
+        let port = try await server.start()
+
+        let client = WSTestClient(port: port)
+        try await client.connect()
+        let sessionId = UUID()
+        client.send(WSEnvelope(seq: 1, actor: clientActor, kind: .sessionStart,
+                               text: #"{"sessionId":"\#(sessionId.uuidString)"}"#))
+        let received = await client.collectEnvelopes(for: 1.5)
+        let clientId = try XCTUnwrap(received.first(where: { $0.kind == .ack })
+            .flatMap { Self.parseClientId($0.payload) })
+        let boundBefore = await registry.boundSession(clientId: clientId)
+        XCTAssertEqual(boundBefore, sessionId)
+
+        await server.stop()
+
+        let bound = await registry.boundSession(clientId: clientId)
+        XCTAssertNil(bound, "stop() should clear bindings for all clients before returning")
+        let registered = await registry.isRegistered(clientId: clientId)
+        XCTAssertFalse(registered, "stop() should clear registration for all clients before returning")
+
+        client.close()
+    }
+
     // MARK: - Helpers
 
     private static func parseClientId(_ payload: Data) -> UUID? {

@@ -94,7 +94,16 @@ final class OutputTap: @unchecked Sendable {
                     self.emit(WSEnvelope(seq: self.seq, actor: self.actor, kind: .output, text: text))
                 }
             },
-            onEOF: { [weak self] _ in self?.onClosed() }
+            onEOF: { [weak self] _ in
+                guard let self else { return }
+                // Flush any trailing incomplete UTF-8 carry as U+FFFD before
+                // closing, so the stream's final bytes are not silently dropped.
+                if let text = self.accumulator.flush() {
+                    self.seq += 1
+                    self.emit(WSEnvelope(seq: self.seq, actor: self.actor, kind: .output, text: text))
+                }
+                self.onClosed()
+            }
         )
     }
 
