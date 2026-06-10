@@ -26,9 +26,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var viewportPollingTimer: ViewportPollingTimer?
 
     /// Day 7 lifecycle hook. P1 keeps the body of the will-sleep / did-wake
-    /// handlers empty (logs only). P4 will invalidate WS-attached state and
-    /// arm push fallback here. See `docs/lifecycle-policy.md`.
+    /// handlers empty (logs only). P5 Day 5 reconstructs this with an
+    /// `AttachmentInvalidator` so sleep arms the push fallback. See `DaemonBootstrap`.
     private let powerObserver = PowerEventObserver()
+
+    /// P5 Day 3 (g): in-process WebSocket daemon launched at startup by
+    /// `DaemonBootstrap`. Before P5 only the dev CLI / tests started the daemon;
+    /// the app now boots it.
+    private var daemonHandle: DaemonHandle?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // P2 Day 3: replace P1 single-surface window with a SwiftUI sidebar +
@@ -193,6 +198,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
         configureMainMenu()
         powerObserver.start()
+
+        // P5 Day 3 (g): launch the in-process WebSocket daemon at startup.
+        // WSServer.start() is async, so hop onto a main-actor Task.
+        Task { @MainActor in
+            do {
+                self.daemonHandle = try await DaemonBootstrap().start()
+                Self.logger.info("daemon 기동 완료")
+            } catch {
+                Self.logger.error("daemon 기동 실패: \(error.localizedDescription, privacy: .public)")
+            }
+        }
 
         // 종료조건 #7: v1 → v2 변환이 일어났으면 윈도우 표시 후 한국어 성공 다이얼로그 1회.
         // (modal 이 부팅을 막지 않도록 makeKeyAndOrderFront 이후에 표시.)
