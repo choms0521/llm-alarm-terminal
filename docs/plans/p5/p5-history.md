@@ -110,3 +110,13 @@ M1~M5 + Critic 신규 2건 전수 닫힘 확증. 단 **회귀 1건** 적발:
 4. anchor 유효성 재검증: 정화 후 href <-> id 1:1 정합, 깨진 링크 0건.
 
 `Pn 결정 항목` 마커: 본 P5 본문은 해당 표기를 사용하지 않음(기술 결정은 R8/C1/C4 마커로 추적). 보존 개수 0.
+
+---
+
+## 구현 단계 정정 (Day 4)
+
+§5.4 surface 핸들 seam 타입을 `OpaquePointer?` → `UnsafeMutableRawPointer?`로 정정했다.
+
+- 합의 사이클(Architect/Critic) 내내 `typedef void* ghostty_surface_t`가 Swift `OpaquePointer`로 import된다고 판단했으나, Day 4 앱 타깃 컴파일에서 실제로는 `UnsafeMutableRawPointer`로 import됨이 확인됐다(컴파일러: `ghostty_surface_t' (aka 'UnsafeMutableRawPointer')`). `OpaquePointer`는 불완전 struct 포인터용이고, bare `void*` typedef는 `UnsafeMutableRawPointer`가 된다.
+- seam 설계 의도(Daemon 타깃 GhosttyKit 비의존)는 영향 없음 — `UnsafeMutableRawPointer`도 stdlib 타입이라 GhosttyKit import 없이 명명 가능. 타입명만 정정.
+- 정정 위치: 본문 §5.4 protocol 선언 + 주석, `Sources/Daemon/InternalSessionWiring.swift`, `Sources/ClaudeAlarmTerminal/InternalInputWiring.swift`.

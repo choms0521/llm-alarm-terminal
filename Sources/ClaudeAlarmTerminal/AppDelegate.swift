@@ -35,6 +35,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     /// the app now boots it.
     private var daemonHandle: DaemonHandle?
 
+    /// P5 Day 4 (h): drives live internal-input attachment once the daemon is up.
+    private var internalInputCoordinator: InternalInputCoordinator?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // P2 Day 3: replace P1 single-surface window with a SwiftUI sidebar +
         // workspace content split. libghostty is instantiated up-front because
@@ -203,7 +206,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // WSServer.start() is async, so hop onto a main-actor Task.
         Task { @MainActor in
             do {
-                self.daemonHandle = try await DaemonBootstrap().start()
+                let handle = try await DaemonBootstrap().start()
+                self.daemonHandle = handle
+                // P5 Day 4 (h): live-wire internal (Claude) input once the daemon
+                // is up. Runtime firing is verified by manual C2 sign-off.
+                let coordinator = InternalInputCoordinator(
+                    provider: RegistrySurfaceProvider(registry: registry),
+                    daemon: handle.daemon,
+                    internalSessions: { [weak self] in self?.internalClaudeSessions() ?? [] }
+                )
+                self.internalInputCoordinator = coordinator
+                coordinator.start()
                 Self.logger.info("daemon 기동 완료")
             } catch {
                 Self.logger.error("daemon 기동 실패: \(error.localizedDescription, privacy: .public)")
@@ -215,6 +228,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         if case .migrated(let backupURL) = migrationResult {
             SchemaMigrationDialogs.presentSuccess(backupURL: backupURL, in: window)
         }
+    }
+
+    /// P5 Day 4 (h): live Claude (internal) sessions as (tabId, sessionId) pairs.
+    /// Read-only traversal of the workspace model, mirroring `resolveSessionId`.
+    @MainActor
+    private func internalClaudeSessions() -> [(tabId: UUID, sessionId: UUID)] {
+        guard let mgr = workspaceManager else { return [] }
+        var out: [(tabId: UUID, sessionId: UUID)] = []
+        for ws in mgr.workspaces {
+            for pane in ws.panes {
+                for tab in pane.tabs where tab.kind == .claude {
+                    if let sid = tab.sessionId { out.append((tab.id, sid)) }
+                }
+            }
+        }
+        return out
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

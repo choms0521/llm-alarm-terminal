@@ -921,12 +921,12 @@
 }
 
 <span class="com">// ── 레이어 (a) daemon seam: surface 핸들 조회 protocol (Daemon 타깃, GhosttyKit 비의존) ──</span>
-<span class="com">// 반환 타입은 OpaquePointer?: ghostty_surface_t 는 typedef void* → Swift 가 OpaquePointer 로</span>
-<span class="com">// import 하나 그 typealias 는 GhosttyKit(앱 타깃)에만 보인다. Daemon 타깃이 GhosttyKit 를</span>
-<span class="com">// import 하지 않도록 protocol 은 하위 타입 OpaquePointer 를 직접 쓴다. 앱 타깃 conformer 가</span>
-<span class="com">// 돌려주는 ghostty_surface_t?(== OpaquePointer?)가 그대로 conformance 를 만족한다.</span>
+<span class="com">// 반환 타입은 UnsafeMutableRawPointer?: ghostty_surface_t 는 typedef void* → Swift 가</span>
+<span class="com">// UnsafeMutableRawPointer 로 import 한다(OpaquePointer 아님 — Day 4 구현에서 확인). 이는 stdlib</span>
+<span class="com">// 타입이라 Daemon 타깃이 GhosttyKit import 없이 그대로 명명할 수 있다. 앱 타깃 conformer 가</span>
+<span class="com">// 돌려주는 ghostty_surface_t?(== UnsafeMutableRawPointer?)가 그대로 conformance 를 만족한다.</span>
 <span class="kw">protocol</span> <span class="typ">SurfaceHandleProviding</span>: <span class="typ">Sendable</span> {
-    <span class="nf">@MainActor</span> <span class="kw">func</span> <span class="fn">surface</span>(forTab tabId: <span class="typ">UUID</span>) -> <span class="typ">OpaquePointer</span>?
+    <span class="nf">@MainActor</span> <span class="kw">func</span> <span class="fn">surface</span>(forTab tabId: <span class="typ">UUID</span>) -> <span class="typ">UnsafeMutableRawPointer</span>?
 }
 
 <span class="com">// ── 레이어 (b) app glue: 앱 타깃 전용, DaemonTests 밖(비-게이팅 매뉴얼 노트) ──</span>
