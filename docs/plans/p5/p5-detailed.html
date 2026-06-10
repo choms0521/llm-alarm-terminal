@@ -1131,58 +1131,58 @@
     <tr>
       <td>A1</td>
       <td>4KB 초과 payload가 명시적으로 거부되고 <code>PUSH_PAYLOAD_TOO_LARGE</code>가 로깅된다(drop 아닌 reject)</td>
-      <td><span class="pending">미검증</span></td>
+      <td>2026-06-10</td>
       <td><code>xcodebuild test -scheme DaemonTests -only-testing:DaemonTests/PushEnvelopeCodecTests</code> → 4097-byte에서 <code>PushError.payloadTooLarge</code> throw + code 일치</td>
-      <td><input type="checkbox" disabled></td>
+      <td><input type="checkbox" checked disabled></td>
     </tr>
     <tr>
       <td>A2</td>
       <td>한국어 포함 preview가 ≤200 chars이고 message-boundary(grapheme)가 깨지지 않는다</td>
-      <td><span class="pending">미검증</span></td>
+      <td>2026-06-10</td>
       <td><code>-only-testing:DaemonTests/PreviewBuilderTests</code> → 한국어 250자 입력 시 <code>preview.count == 200</code> + 마지막 Character 온전</td>
-      <td><input type="checkbox" disabled></td>
+      <td><input type="checkbox" checked disabled></td>
     </tr>
     <tr>
       <td>A3</td>
       <td>WS-attached일 때 push가 skip된다(토글 on)</td>
-      <td><span class="pending">미검증</span></td>
+      <td>2026-06-10</td>
       <td><code>-only-testing:DaemonTests/PushSenderTests</code> → attached=true & skipWhenAttached=true에서 <code>mockTransport.sentCount == 0</code></td>
-      <td><input type="checkbox" disabled></td>
+      <td><input type="checkbox" checked disabled></td>
     </tr>
     <tr>
       <td>A4</td>
       <td>not-attached이거나 토글 off면 push가 발송된다</td>
-      <td><span class="pending">미검증</span></td>
+      <td>2026-06-10</td>
       <td>위 테스트 → attached=false에서 <code>sentCount == 1</code>, skipWhenAttached=false에서 <code>sentCount == 1</code></td>
-      <td><input type="checkbox" disabled></td>
+      <td><input type="checkbox" checked disabled></td>
     </tr>
     <tr>
       <td>A5</td>
       <td>(g) 앱 데몬 기동 로직이 server 포트를 반환한다</td>
-      <td><span class="pending">미검증</span></td>
+      <td>2026-06-10</td>
       <td><code>-only-testing:DaemonTests/DaemonBootstrapTests</code> → <code>XCTAssertGreaterThan(port, 0)</code>; <code>grep 'DaemonBootstrap' AppDelegate.swift</code> 1건</td>
-      <td><input type="checkbox" disabled></td>
+      <td><input type="checkbox" checked disabled></td>
     </tr>
     <tr>
       <td>A6</td>
       <td>(h) internal 입력 live 배선이 printable bytes를 injector로 전달하고 control byte를 거부한다(C1)</td>
-      <td><span class="pending">미검증</span></td>
+      <td>2026-06-10</td>
       <td><code>-only-testing:DaemonTests/InternalSessionWiringTests</code> → printable spy 일치 + 0x03에서 <code>INTERNAL_CONTROL_INPUT_UNSUPPORTED</code></td>
-      <td><input type="checkbox" disabled></td>
+      <td><input type="checkbox" checked disabled></td>
     </tr>
     <tr>
       <td>A7</td>
       <td>lid-close 무효화 후 attached 판정이 무효화되어 push fallback이 발동한다</td>
-      <td><span class="pending">미검증</span></td>
+      <td>2026-06-10</td>
       <td><code>-only-testing:DaemonTests/AttachmentInvalidationTests</code> → <code>invalidateAllAttached()</code> 후 <code>boundClient(forSession:) == nil</code> + push <code>sentCount == 1</code></td>
-      <td><input type="checkbox" disabled></td>
+      <td><input type="checkbox" checked disabled></td>
     </tr>
     <tr>
       <td>A8</td>
       <td>P4 기존 테스트 회귀 0 + P5 신규 테스트 포함 전체 green + 앱 타깃 컴파일</td>
-      <td><span class="pending">미검증</span></td>
+      <td>2026-06-10</td>
       <td><code>xcodegen generate &amp;&amp; xcodebuild test -scheme DaemonTests</code> exit code 0(P4 44 tests + P5 신규) <strong>그리고</strong> <code>xcodebuild build -scheme ClaudeAlarmTerminal</code> exit code 0((g)/(h)/lid-close 앱 타깃 배선 컴파일 증명)</td>
-      <td><input type="checkbox" disabled></td>
+      <td><input type="checkbox" checked disabled></td>
     </tr>
   </tbody>
 </table>
@@ -1258,15 +1258,15 @@
 <p>아래 체크리스트가 모두 충족되면 P5를 종료하고 P6(pairing UI + 토큰 발급)로 진군한다.</p>
 
 <ul class="exit-criteria">
-  <li><input type="checkbox" disabled> §8 Acceptance A1~A8 전부 통과(<code>xcodebuild test -scheme DaemonTests</code> exit code 0 <strong>및</strong> <code>xcodebuild build -scheme ClaudeAlarmTerminal</code> exit code 0 — 앱 타깃 (g)/(h)/lid-close 배선 컴파일)</li>
-  <li><input type="checkbox" disabled> <code>PushTransport</code> protocol + <code>MockPushTransport</code> + <code>PushSender</code> + codec(4KB validator) + preview가 land하고 단위 테스트 green</li>
-  <li><input type="checkbox" disabled> (g) <code>AppDelegate</code>가 <code>DaemonBootstrap</code>으로 데몬 기동(미이행 주석 제거 확인)</li>
-  <li><input type="checkbox" disabled> (h) <code>SessionDaemon.attachInternalSession</code> + surface 핸들 seam land, C1 control 거부 유지</li>
-  <li><input type="checkbox" disabled> lid-close 무효화 함수가 attached를 not-attached로 만들고 push fallback 발동을 테스트로 검증</li>
-  <li><input type="checkbox" disabled> push skip 토글 진입점 UI land + config 바인딩 단위 테스트 통과</li>
-  <li><input type="checkbox" disabled> §7 Deferred Items(D1~D7)가 각각 P6/S1 측정 가능 종료 기준과 함께 기록</li>
-  <li><input type="checkbox" disabled> ADR-D deferred-decision stub이 기록(라이브러리 강제 선택 없음, 기준만)</li>
-  <li><input type="checkbox" disabled> (수동 후기) C2 internal-input sign-off가 (h) land 이후 수행됨</li>
+  <li><input type="checkbox" checked disabled> §8 Acceptance A1~A8 전부 통과(<code>xcodebuild test -scheme DaemonTests</code> exit code 0 <strong>및</strong> <code>xcodebuild build -scheme ClaudeAlarmTerminal</code> exit code 0 — 앱 타깃 (g)/(h)/lid-close 배선 컴파일)</li>
+  <li><input type="checkbox" checked disabled> <code>PushTransport</code> protocol + <code>MockPushTransport</code> + <code>PushSender</code> + codec(4KB validator) + preview가 land하고 단위 테스트 green</li>
+  <li><input type="checkbox" checked disabled> (g) <code>AppDelegate</code>가 <code>DaemonBootstrap</code>으로 데몬 기동(미이행 주석 제거 확인)</li>
+  <li><input type="checkbox" checked disabled> (h) <code>SessionDaemon.attachInternalSession</code> + surface 핸들 seam land, C1 control 거부 유지</li>
+  <li><input type="checkbox" checked disabled> lid-close 무효화 함수가 attached를 not-attached로 만들고 push fallback 발동을 테스트로 검증</li>
+  <li><input type="checkbox" checked disabled> push skip 토글 진입점 UI land + config 바인딩 단위 테스트 통과</li>
+  <li><input type="checkbox" checked disabled> §7 Deferred Items(D1~D7)가 각각 P6/S1 측정 가능 종료 기준과 함께 기록</li>
+  <li><input type="checkbox" checked disabled> ADR-D deferred-decision stub이 기록(라이브러리 강제 선택 없음, 기준만)</li>
+  <li><input type="checkbox" disabled> (수동 후기, 미완) C2 internal-input sign-off가 (h) land 이후 수행됨 — GUI 실행 필요, P5 코드 land 후 수동 단계로 잔존</li>
 </ul>
 
 <!-- =================================================================== -->
