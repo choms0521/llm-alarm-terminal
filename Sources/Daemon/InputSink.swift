@@ -3,13 +3,17 @@ import Foundation
 /// One unit of input bound for a session's PTY.
 public struct InputItem: Sendable, Equatable {
     public let bytes: [UInt8]
-    /// True if the payload is a control byte (< 0x20). `.internal` sinks cannot
-    /// inject control input (C1) and surface INTERNAL_CONTROL_INPUT_UNSUPPORTED.
-    public let isControl: Bool
 
-    public init(bytes: [UInt8], isControl: Bool = false) {
+    public init(bytes: [UInt8]) {
         self.bytes = bytes
-        self.isControl = isControl
+    }
+
+    /// True if the payload contains any control byte (< 0x20 or DEL). `.external`
+    /// sinks ignore this (they write raw); `.internal` sinks reject it (C1).
+    /// Derived from the bytes so the signal is correct regardless of how the
+    /// item was produced — multi-byte ESC/CSI sequences are caught too.
+    public var containsControl: Bool {
+        bytes.contains { $0 < 0x20 || $0 == 0x7f }
     }
 }
 
@@ -66,7 +70,10 @@ public final class InternalSink: InputSink, @unchecked Sendable {
     }
 
     public func write(_ item: InputItem) async {
-        if item.isControl {
+        // C1: a control byte (< 0x20 or DEL, including multi-byte ESC/CSI) cannot
+        // be injected as printable text — libghostty would double-encode it — so
+        // surface the unsupported signal instead of mis-injecting.
+        if item.containsControl {
             onUnsupported(.internalControlInputUnsupported)
             return
         }

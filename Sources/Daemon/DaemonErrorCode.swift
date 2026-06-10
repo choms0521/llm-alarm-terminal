@@ -9,5 +9,6 @@ public enum DaemonErrorCode: String, Sendable, Equatable {
     case internalControlInputUnsupported = "INTERNAL_CONTROL_INPUT_UNSUPPORTED"
     case ptyWriteFailed = "PTY_WRITE_FAILED"
     case malformedSeq = "MALFORMED_SEQ"
+    case malformedPayload = "MALFORMED_PAYLOAD"
     case nonMonotonicSeq = "NON_MONOTONIC_SEQ"
 }

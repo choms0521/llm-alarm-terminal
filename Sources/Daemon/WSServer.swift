@@ -190,12 +190,15 @@ public actor WSServer {
                 await sessionStartHandler?(clientId, sessionId)
                 let payload = #"{"clientId":"\#(clientId.uuidString)","sessionId":"\#(sessionId.uuidString)"}"#
                 send(makeAck(ackSeq: env.seq, text: payload), to: connection, clientId: clientId)
+            } else {
+                // Malformed session.start payload — reply rather than hang silently.
+                send(makeError(code: DaemonErrorCode.malformedPayload.rawValue,
+                               message: "session.start payload missing a valid sessionId"),
+                     to: connection, clientId: clientId)
             }
         case .input:
             if let sessionId = await registry.boundSession(clientId: clientId) {
-                let bytes = [UInt8](env.payload)
-                let isControl = bytes.count == 1 && bytes[0] < 0x20
-                await inputHandler?(sessionId, InputItem(bytes: bytes, isControl: isControl))
+                await inputHandler?(sessionId, InputItem(bytes: [UInt8](env.payload)))
             }
         case .pause, .resume:
             // v0.9 reserved: no behavior, ack only.

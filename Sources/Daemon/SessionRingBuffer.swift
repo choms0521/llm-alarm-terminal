@@ -13,7 +13,6 @@ public final class SessionRingBuffer {
     private let capacity: Int
     private var items: [WSEnvelope] = []
     private var dropEventEmitted = false
-    private var droppedSinceReset = 0
 
     /// Number of `BUFFER_OVERFLOW_DROPPED` marks emitted so far (one per episode).
     public private(set) var dropEventCount = 0
@@ -35,7 +34,6 @@ public final class SessionRingBuffer {
         guard items.count > capacity else { return nil }
 
         items.removeFirst()
-        droppedSinceReset += 1
         guard !dropEventEmitted else { return nil }
 
         dropEventEmitted = true
@@ -50,20 +48,23 @@ public final class SessionRingBuffer {
         items.removeFirst(min(n, items.count))
         if items.count < capacity {
             dropEventEmitted = false
-            droppedSinceReset = 0
         }
         return taken
     }
 
     /// Builds the BUFFER_OVERFLOW_DROPPED mark (§7 schema). `seq` is a placeholder;
     /// the sender stamps the real outbound seq when it writes to the wire.
+    ///
+    /// P4 emits exactly one overflow marker per episode (latched), so `droppedCount`
+    /// is the first-drop marker value (1), not the running episode total. Precise
+    /// per-episode counts are a P7 wire-freeze decision (see exit-gate debt).
     private func makeDropMark() -> WSEnvelope {
-        let payload = #"{"sessionId":"\#(sessionId.uuidString)","droppedCount":\#(droppedSinceReset)}"#
+        let payload = #"{"sessionId":"\#(sessionId.uuidString)","droppedCount":1}"#
         return WSEnvelope(
             seq: 0,
             actor: EnvelopeActor(deviceId: "daemon-local"),
             kind: .error,
-            code: "BUFFER_OVERFLOW_DROPPED",
+            code: DaemonErrorCode.bufferOverflowDropped.rawValue,
             text: payload
         )
     }

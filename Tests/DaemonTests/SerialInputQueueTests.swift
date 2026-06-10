@@ -56,24 +56,27 @@ final class SerialInputQueueTests: XCTestCase {
         await queue.detach(sessionId: sid)
     }
 
-    // Internal control byte is unsupported (C1): surfaces the code, injects nothing.
-    func testInternalControlByteUnsupported() async throws {
+    // Internal control input is unsupported (C1): both a single control byte and
+    // a multi-byte ESC/CSI sequence surface the code and inject nothing. Control
+    // is derived from the bytes (InputItem.containsControl), not a trusted flag.
+    func testInternalControlInputUnsupported() async throws {
         let injector = await MainActor.run { RecordingInjector() }
         let errors = ErrorBox()
         let sink = InternalSink(injector: injector, onUnsupported: { errors.append($0) })
         let queue = SerialInputQueue()
         let sid = UUID()
         await queue.attach(sessionId: sid, sink: sink)
-        await queue.enqueue(InputItem(bytes: [0x03], isControl: true), for: sid)
+        await queue.enqueue(InputItem(bytes: [0x03]), for: sid)              // single control
+        await queue.enqueue(InputItem(bytes: [0x1b, 0x5b, 0x41]), for: sid)  // ESC [ A (multi-byte)
         try await waitForDrain(queue, sid)
 
-        XCTAssertEqual(errors.all(), [.internalControlInputUnsupported])
+        XCTAssertEqual(errors.all(), [.internalControlInputUnsupported, .internalControlInputUnsupported])
         let received = await MainActor.run { injector.received }
         XCTAssertTrue(received.isEmpty)
         await queue.detach(sessionId: sid)
     }
 
-    // Teardown leaves no pending items.
+    // Pending drains to 0 via real itemDrained accounting, and stays 0 after teardown.
     func testTeardownPendingZero() async throws {
         let queue = SerialInputQueue()
         let sid = UUID()
@@ -82,9 +85,15 @@ final class SerialInputQueueTests: XCTestCase {
         for i in 0..<5 {
             await queue.enqueue(InputItem(bytes: [UInt8(0x30 + i)]), for: sid)
         }
+        // The consumer decrements pending as each item drains — assert that before
+        // detach, so the assertion is not satisfied merely by detach nil-ing state.
+        try await waitForDrain(queue, sid)
+        let drainedPending = await queue.pendingCount(for: sid)
+        XCTAssertEqual(drainedPending, 0)
+
         await queue.detach(sessionId: sid)
-        let pending = await queue.pendingCount(for: sid)
-        XCTAssertEqual(pending, 0)
+        let afterDetach = await queue.pendingCount(for: sid)
+        XCTAssertEqual(afterDetach, 0)
     }
 
     // MARK: - Helpers

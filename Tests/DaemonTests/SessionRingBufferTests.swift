@@ -81,6 +81,6 @@ final class SessionRingBufferTests: XCTestCase {
         for i in 0..<12 { if let m = buffer.enqueue(env(i)) { mark = m } }
         let payload = try XCTUnwrap(mark?.payloadText)
         XCTAssertTrue(payload.contains("\"sessionId\":\"\(sid.uuidString)\""))
-        XCTAssertTrue(payload.contains("\"droppedCount\":"))
+        XCTAssertTrue(payload.contains("\"droppedCount\":1"))
     }
 }
