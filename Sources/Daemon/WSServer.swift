@@ -177,7 +177,26 @@ public actor WSServer {
     // MARK: - Message handling
 
     private func handleMessage(_ data: Data, clientId: UUID, connection: NWConnection) async {
-        guard let env = try? EnvelopeCodec.decode(data) else { return }
+        let env: WSEnvelope
+        do {
+            env = try EnvelopeCodec.decode(data)
+        } catch {
+            // A frame that fails to decode gets a wire error rather than a silent
+            // drop, so a client never waits indefinitely for a response. A bad
+            // seq string is reported distinctly from otherwise-malformed JSON.
+            let code: DaemonErrorCode
+            let message: String
+            if case let EnvelopeCodecError.malformedSeq(bad) = error {
+                code = .malformedSeq
+                message = "seq is not a valid UInt64: \(bad)"
+            } else {
+                code = .malformedPayload
+                message = "envelope could not be decoded"
+            }
+            send(makeError(code: code.rawValue, message: message),
+                 to: connection, clientId: clientId)
+            return
+        }
 
         do {
             try await registry.ingestInbound(clientId: clientId, env: env)

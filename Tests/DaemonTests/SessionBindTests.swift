@@ -201,6 +201,28 @@ final class SessionBindTests: XCTestCase {
         client.close()
     }
 
+    // An undecodable frame must surface a wire error rather than a silent drop,
+    // so a client never waits indefinitely (Copilot PR #1 review).
+    func testMalformedFrameSurfacesError() async throws {
+        let registry = SessionBindRegistry()
+        let server = WSServer(registry: registry)
+        let port = try await server.start()
+
+        let client = WSTestClient(port: port)
+        try await client.connect()
+        client.sendRaw(Data(#"{"garbage":true}"#.utf8))   // no seq key -> MALFORMED_PAYLOAD
+        client.sendRaw(Data(#"{"seq":"abc"}"#.utf8))       // non-numeric seq -> MALFORMED_SEQ
+
+        let received = await client.collectEnvelopes(for: 2.0)
+        let errorCodes = Set(received.filter { $0.kind == .error }.compactMap { $0.code })
+        XCTAssertTrue(errorCodes.contains("MALFORMED_PAYLOAD"),
+                      "undecodable frame should surface MALFORMED_PAYLOAD; got \(errorCodes)")
+        XCTAssertTrue(errorCodes.contains("MALFORMED_SEQ"),
+                      "non-numeric seq should surface MALFORMED_SEQ; got \(errorCodes)")
+        client.close()
+        await server.stop()
+    }
+
     // MARK: - Helpers
 
     private static func parseClientId(_ payload: Data) -> UUID? {
@@ -248,6 +270,15 @@ private final class WSTestClient {
 
     func send(_ envelope: WSEnvelope) {
         guard let data = try? EnvelopeCodec.encode(envelope) else { return }
+        let meta = NWProtocolWebSocket.Metadata(opcode: .text)
+        let context = NWConnection.ContentContext(identifier: "send", metadata: [meta])
+        connection.send(content: data, contentContext: context, isComplete: true,
+                        completion: .contentProcessed { _ in })
+    }
+
+    /// Sends arbitrary (possibly undecodable) bytes as a text frame, for
+    /// exercising the server's malformed-frame handling.
+    func sendRaw(_ data: Data) {
         let meta = NWProtocolWebSocket.Metadata(opcode: .text)
         let context = NWConnection.ContentContext(identifier: "send", metadata: [meta])
         connection.send(content: data, contentContext: context, isComplete: true,
