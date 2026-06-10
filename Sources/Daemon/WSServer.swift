@@ -20,12 +20,35 @@ public actor WSServer {
     private var connections: [UUID: NWConnection] = [:]
     private var outboundSeq: [UUID: UInt64] = [:]
 
+    private var inputHandler: (@Sendable (UUID, InputItem) async -> Void)?
+    private var sessionStartHandler: (@Sendable (UUID, UUID) async -> Void)?
+
     public init(registry: SessionBindRegistry) {
         self.registry = registry
     }
 
     /// The OS-assigned loopback port once the server is listening.
     public private(set) var port: UInt16?
+
+    /// Called for each inbound `input` envelope from a bound client.
+    public func setInputHandler(_ handler: @escaping @Sendable (_ sessionId: UUID, _ item: InputItem) async -> Void) {
+        inputHandler = handler
+    }
+
+    /// Called after a client binds via `session.start`, before its ack is sent,
+    /// so the integrator can attach the session's input sink and output tap
+    /// before any input arrives.
+    public func setSessionStartHandler(_ handler: @escaping @Sendable (_ clientId: UUID, _ sessionId: UUID) async -> Void) {
+        sessionStartHandler = handler
+    }
+
+    /// Sends an envelope to the client currently bound to a session (seq is
+    /// re-stamped per client by `send`). No-op if no client is bound.
+    public func sendToSession(_ sessionId: UUID, _ envelope: WSEnvelope) async {
+        guard let clientId = await registry.boundClient(forSession: sessionId),
+              let connection = connections[clientId] else { return }
+        send(envelope, to: connection, clientId: clientId)
+    }
 
     /// Builds loopback-only WS parameters (127.0.0.1, OS-assigned port).
     private static func makeListenerParameters() -> NWParameters {
@@ -162,14 +185,22 @@ public actor WSServer {
         case .sessionStart:
             if let sessionId = Self.parseSessionId(env.payload) {
                 await registry.bind(clientId: clientId, sessionId: sessionId)
+                // Attach sink + output tap before acking, so input that follows
+                // the ack can never race ahead of the wiring.
+                await sessionStartHandler?(clientId, sessionId)
                 let payload = #"{"clientId":"\#(clientId.uuidString)","sessionId":"\#(sessionId.uuidString)"}"#
                 send(makeAck(ackSeq: env.seq, text: payload), to: connection, clientId: clientId)
+            }
+        case .input:
+            if let sessionId = await registry.boundSession(clientId: clientId) {
+                let bytes = [UInt8](env.payload)
+                let isControl = bytes.count == 1 && bytes[0] < 0x20
+                await inputHandler?(sessionId, InputItem(bytes: bytes, isControl: isControl))
             }
         case .pause, .resume:
             // v0.9 reserved: no behavior, ack only.
             send(makeAck(ackSeq: env.seq, text: "{}"), to: connection, clientId: clientId)
         default:
-            // input/output wiring lands in Day 5.
             break
         }
     }
