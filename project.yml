@@ -40,6 +40,7 @@ targets:
       - path: Sources/Workspace
       - path: Sources/UI
       - path: Sources/Daemon
+      - path: Sources/Push
     resources:
       - path: Resources
         excludes:
@@ -291,6 +292,7 @@ targets:
           - "Pane/**"
           - "**/GhosttyViewportProvider.swift"
       - path: Sources/Daemon
+      - path: Sources/Push
       - path: Tests/DaemonTests
     dependencies:
       - package: AnyCodable
