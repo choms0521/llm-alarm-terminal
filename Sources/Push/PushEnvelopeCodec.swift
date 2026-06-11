@@ -11,24 +11,27 @@ public enum PushEnvelopeCodec {
     public static let maxPayloadBytes = 4096
 
     /// Frozen at P5 so the P6 mobile parser reads the same shape without a
-    /// swap-in: epoch-millis timestamps and a stable key order.
-    static let encoder: JSONEncoder = {
+    /// swap-in: epoch-millis timestamps and a stable key order. Fresh instances
+    /// per call (matching `EnvelopeCodec`) because `JSONEncoder`/`JSONDecoder`
+    /// are not documented as thread-safe and this codec is called from
+    /// multiple actors.
+    private static func makeEncoder() -> JSONEncoder {
         let e = JSONEncoder()
         e.dateEncodingStrategy = .millisecondsSince1970
         e.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         return e
-    }()
+    }
 
-    static let decoder: JSONDecoder = {
+    private static func makeDecoder() -> JSONDecoder {
         let d = JSONDecoder()
         d.dateDecodingStrategy = .millisecondsSince1970
         return d
-    }()
+    }
 
     /// Encodes and validates the 4KB ceiling on the final byte length. Throws
     /// `PushError.payloadTooLarge` (explicit reject) when over the limit.
     public static func encode(_ env: PushEnvelope) throws -> Data {
-        let data = try encoder.encode(env)
+        let data = try makeEncoder().encode(env)
         guard data.count <= maxPayloadBytes else {
             throw PushError.payloadTooLarge
         }
@@ -36,6 +39,6 @@ public enum PushEnvelopeCodec {
     }
 
     public static func decode(_ data: Data) throws -> PushEnvelope {
-        try decoder.decode(PushEnvelope.self, from: data)
+        try makeDecoder().decode(PushEnvelope.self, from: data)
     }
 }
