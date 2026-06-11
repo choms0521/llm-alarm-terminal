@@ -136,6 +136,7 @@ targets:
         excludes:
           - "Pane/**"
           - "**/GhosttyViewportProvider.swift"
+          - "**/AgentTerminalHostView.swift"
       - path: Sources/SessionVerifier
     dependencies:
       - package: AnyCodable
@@ -199,6 +200,7 @@ targets:
           - "Pane/**"
           - "**/GhosttyViewportProvider.swift"
           - "**/PushSettingsView.swift"
+          - "**/AgentTerminalHostView.swift"
       - path: Tests/WorkspaceTests
     dependencies:
       - package: AnyCodable
@@ -231,6 +233,7 @@ targets:
           - "Pane/**"
           - "**/GhosttyViewportProvider.swift"
           - "**/PushSettingsView.swift"
+          - "**/AgentTerminalHostView.swift"
       - path: Tests/SessionTests
     dependencies:
       - package: AnyCodable
@@ -262,6 +265,7 @@ targets:
         excludes:
           - "Pane/**"
           - "**/GhosttyViewportProvider.swift"
+          - "**/AgentTerminalHostView.swift"
       - path: Sources/Daemon
       - path: Sources/DaemonDevCLI
     dependencies:
@@ -293,6 +297,7 @@ targets:
         excludes:
           - "Pane/**"
           - "**/GhosttyViewportProvider.swift"
+          - "**/AgentTerminalHostView.swift"
       - path: Sources/Daemon
       - path: Sources/Push
       - path: Tests/DaemonTests
