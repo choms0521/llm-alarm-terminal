@@ -74,8 +74,12 @@ struct AgentTreeRow: View {
     }
 
     /// 한 줄 preview 용 truncate. 카드 그리드의 200 grapheme 보다 짧게 한 줄에 맞춘다.
+    /// ANSI SGR/CSI/OSC 시퀀스는 truncate 전에 strip 한다 — raw ESC 가 리스트에
+    /// 노출되는 것과 절단이 시퀀스 중간을 가르는 것을 동시에 방지(카드 그리드가
+    /// AnsiSGRParser 로 처리하던 것과 동일한 안전선).
     private static func renderedPreview(_ raw: String) -> String {
-        let collapsed = raw
+        let stripped = String(AnsiSGRParser.parse(raw).characters)
+        let collapsed = stripped
             .replacingOccurrences(of: "\n", with: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return Utf8BoundaryTruncator.truncate(collapsed, maxGraphemes: 80)

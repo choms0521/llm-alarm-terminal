@@ -41,9 +41,10 @@ struct AgentSplitView: View {
                 .frame(minWidth: 320)
         }
         .onAppear {
-            if selection.selectedTabId == nil {
-                selection.selectFirstAvailable(workspaces: manager.workspaces)
-            }
+            // agent-view 밖에서 탭/워크스페이스가 닫혔을 수 있으므로 복귀 시 항상
+            // 수렴시킨다 — 유효 선택이면 무변경, 유실됐으면 첫 유효 tab 또는 nil,
+            // nil 이면 selectFirstAvailable 과 동일 동작(reconcile 내부 분기).
+            selection.reconcile(workspaces: manager.workspaces)
         }
         .onChange(of: manager.workspaces) { _, newWorkspaces in
             // dangling 선택 수렴: 선택 tab 이 제거됐으면 유효 tab 또는 nil 로 수렴.
