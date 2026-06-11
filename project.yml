@@ -198,6 +198,7 @@ targets:
         excludes:
           - "Pane/**"
           - "**/GhosttyViewportProvider.swift"
+          - "**/PushSettingsView.swift"
       - path: Tests/WorkspaceTests
     dependencies:
       - package: AnyCodable
@@ -229,6 +230,7 @@ targets:
         excludes:
           - "Pane/**"
           - "**/GhosttyViewportProvider.swift"
+          - "**/PushSettingsView.swift"
       - path: Tests/SessionTests
     dependencies:
       - package: AnyCodable

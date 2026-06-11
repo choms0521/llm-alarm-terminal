@@ -63,38 +63,17 @@ struct PaneTerminalView: NSViewRepresentable {
     }
 
     /// kind 별 env 격리 prefix + 실제 실행 binary 를 합성한 command 문자열.
-    /// 형태: `/usr/bin/env KEY=VAL /bin/zsh -l` (POSIX env(1) 호환).
     ///
-    /// R2 fix: claude pane 도 login+interactive shell 을 거쳐 spawn 한다.
-    /// 이유 — 장군님 환경의 `node` 가 fnm 으로 관리되어 shell init 시점에만
-    /// PATH 가 set 됨. claude 의 hook (SessionStart/PreToolUse/PostToolUse 등)
-    /// 이 `node ./hook.mjs` 를 spawn 할 때 PATH 에 node 가 없으면
-    /// "node: command not found" 가 매 prompt 마다 발생하여 hook stderr
-    /// 가 TUI 화면을 침범 + cursor positioning 충돌 → 화면 corruption.
-    /// `zsh -lic 'exec claude'` 가 .zprofile + .zshrc 를 모두 source 해
-    /// fnm/nvm/asdf 류 모든 shell-managed 런타임을 정상 init 한 뒤 claude
-    /// 가 zsh 를 대체한다.
+    /// P5.5 Day 0: 합성 로직은 `TerminalCommandBuilder`(Sources/Session/)로 공용
+    /// 추출됐다. agent-view 우측 호스트가 lazy 미생성 탭을 클릭 시 동일 로직으로
+    /// 신규 spawn 하기 위함이다. 여기서는 시그니처를 보존한 위임 스텁으로만 남는다.
+    ///
+    /// fallback 보존: 기존 동작은 `pane.activeTab?.kind ?? .shell` 로 active tab
+    /// 이 없는 비정상 상태에서 shell command 를 산출했다. 빌더는 tab 을 직접 받으므로
+    /// activeTab 부재 시 합성 shell tab 을 만들어 동일 .shell 경로를 타게 한다.
     static func buildCommand(workspace: Workspace, pane: Pane) -> String {
-        // P3.5 schema v2: pane 의 active tab 의 kind 로 command 결정.
-        // active tab 이 없는 비정상 상태에서는 shell fallback (UI 가 빈 화면으로 죽지 않도록).
-        let kind = pane.activeTab?.kind ?? .shell
-        switch kind {
-        case .claude:
-            let claudePath = (try? resolveClaudeBinary()) ?? "claude"
-            let shell = workspace.envSnapshot["SHELL"] ?? "/bin/zsh"
-            return "\(shell) -lic 'exec \(shellQuote(claudePath))'"
-        case .shell:
-            let dir = (try? SessionSpawnEnv.zshHistoryDir(workspaceId: workspace.id, paneId: pane.id)) ?? ""
-            let histFile = dir + "/history"
-            let shell = workspace.envSnapshot["SHELL"] ?? "/bin/zsh"
-            return "/usr/bin/env HISTFILE=\(shellQuote(histFile)) \(shell) -l"
-        }
-    }
-
-    /// 공백 / 특수문자 가 포함된 path 는 shell-quote (단일 인용부호).
-    private static func shellQuote(_ path: String) -> String {
-        guard path.contains(where: { $0 == " " || $0 == "\t" || $0 == "'" }) else { return path }
-        let escaped = path.replacingOccurrences(of: "'", with: "'\\''")
-        return "'\(escaped)'"
+        // active tab 이 없으면 합성 shell tab 으로 fallback (UI 가 빈 화면으로 죽지 않도록).
+        let tab = pane.activeTab ?? Tab(kind: .shell, name: Tab.defaultName(for: .shell))
+        return TerminalCommandBuilder.build(workspace: workspace, pane: pane, tab: tab)
     }
 }
