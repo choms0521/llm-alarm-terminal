@@ -118,6 +118,36 @@ final class SchemaCodecTests: XCTestCase {
         XCTAssertEqual(restored.extraFields?["futurePushFlag"]?.value as? Int, 42)
     }
 
+    /// P5.5 옵션 C: 카드 그리드 폐기로 `agentView.settings` 키가 더 이상 쓰이지
+    /// 않는다. 그러나 기존 영속 파일에 그 키가 남아 있어도 forward-compat
+    /// extraFields catch-all 이 흡수하여 디코드 에러 0건 + 보존됨을 검증한다
+    /// (마이그레이션 불필요).
+    func test_forwardCompat_legacyAgentViewSettingsKey_preservedToExtraFields() throws {
+        let json = """
+        {
+            "id": "33333333-3333-3333-3333-333333333333",
+            "name": "에이전트 뷰",
+            "cwd": "",
+            "panes": [],
+            "createdAt": "2026-05-13T09:00:00Z",
+            "kind": "agentView",
+            "envSnapshot": {},
+            "agentView.settings": { "sortOrder": "statusFirst", "filter": "needsInput" }
+        }
+        """.data(using: .utf8)!
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        // 디코드 에러 0건 (legacy 키가 디코드를 깨뜨리지 않음).
+        let ws = try decoder.decode(Workspace.self, from: json)
+        XCTAssertEqual(ws.kind, .agentView)
+        // unknown key 가 extraFields 로 흡수됨.
+        XCTAssertNotNil(ws.extraFields?["agentView.settings"])
+
+        // round-trip 후에도 보존 (forward-compat).
+        let restored = try roundTrip(ws)
+        XCTAssertNotNil(restored.extraFields?["agentView.settings"])
+    }
+
     func test_forwardCompat_unknownField_onPane_preservedToExtraFields() throws {
         // P3.5 schema v2: position 은 .left/.right, sessionId/kind 는 Tab 으로 이동.
         let json = """

@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P5.5 상세 계획서 — 에이전트뷰 인터랙티브 스플릿 (워크스페이스 트리 + 라이브 터미널) (2026-06-11)</title>
+<style>
+  :root {
+    --bg: #fbfaf7;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d8dee4;
+    --accent: #0550ae;
+    --accent-soft: #ddf4ff;
+    --warn: #9a6700;
+    --warn-soft: #fff8c5;
+    --danger: #cf222e;
+    --danger-soft: #ffebe9;
+    --ok: #1a7f37;
+    --ok-soft: #dafbe1;
+    --code-bg: #f3f0ea;
+    --code-fg: #24292f;
+    --table-stripe: #f6f3ec;
+    --table-head: #eceae3;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Helvetica, Arial, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 32px;
+    padding: 32px 24px;
+  }
+
+  aside.toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    border-right: 1px solid var(--border);
+    padding-right: 16px;
+    font-size: 13.5px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+  }
+
+  aside.toc h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin: 0 0 12px 0;
+  }
+
+  aside.toc ol {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+  }
+
+  aside.toc ol li {
+    margin: 4px 0;
+  }
+
+  aside.toc ol ol {
+    padding-left: 14px;
+    margin-top: 4px;
+  }
+
+  aside.toc a {
+    color: var(--fg);
+    text-decoration: none;
+  }
+
+  aside.toc a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+
+  main {
+    max-width: 900px;
+    min-width: 0;
+  }
+
+  h1 {
+    font-size: 28px;
+    margin: 0 0 8px 0;
+    line-height: 1.3;
+  }
+
+  h2 {
+    font-size: 22px;
+    margin-top: 40px;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h3 {
+    font-size: 18px;
+    margin-top: 28px;
+    margin-bottom: 8px;
+  }
+
+  h4 {
+    font-size: 15px;
+    margin-top: 20px;
+    margin-bottom: 6px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  p { margin: 8px 0; }
+
+  .meta {
+    color: var(--muted);
+    font-size: 13.5px;
+    margin-bottom: 24px;
+  }
+
+  .meta strong { color: var(--fg); }
+
+  code {
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+
+  pre {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 14px 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    border: 1px solid var(--border);
+  }
+
+  pre code {
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+  }
+
+  .kw { color: #cf222e; font-weight: 600; }
+  .str { color: #0a3069; }
+  .com { color: #6e7781; font-style: italic; }
+  .num { color: #0550ae; }
+  .typ { color: #953800; }
+  .fn { color: #8250df; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13.5px;
+  }
+
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    background: var(--table-head);
+    font-weight: 600;
+  }
+
+  tbody tr:nth-child(even) {
+    background: var(--table-stripe);
+  }
+
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin: 16px 0;
+  }
+
+  .callout.warn {
+    border-left-color: var(--warn);
+    background: var(--warn-soft);
+  }
+
+  .callout.danger {
+    border-left-color: var(--danger);
+    background: var(--danger-soft);
+  }
+
+  .callout.ok {
+    border-left-color: var(--ok);
+    background: var(--ok-soft);
+  }
+
+  .callout .label {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    margin-bottom: 4px;
+  }
+
+  .day-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin: 18px 0;
+    background: #fff;
+  }
+
+  .day-card h3 {
+    margin-top: 0;
+  }
+
+  .day-card dl {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 6px 16px;
+    margin: 8px 0 12px 0;
+    font-size: 14px;
+  }
+
+  .day-card dt {
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .day-card dd {
+    margin: 0;
+  }
+
+  ul.exit-criteria {
+    list-style: none;
+    padding-left: 0;
+    margin: 8px 0 0 0;
+  }
+
+  ul.exit-criteria li {
+    margin: 4px 0;
+    font-size: 14px;
+  }
+
+  ul.exit-criteria input[type="checkbox"] {
+    margin-right: 8px;
+  }
+
+  .ascii {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.45;
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    background: var(--accent-soft);
+    color: var(--accent);
+    margin-right: 4px;
+  }
+
+  .tag.warn { background: var(--warn-soft); color: var(--warn); }
+  .tag.danger { background: var(--danger-soft); color: var(--danger); }
+  .tag.ok { background: var(--ok-soft); color: var(--ok); }
+
+  .pending {
+    color: var(--warn);
+    font-style: italic;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 28px 0;
+  }
+
+  @media print {
+    aside.toc { display: none; }
+    .layout { display: block; max-width: 100%; padding: 0; }
+    main { max-width: 100%; }
+    .day-card { page-break-inside: avoid; }
+    pre, .ascii { page-break-inside: avoid; }
+    body { font-size: 11pt; }
+    h2 { page-break-after: avoid; }
+  }
+
+  @media (max-width: 900px) {
+    .layout {
+      grid-template-columns: 1fr;
+    }
+    aside.toc {
+      position: static;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      padding-right: 0;
+      padding-bottom: 16px;
+      max-height: none;
+    }
+    .day-card dl {
+      grid-template-columns: 1fr;
+    }
+    .day-card dt {
+      margin-top: 4px;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <h2>목차</h2>
+  <ol>
+    <li><a href="#sec-1">1. 개요</a></li>
+    <li><a href="#sec-2">2. RALPLAN-DR Summary</a>
+      <ol>
+        <li><a href="#sec-2-1">2.1 Principles</a></li>
+        <li><a href="#sec-2-2">2.2 Decision Drivers</a></li>
+        <li><a href="#sec-2-3">2.3 Options — 카드 그리드 vs 트리</a></li>
+        <li><a href="#sec-2-4">2.4 Options — Day 0 포함 vs 제외</a></li>
+      </ol>
+    </li>
+    <li><a href="#sec-3">3. Day-by-Day Work Package</a>
+      <ol>
+        <li><a href="#day-0">Day 0 — buildCommand 공용 추출</a></li>
+        <li><a href="#day-1">Day 1 — 트리 데이터 레이어</a></li>
+        <li><a href="#day-2">Day 2 — 우측 호스트 + 재부모화 스파이크</a></li>
+        <li><a href="#day-3">Day 3 — 조립 + 카드 그리드 폐기</a></li>
+      </ol>
+    </li>
+    <li><a href="#sec-4">4. Architecture Diagram</a></li>
+    <li><a href="#sec-5">5. Critical Code Specs</a></li>
+    <li><a href="#sec-6">6. ADR 운영화 — ADR-I</a></li>
+    <li><a href="#sec-7">7. Acceptance Criteria</a></li>
+    <li><a href="#sec-8">8. Risks &amp; Mitigations</a></li>
+    <li><a href="#sec-9">9. Exit Gate to P6a</a></li>
+    <li><a href="#app-a">부록 A. 환경 변수</a></li>
+    <li><a href="#app-b">부록 B. 참고 문헌</a></li>
+  </ol>
+</aside>
+
+<main>
+
+<h1>P5.5 상세 계획서 — 에이전트뷰 인터랙티브 스플릿 (워크스페이스 트리 + 라이브 터미널)</h1>
+<p class="meta">
+  <strong>대상 단계</strong>: development-master-plan-v2 § 3 P5.5<br>
+  <strong>대상 레포</strong>: macOS Swift 앱 (libghostty 기반 터미널)<br>
+  <strong>문서 작성일</strong>: 2026-06-11<br>
+  <strong>예상 작업 일수</strong>: 4일 (master 계획 범위 3~5일의 중앙값)<br>
+  <strong>승인 경로</strong>: ralplan 합의 (Architect SOUND → Critic APPROVE). 합의 이력은 <code>docs/plans/p5.5/p5.5-history.md</code> 참조
+</p>
+
+<!-- =================================================================== -->
+<h2 id="sec-1">1. 개요</h2>
+
+<h4>Goal</h4>
+<p>agent-view를 카드 그리드에서 <strong>좌우 스플릿 작업 화면</strong>으로 진화시킨다. 좌측은 workspace → pane → tab(세션) 3단 트리, 우측은 클릭한 세션의 <strong>기존 라이브 터미널</strong>(같은 PTY, 같은 scrollback)을 즉시 호스팅한다.</p>
+
+<h4>Side</h4>
+<p>desktop (macOS, Apple Silicon)</p>
+
+<h4>Scope (in) — 이번 단계에서 반드시 끝낸다</h4>
+<ul>
+  <li>좌측 <code>OutlineGroup</code> 3단 트리(workspace/pane/tab) — <code>WorkspaceManager.workspaces</code> + <code>SessionStatusCoordinator.snapshots</code> 재사용, 신규 영속 모델 0건</li>
+  <li>우측 라이브 터미널 호스트 — <code>SurfaceRegistry.acquireExisting(id: tabId)</code>로 mount하는 NSViewRepresentable + 재부모화 규율</li>
+  <li>선행 리팩터링: <code>PaneTerminalView.buildCommand</code>를 공용 타입(<code>TerminalCommandBuilder</code>)으로 추출 — agent-view 우측이 lazy 미생성 탭 클릭 시 신규 spawn할 때 동일 로직 사용</li>
+  <li>트리 row의 status 뱃지 — 기존 <code>AgentStatusBadge</code> 재활용</li>
+  <li>사이드바 ↔ 좌측 트리 navigation 의미 분기 규칙(P3.5 D3-6 R8 규칙 계승)</li>
+  <li>기존 카드 그리드 자산 처리(폐기) — § 2.3 옵션 C 결정 적용</li>
+  <li>알려진 제약 3건의 설계·리스크·수락 기준 반영</li>
+</ul>
+
+<h4>Scope (out) — 이번 단계에서 다루지 않는다</h4>
+<ul>
+  <li>우측 다중 분할(동시 2개 이상 세션 표시) — 각 세션이 독립 surface라 기술적으로 가능하나 MVP에서는 단일 우측 호스트만. post-P5.5 토글</li>
+  <li>트리 drag-and-drop 재배치, 트리에서의 workspace/pane/tab 생성·삭제(생성·삭제는 기존 normal workspace UI 책임)</li>
+  <li>좌측 트리 정렬 토글(최근 활동순) — P3.5 D3-6 Q-β대로 workspace 추가순 default 고정, 토글은 post-MVP</li>
+  <li>우측 surface fade transition(P3.5 Q-γ대로 즉시 교체)</li>
+  <li>W-3-1 수동 sign-off(독립 부채로 잔존)</li>
+</ul>
+
+<h4>Key Deliverables</h4>
+<table>
+  <thead><tr><th>#</th><th>산출물</th><th>설명</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td><code>TerminalCommandBuilder</code> (신규, <code>Sources/Session/</code>)</td><td><code>buildCommand</code>/<code>shellQuote</code>의 공용 추출. <code>PaneTerminalView</code>와 agent-view 우측 호스트가 공유. 시그니처 <code>build(workspace:pane:tab:)</code></td></tr>
+    <tr><td>2</td><td><code>AgentTreeNode</code> + <code>AgentTreeBuilder</code> (신규)</td><td>workspaces × snapshots를 3단 트리 구조로 join하는 순수 함수. 단위 테스트 대상</td></tr>
+    <tr><td>3</td><td><code>AgentTreeSelection</code> (신규, <code>ObservableObject</code>)</td><td><code>selectedTabId</code> + <code>expandedNodeIds</code> 상태 + <code>selectFirstAvailable</code> 로직</td></tr>
+    <tr><td>4</td><td><code>AgentTreeView</code> + <code>AgentTreeRow</code> (신규)</td><td>좌측 <code>OutlineGroup</code> 트리 UI + status 뱃지 row</td></tr>
+    <tr><td>5</td><td><code>AgentTerminalHostView</code> (신규, NSViewRepresentable)</td><td>우측 호스트. <code>acquireExisting</code>으로 mount + 재부모화 규율</td></tr>
+    <tr><td>6</td><td><code>AgentSplitView</code> (신규)</td><td><code>HSplitView</code>로 좌 트리 + 우 호스트 조립. <code>WorkspaceContentView</code>의 <code>.agentView</code> 케이스를 이 뷰로 교체</td></tr>
+    <tr><td>7</td><td>테스트</td><td>신규 테스트 묶음 + 기존 테스트 함수 비파괴(사전 집계 330건 기준, A7 산식 <code>330 − 폐기 N + 신규 M = K</code>로 검산)</td></tr>
+  </tbody>
+</table>
+
+<h4>Dependencies</h4>
+<table>
+  <thead><tr><th>의존</th><th>현재 상태</th><th>본 단계 사용처</th></tr></thead>
+  <tbody>
+    <tr><td><code>SurfaceRegistry.acquireExisting(id:)</code></td><td><code>Sources/UI/SurfaceLifecycle.swift:58</code> 구현됨</td><td>우측 호스트의 기존 surface lookup</td></tr>
+    <tr><td><code>Tab</code>/<code>Pane</code>/<code>Workspace</code> schema v2</td><td>P3.5 완료. <code>Tab.sessionId</code>/<code>Pane.tabs</code>/<code>Pane.activeTabId</code> 존재</td><td>트리 노드 source</td></tr>
+    <tr><td><code>SessionStatusCoordinator.snapshots</code></td><td><code>Sources/Session/SessionStatusCoordinator.swift:15</code></td><td>트리 row status 뱃지</td></tr>
+    <tr><td><code>SessionIndex</code></td><td><code>Sources/Session/SessionIndex.swift</code></td><td>sessionId → (ws/pane/tab) 역인덱스(기존 재사용)</td></tr>
+    <tr><td><code>WorkspaceCoordinator.addTab</code></td><td>session 부착 패턴 확립됨</td><td>lazy 미생성 탭 우측 클릭 시 신규 spawn 경로</td></tr>
+    <tr><td><code>PaneTerminalView.buildCommand</code></td><td><code>Sources/UI/Pane/PaneTerminalView.swift:77</code> static, 내부 갇힘</td><td>Day 0 <code>Sources/Session/</code>으로 공용 추출</td></tr>
+    <tr><td><code>resolveClaudeBinary</code> / <code>SessionSpawnEnv</code></td><td><code>Sources/Session/BinaryResolver.swift</code> / <code>Sources/Session/SessionSpawnEnv.swift</code></td><td>빌더 의존. 빌더를 <code>Sources/Session/</code>에 두는 근거(동일 타겟)</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <div class="label">알려진 제약 3건 (master § 3 P5.5 원천)</div>
+  <ol>
+    <li><strong>동시 미러링 불가</strong>: 1 surface = 1 NSView. agent-view 우측과 원래 워크스페이스 탭에 같은 세션을 동시에 띄울 수 없고, 마지막 mount한 컨테이너로 뷰가 이동한다.</li>
+    <li><strong>lazy surface</strong>: 한 번도 열린 적 없는 탭은 surface가 미생성이라 클릭 시점에 신규 spawn된다. 이를 위해 <code>buildCommand</code> 공용 추출이 선행 리팩터링이다.</li>
+    <li><strong>리사이즈 공유</strong>: 같은 PTY라 우측 pane 크기로 SIGWINCH가 가고, 워크스페이스 복귀 시 재리사이즈된다.</li>
+  </ol>
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-2">2. RALPLAN-DR Summary</h2>
+
+<h3 id="sec-2-1">2.1 Principles (설계 원칙)</h3>
+<ol>
+  <li><strong>신규 영속 모델 0건</strong> — 트리는 <code>WorkspaceManager.workspaces</code>(이미 영속) + <code>SessionStatusCoordinator.snapshots</code>(런타임)의 파생 view일 뿐이다. 새 저장 스키마/마이그레이션을 만들지 않는다.</li>
+  <li><strong>세션 공유는 surface 재부모화로만</strong> — 우측에 뜨는 터미널은 항상 <code>acquireExisting</code>이 반환한 기존 NSView다. 절대 같은 tabId에 대해 두 번째 <code>GhosttyTerminalView</code>를 생성하지 않는다(ADR-I 1 surface = 1 NSView 불변식).</li>
+  <li><strong>순수 함수와 UI 분리</strong> — 트리 빌드(<code>AgentTreeBuilder</code>)와 선택 로직(<code>selectFirstAvailable</code>)은 SwiftUI 비의존 순수 함수로 두어 단위 테스트로 측정한다. libghostty 의존은 <code>AgentTerminalHostView</code> 한 곳에 격리한다.</li>
+  <li><strong>기존 테스트 비파괴 우선</strong> — 사전 집계 330건의 테스트 함수가 green인 상태를 매 Day 종료 시 회귀 검증한다. 카드 그리드 자산을 건드릴 때 관련 테스트의 운명(이전/삭제)을 명시적으로 처리한다.</li>
+  <li><strong>알려진 제약을 숨기지 않고 UI/문서에 노출</strong> — 동시 미러링 불가·lazy spawn·리사이즈 공유는 버그가 아니라 ADR-I의 본질적 결과다. 수락 기준과 리스크 표에서 측정 가능한 형태로 확인한다.</li>
+</ol>
+
+<h3 id="sec-2-2">2.2 Decision Drivers (Top 3)</h3>
+<ol>
+  <li><strong>세션 공유의 무결성</strong> — 우측 클릭 시 새 셸이 아니라 같은 PTY/scrollback이 떠야 한다. 이것이 본 단계의 존재 이유다. 재부모화는 코드베이스에 선례 없는 미검증 가정이므로, Day 2 GUI 스파이크가 실패하면 read-only 미러 fallback으로 전환한다. 스파이크 게이트가 단계 성패의 1차 분기다.</li>
+  <li><strong>회귀 비용 최소화</strong> — 데몬/모바일 트랙과 독립한 데스크톱 UI 변경이므로, 백엔드 69개 핵심 테스트와 워크스페이스 schema를 절대 건드리지 않는 격리가 가능하고 또 필수다.</li>
+  <li><strong>P3.5 설계 자산 재활용 vs 신선한 결정</strong> — P3.5 D3-6/D3-7이 이미 트리 컴포넌트 청사진과 카드 그리드 폐기 매핑을 남겼다. 이를 그대로 따를지, master-plan-v2가 연 "보존 또는 흡수" 선택지를 재평가할지가 핵심 분기다.</li>
+</ol>
+
+<h3 id="sec-2-3">2.3 Viable Options — 카드 그리드 보존 vs 트리 흡수</h3>
+<p>master-plan-v2 § 3은 "기존 카드 그리드/점프는 보존 또는 트리로 흡수(상세 계획에서 결정)"라 명시적으로 본 계획서에 결정을 위임했다. 3개 옵션을 비교한다.</p>
+<table>
+  <thead><tr><th>옵션</th><th>내용</th><th>장점</th><th>단점</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>A. 완전 흡수(카드 그리드 폐기)</strong></td>
+      <td>P3.5 D3-7 매핑대로 <code>AgentDashboardView</code>/<code>AgentCardView</code>/<code>AgentDashboardViewModel</code>/<code>AgentSortFilterControls</code>/<code>AgentViewSettings</code>/<code>AgentJumpAction</code> 폐기. 트리가 유일한 agent-view UI.</td>
+      <td>단일 정보 아키텍처(혼란 없음). 코드 표면 축소. P3.5 결정과 정합. dead 자산 미잔존.</td>
+      <td>관련 테스트 ~6파일 삭제/이전 필요. 카드 그리드 선호 사용자에 회귀(단, 미출시 기능이라 실사용자 없음). <code>extraFields["agentView.settings"]</code> cleanup 필요.</td>
+    </tr>
+    <tr>
+      <td><strong>B. 병존(탭 토글)</strong></td>
+      <td>agent-view 상단에 "그리드/스플릿" 세그먼트 토글. 두 UI 공존.</td>
+      <td>점진 이행. 카드 그리드 자산 보존.</td>
+      <td>정보 아키텍처 이중화. 두 코드 경로 유지 비용. 카드의 <code>AgentJumpAction</code>(워크스페이스 점프)과 트리 클릭(우측 호스트)의 의미 충돌. master-plan-v2의 "진화" 의도와 어긋남.</td>
+    </tr>
+    <tr>
+      <td><strong>C. 트리 우선 + 그리드 데이터 레이어만 보존</strong></td>
+      <td>UI는 트리로 교체하되 순수 데이터 인프라(observer/coordinator/badge/SessionIndex)는 P3.5 D3-7 "보존" 매핑대로 유지. 트리 빌더는 동일 데이터 인프라 위에서 정방향 순회(ws→pane→tab)를 신규 작성한다.</td>
+      <td>A의 단일 IA + 검증된 status 파이프라인 그대로 재활용해 신규 결함 표면 최소.</td>
+      <td>트리 빌더가 join을 신규 작성하므로 <code>AgentDashboardViewModel</code>은 보존 대상이 아니라 폐기 후보다(보존되는 것은 데이터 인프라, 코드 join 로직이 아님).</td>
+    </tr>
+  </tbody>
+</table>
+<div class="callout ok">
+  <div class="label">선택: 옵션 C (트리 우선 + 데이터 레이어 보존)</div>
+  <ul>
+    <li>master-plan-v2의 "진화" 의도와 P3.5 D3-7의 폐기/보존 매핑 둘 다와 정합한다. D3-7은 UI 컴포넌트(카드/뷰모델/정렬/점프)는 폐기, 데이터 인프라(observer/coordinator/badge/index/viewport provider)는 보존으로 이미 명확히 갈라 두었다.</li>
+    <li>옵션 B의 병존은 P3.5 R8(사이드바 ↔ 트리 navigation 중복)을 더 악화시킨다. 한 화면에 그리드+트리+사이드바 3중 navigation은 사용자 혼란이 명백하다.</li>
+    <li>옵션 A 대비 차이는 데이터 인프라(observer/coordinator/badge/SessionIndex)를 그대로 재활용해 검증된 status 파이프라인 위에서 트리 빌더만 신규 작성한다는 점. 신규 결함 표면을 줄인다.</li>
+    <li>미출시 기능이므로 카드 그리드 폐기에 따른 실사용자 회귀는 없다(현재 구식 카드 그리드가 wired된 채 출시되지 않았다).</li>
+  </ul>
+</div>
+<p><strong>무효화 사유</strong>: 옵션 B는 navigation 삼중화 + 의미 충돌로 무효화(master "진화" 의도와 배치). 순수 옵션 A(데이터 로직까지 전부 폐기)는 검증된 status 파이프라인을 버려 신규 결함 위험을 키우므로 C에 흡수하여 부분 채택.</p>
+
+<h3 id="sec-2-4">2.4 Viable Options — 스코프 축: Day 0(빌더 추출) 포함 vs 제외</h3>
+<p>lazy 미생성 탭을 우측에서 어떻게 다룰지에 따라 Day 0(buildCommand 공용 추출)의 필요 여부와 전체 일정이 갈린다. 2개 옵션을 비교한다.</p>
+<table>
+  <thead><tr><th>옵션</th><th>내용</th><th>일정</th><th>장점</th><th>단점</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>D0-keep. Day 0 포함</strong></td>
+      <td>우측 클릭 시 미생성 탭이면 <code>TerminalCommandBuilder.build</code>로 신규 spawn. <code>buildCommand</code>를 <code>Sources/Session/</code>으로 공용 추출.</td>
+      <td><strong>4일</strong></td>
+      <td>master § 3 제약 2 요구("클릭 시점 생성 + buildCommand 공용 추출 선행")를 정확히 충족. 모든 tab이 우측에서 즉시 동작. 부팅 직후 전 탭 lazy 시나리오에서도 우측 정상.</td>
+      <td>추출 리팩터링 1일 + 빌더 배치/타겟 정합 필요.</td>
+    </tr>
+    <tr>
+      <td><strong>D0-drop. Day 0 제거</strong></td>
+      <td>우측 클릭 시 미생성 탭이면 신규 spawn 대신 disabled placeholder("이 세션을 워크스페이스 탭에서 먼저 여세요") 표시. 추출 불필요.</td>
+      <td><strong>3일</strong></td>
+      <td>Day 0 삭제로 일정 압축. 빌더 배치 우려 자동 해소. spawn 부작용 회피.</td>
+      <td><strong>master § 3 제약 2 위반</strong>. 부팅 직후 모든 탭이 lazy이므로 우측이 대부분 placeholder → "절반만 동작하는 UI" 회귀로 보임. 세션 공유의 "어느 탭이든 우측에서 작업" 핵심 가치 훼손.</td>
+    </tr>
+  </tbody>
+</table>
+<div class="callout ok">
+  <div class="label">선택: 옵션 D0-keep (Day 0 포함, 4일 유지)</div>
+  <ul>
+    <li>master-plan-v2 § 3은 제약 2를 "한 번도 열린 적 없는 탭은 surface가 lazy 미생성 — <strong>클릭 시점 생성(이때는 신규 spawn)</strong>이며 <code>PaneTerminalView.buildCommand</code>의 <strong>공용 추출이 선행 리팩터링</strong>"이라고 명문화했다. lazy spawn과 buildCommand 추출은 master가 정한 MVP 동작이지 선택 사항이 아니다.</li>
+    <li>부팅 직후에는 모든 탭의 surface가 lazy 미생성이다(P2 결정: 자동 respawn 안 함). D0-drop을 택하면 첫 진입 시 우측이 거의 항상 placeholder가 되어 핵심 가치가 깨진다.</li>
+    <li>빌더 배치 타겟 정합은 Day 0를 없애는 게 아니라 빌더를 <code>Sources/Session/</code>(단위 테스트 타겟 공통 멤버십 + 의존 타입 동일 타겟)에 두어 해소한다. Day 0 유지의 유일한 비용이던 "추출이 테스트 불가 위치에 갇힘"은 제거된다.</li>
+  </ul>
+</div>
+<p><strong>무효화 사유</strong>: D0-drop은 master § 3 제약 2를 정면 위반하고 첫 진입 UX를 훼손하므로 무효화. placeholder는 fallback(Day 2 스파이크 실패 시 read-only 미러)에서만 부분 등장하며, 정상 경로의 기본 동작이 되어선 안 된다.</p>
+
+<!-- =================================================================== -->
+<h2 id="sec-3">3. Day-by-Day Work Package</h2>
+<p>총 4일. 각 Day는 자체 종료 조건(측정 가능)을 갖는다. Day 종료마다 회귀 검증 후 commit한다(Day별 commit 관례).</p>
+
+<div class="callout warn">
+  <div class="label">빌드 시스템</div>
+  <p>이 레포는 SPM이 아니라 <strong>XcodeGen(<code>project.yml</code>) + xcodebuild</strong>다(<code>Package.swift</code> 부재). 모든 종료 조건은 다음 형식을 따른다(<code>docs/plans/p5/p5-detailed.html:540/575</code> 형식 차용).</p>
+  <ul>
+    <li>빌드: <code>xcodegen generate</code> (exit code 0) → <code>xcodebuild build -scheme ClaudeAlarmTerminal</code> (exit code 0)</li>
+    <li>테스트: <code>xcodebuild test -scheme &lt;Tests타겟&gt; -only-testing:&lt;Tests타겟&gt;/&lt;TestClass&gt;</code> (exit code 0)</li>
+    <li>테스트 타겟: 단위 테스트는 <strong>SessionTests</strong> 스킴에 귀속(권고). 신규 트리 컴포넌트(<code>Sources/UI/AgentView/</code>의 GhosttyKit 비의존 파일)와 빌더(<code>Sources/Session/</code>)는 SessionTests 소스 멤버십에 자동 포함된다.</li>
+  </ul>
+  <p><strong>경고 (매 Day 공통)</strong>: 신규 <code>.swift</code> 파일을 추가할 때마다 <code>xcodegen generate</code>를 <strong>선행</strong>해야 한다. 누락 시 xcodebuild가 기존 <code>.xcodeproj</code>로 빌드/테스트하여 신규 테스트 클래스가 <strong>0 tests executed false-pass</strong>(테스트가 실행조차 안 됐는데 녹색)로 보일 수 있다. 각 Day 종료 조건의 첫 단계는 항상 <code>xcodegen generate</code> exit code 0이다.</p>
+</div>
+
+<div class="day-card">
+  <h3 id="day-0">Day 0 — 선행 리팩터링: buildCommand 공용 추출</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd><code>PaneTerminalView.buildCommand</code> / <code>shellQuote</code>를 SwiftUI 비의존 공용 타입 <code>TerminalCommandBuilder</code>로 추출한다. agent-view 우측 호스트가 lazy 미생성 탭을 클릭 시 동일 로직으로 신규 spawn할 수 있게 한다(알려진 제약 2의 선행 조건).</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>Sources/Session/TerminalCommandBuilder.swift</code> (신규) — <code>static func build(workspace:pane:tab:) -&gt; String</code> + <code>static func shellQuote(_:) -&gt; String</code>. <code>resolveClaudeBinary</code>(<code>BinaryResolver.swift</code>)/<code>SessionSpawnEnv.zshHistoryDir</code> 의존을 그대로 호출. <strong>(P5.5 결정 항목) <code>Sources/Session/</code>에 두는 이유</strong>: 이 디렉터리는 SessionTests/WorkspaceTests/DaemonTests/SessionVerifier/DaemonDevCLI 5개 타겟 모두에 소스 멤버십이 있고(그중 단위 테스트는 SessionTests/WorkspaceTests/DaemonTests), 의존하는 두 타입과 동일 타겟이다. 반면 <code>Sources/TerminalView/</code>는 앱 타겟 전용, <code>Sources/UI/Pane/</code>은 전 테스트 타겟이 <code>excludes: "Pane/**"</code>로 제외하므로 빌더를 거기 두면 단위 테스트가 불가능하다.</li>
+        <li><code>Sources/UI/Pane/PaneTerminalView.swift</code> — <code>buildCommand(workspace:pane:)</code>를 위임 스텁으로 축소(시그니처 보존). 내부에서 <code>pane.activeTab?.kind ?? .shell</code> fallback을 명시 처리한 뒤 <code>TerminalCommandBuilder.build(workspace:pane:tab:)</code>를 호출한다.</li>
+        <li><code>Tests/SessionTests/TerminalCommandBuilderTests.swift</code> (신규) — claude/shell 두 kind, 공백 포함 path quoting, active tab 없을 때 shell fallback 케이스.</li>
+      </ul>
+    </dd>
+    <dt>기술 노트</dt>
+    <dd>현재 <code>buildCommand</code>는 <code>pane.activeTab?.kind ?? .shell</code>로 분기하므로 fallback이 핵심 동작이다. 빌더는 tab을 직접 받는 <code>build(workspace:pane:tab:)</code> 단일 시그니처로 만들고, PaneTerminalView 위임 스텁이 <code>activeTab</code> 부재 시 합성 shell tab을 만들어 fallback을 보존한다. agent-view는 특정 tab을 직접 보유하므로 동일 시그니처를 그대로 호출한다. 순수 추출이라 동작 변경 0건이어야 하며, 기존 PaneTerminalView 동작(활성 tab 경로 + activeTab nil shell fallback 경로 양쪽)과 byte-identical command 문자열 산출이 종료 조건이다.</dd>
+  </dl>
+  <h4>측정 가능한 종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>xcodegen generate</code> exit code 0 → <code>xcodebuild build -scheme ClaudeAlarmTerminal</code> exit code 0</li>
+    <li><input type="checkbox" disabled> <code>xcodebuild test -scheme SessionTests -only-testing:SessionTests/TerminalCommandBuilderTests</code> exit code 0(0 tests executed가 아님을 로그의 <code>Executed N tests</code> N&gt;=4로 확인)</li>
+    <li><input type="checkbox" disabled> <code>xcodebuild test -scheme SessionTests</code> + <code>-scheme WorkspaceTests</code> + <code>-scheme DaemonTests</code> 전부 exit code 0(기존 테스트 비파괴, 실패 0건)</li>
+    <li><input type="checkbox" disabled> <code>grep -cE "static func buildCommand|func shellQuote" Sources/UI/Pane/PaneTerminalView.swift</code> 결과가 위임 스텁 형태(본문이 <code>TerminalCommandBuilder</code> 호출 + fallback 처리)이거나 <code>shellQuote</code> 0건(완전 이전)</li>
+    <li><input type="checkbox" disabled> <code>grep -cn "static func build\(workspace" Sources/Session/TerminalCommandBuilder.swift</code> 결과 1 이상(신규 파일 + 시그니처 존재)</li>
+    <li><input type="checkbox" disabled> <code>grep -cE "Sources/Session" project.yml</code> 결과 4 이상(빌더가 자동 포함되는 타겟 멤버십 확인 — 실제로는 5개이나 통과 기준 4 이상; 별도 project.yml 편집 불필요)</li>
+  </ul>
+</div>
+
+<div class="day-card">
+  <h3 id="day-1">Day 1 — 트리 데이터 레이어: AgentTreeNode + AgentTreeBuilder + AgentTreeSelection</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>workspaces × snapshots × sessionIndex를 3단 트리(<code>AgentTreeNode</code>)로 join하는 순수 함수와 선택 상태 모델을 만든다. SwiftUI 비의존, 단위 테스트로 전 경로 측정.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>Sources/UI/AgentView/AgentTreeNode.swift</code> (신규) — <code>enum AgentTreeNode: Identifiable { case workspace/pane/tab }</code> + <code>children</code> 계산 프로퍼티. tab leaf만 <code>tabId</code>/<code>sessionId</code> 보유, workspace/pane은 선택 불가(tag nil).</li>
+        <li><code>Sources/UI/AgentView/AgentTreeBuilder.swift</code> (신규) — <code>static func build(workspaces:snapshots:) -&gt; [AgentTreeNode]</code>. 정방향 순회(workspaces → pane → tab, snapshot lookup). 정렬: workspace 추가순(P3.5 Q-β).</li>
+        <li><code>Sources/UI/AgentView/AgentTreeSelection.swift</code> (신규, <code>@MainActor ObservableObject</code>) — <code>@Published selectedTabId</code>, <code>@Published expandedNodeIds</code>, <code>func selectFirstAvailable(workspaces:)</code>(트리 첫 sessionId 보유 tab 선택), <code>func syncFromSidebar(workspaceId:)</code>(expand만).</li>
+      </ul>
+    </dd>
+    <dt>기술 노트</dt>
+    <dd><code>AgentTreeNode</code>는 immutable struct/enum. workspaces 변경 시 build를 다시 호출한다(SessionIndex 패턴과 동일). <code>selectFirstAvailable</code>는 workspace 추가순 첫 번째 → pane 순서 → tab 순서로 첫 <code>sessionId != nil</code> tab을 고른다. 전부 비면 nil(EmptyState). agent-view workspace 자신(<code>kind == .agentView</code>, panes 빈 배열)은 트리에서 제외하고 <code>kind == .normal</code>만 순회한다.</dd>
+  </dl>
+  <h4>측정 가능한 종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>xcodegen generate</code> exit code 0(신규 3파일 멤버십 반영)</li>
+    <li><input type="checkbox" disabled> <code>xcodebuild test -scheme SessionTests -only-testing:SessionTests/AgentTreeBuilderTests</code> exit code 0 — (a) 빈 workspaces → 빈 트리, (b) 1 ws/1 pane/2 tabs → 1+1+2 노드, (c) sessionId nil tab도 노드로 포함되되 selectFirstAvailable이 skip, (d) agentView kind workspace 제외. 로그 <code>Executed N tests</code> N&gt;=4</li>
+    <li><input type="checkbox" disabled> <code>xcodebuild test -scheme SessionTests -only-testing:SessionTests/AgentTreeSelectionTests</code> exit code 0 — <code>selectFirstAvailable</code>이 추가순 첫 sessionId tab 반환(<code>XCTAssertEqual(selection.selectedTabId, expectedTabId)</code>), 전부 빈 경우 nil. <code>syncFromSidebar(workspaceId:)</code> 호출 후 selectedTabId 무변경(호출 전후 <code>XCTAssertEqual</code>)</li>
+    <li><input type="checkbox" disabled> <code>grep -cn "import SwiftUI" Sources/UI/AgentView/AgentTreeBuilder.swift Sources/UI/AgentView/AgentTreeNode.swift</code> 결과 0건(순수 레이어 비의존 확인)</li>
+    <li><input type="checkbox" disabled> <code>xcodebuild test -scheme SessionTests</code> 전체 exit code 0(실패 0건)</li>
+  </ul>
+</div>
+
+<div class="day-card">
+  <h3 id="day-2">Day 2 — 우측 호스트: AgentTerminalHostView (재부모화 스파이크 선행)</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>선택된 tabId의 기존 surface를 <code>acquireExisting</code>으로 mount하는 NSViewRepresentable을 만든다. 같은 PTY/scrollback 공유 + 재부모화 규율(워크스페이스 탭 복귀 시 뷰 반환) + lazy 미생성 탭 클릭 시 신규 spawn. 재부모화는 미검증 가정이므로 스파이크로 먼저 실증한다.</dd>
+  </dl>
+  <div class="callout danger">
+    <div class="label">재부모화는 미검증 가정 — 스파이크 게이트 필수</div>
+    <p><code>acquireExisting</code>의 실제 사용처는 <code>GhosttyViewportProvider</code>(viewport 텍스트 read), <code>AgentJumpAction</code>(makeFirstResponder focus), <code>InternalInputWiring</code>(surfaceHandle 취득) 3곳뿐이고, <strong>반환된 NSView를 다른 SwiftUI 컨테이너에 mount하여 재부모화하는 경로는 코드베이스에 전무</strong>하다. 워크스페이스 탭 전환은 같은 컨테이너 트리 내 <code>.id()</code> 재생성이지 다른 부모로의 이동이 아니다. 따라서 "본 순간 워크스페이스 탭에서 사라지고 복귀 시 돌아온다"는 동작은 가정이며 Day 2 스파이크가 실증 게이트다.</p>
+  </div>
+  <dl>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li>(스파이크 선행) 재부모화 GUI 스파이크 — 최소 prototype으로 <code>acquireExisting</code> NSView를 두 컨테이너 사이에서 이동시켜 scrollback/포커스 보존을 육안 실증. <code>docs/plans/p5.5/walkthrough.md</code>에 결과 기록(성공/실패 + 관측). 실패 시 fallback 경로로 전환.</li>
+        <li><code>Sources/UI/AgentView/AgentTerminalHostView.swift</code> (신규, NSViewRepresentable) — <code>makeNSView</code>에서 <code>registry.acquireExisting(id: tab.id)</code> 시도 → 있으면 그 NSView 반환(재부모화), 없으면(lazy 미생성) <code>registry.acquire(id:factory:)</code>로 <code>TerminalCommandBuilder.build</code> 사용해 신규 생성. <code>.id(tab.id)</code>로 selectedTabId 변경 시 교체. <strong>(P5.5 결정 항목)</strong> 이 파일은 <code>GhosttyTerminalView</code>(GhosttyKit) 의존이므로 <code>project.yml</code>에서 <code>Sources/UI</code>를 포함하면서 GhosttyKit framework 의존이 없는 5개 타겟(SessionTests/WorkspaceTests/DaemonTests/SessionVerifier/DaemonDevCLI)의 <code>Sources/UI</code> excludes에 <code>**/AgentTerminalHostView.swift</code>를 추가한다(<code>GhosttyViewportProvider.swift</code>와 동일 처리). 즉 본 파일은 앱 타겟에서만 컴파일되고 위 5개 타겟에서는 제외된다.</li>
+        <li>release graceful 전환(엣지): 우측 mount 중인 tab의 세션이 <code>.exited</code> 되거나 <code>closeTab</code>/<code>closeWorkspace</code>로 surface가 release되면 우측 호스트는 EmptyState로 graceful 전환한다. <code>AgentSplitView</code>가 <code>selectedTabId</code>의 surface 존재 여부(<code>registry.contains(id:)</code>)와 snapshot <code>.exited</code>를 관찰하여 호스트 대신 EmptyState를 렌더한다(Day 3 조립 시 wire, 종료 조건은 Day 3 A11).</li>
+      </ul>
+    </dd>
+    <dt>기술 노트</dt>
+    <dd>
+      <ul>
+        <li><strong>재부모화 핵심(가정, 스파이크로 검증)</strong>: <code>acquireExisting</code>이 반환한 NSView가 이미 다른 곳에 mount된 경우, SwiftUI representable이 이를 자신의 컨테이너에 넣으면 AppKit <code>removeFromSuperview</code> + <code>addSubview</code>가 자동 발생할 것으로 기대한다. 스파이크가 이 동작과 scrollback 보존을 확인해야 본 설계가 성립한다(제약 1).</li>
+        <li>lazy spawn 경로: 한 번도 안 열린 탭은 <code>acquireExisting</code>이 nil → <code>acquire(id:factory:)</code>로 신규 생성. 이때 PTY가 새로 spawn된다(제약 2, 신규 셸이지만 같은 tabId라 이후엔 공유됨).</li>
+        <li>우측 host frame이 변하면 같은 PTY로 SIGWINCH(제약 3). 워크스페이스 복귀 시 재리사이즈됨. <code>GhosttyTerminalView.setFrameSize</code>/<code>layout()</code>이 이미 처리(기존 코드 재사용).</li>
+        <li><code>surfaceHandle</code> 접근은 <code>GhosttyViewportProvider</code> 패턴(ADR-E alloc/free 1:1)을 침해하지 않음 — 본 호스트는 read_text를 호출하지 않고 view를 mount만 함.</li>
+        <li><strong>fallback (스파이크 실패 시)</strong>: 재부모화가 scrollback 손상/포커스 유실/렌더 깨짐을 일으키면, 우측 호스트를 <strong>read-only 미러</strong>로 격하한다 — <code>GhosttyViewportProvider.readViewportText</code>로 선택 tab의 현재 viewport를 주기 폴링 표시하고(기존 <code>ViewportPollingTimer</code> 재사용), 실제 입력은 "이 세션은 워크스페이스 탭에서 조작하세요" 안내 + 워크스페이스 탭 점프 버튼으로 위임한다. 세션 공유의 "라이브 입력"은 포기하되 "라이브 관찰 + 빠른 점프"는 보존된다. fallback 채택은 Risks 첫 행에 바인딩.</li>
+      </ul>
+    </dd>
+  </dl>
+  <h4>측정 가능한 종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> (게이트) 재부모화 GUI 스파이크 1회 수행: agent-view mount → 워크스페이스 탭으로 같은 tab 전환 시 우측에서 소거 → 다시 agent-view 복귀 시 scrollback 보존 확인. 결과(성공 또는 fallback 전환)를 <code>docs/plans/p5.5/walkthrough.md</code>에 기록. <strong>이 게이트 통과 전에는 Day 3 진입 불가.</strong></li>
+    <li><input type="checkbox" disabled> <code>xcodegen generate</code> exit code 0 → <code>xcodebuild build -scheme ClaudeAlarmTerminal</code> exit code 0(호스트 뷰가 앱 타겟에서 컴파일)</li>
+    <li><input type="checkbox" disabled> <code>xcodebuild test -scheme SessionTests -only-testing:SessionTests/SurfaceRegistryInvariantTests</code> exit code 0 — <code>SurfaceRegistry</code>는 <code>Sources/UI/SurfaceLifecycle.swift</code>로 SessionTests에 포함됨(Pane/** 제외 대상 아님). (a) 동일 id <code>acquire</code> 후 <code>acquireExisting</code>이 동일 인스턴스(<code>XCTAssertTrue(v1 === v2)</code>), (b) <code>acquireExisting</code> 2회 동일 인스턴스, (c) 미등록 id에 nil, (d) <code>release</code> 후 <code>contains</code> false. <strong>주의: <code>AgentTerminalHostView</code>(NSViewRepresentable)는 GhosttyKit 의존 + 테스트 타겟 제외라 단위 테스트 대상이 아니다 — 재부모화 동작은 위 GUI 스파이크 게이트가 검증한다.</strong></li>
+    <li><input type="checkbox" disabled> <code>grep -cE "acquireExisting|acquire\(id:" Sources/UI/AgentView/AgentTerminalHostView.swift</code> 결과 2 이상(두 경로 모두 존재)</li>
+    <li><input type="checkbox" disabled> <code>grep -cE "GhosttyTerminalView\(" Sources/UI/AgentView/AgentTerminalHostView.swift</code> 결과 1(factory 내부 1건만, 중복 생성 경로 부재)</li>
+    <li><input type="checkbox" disabled> <code>grep -cE "AgentTerminalHostView.swift" project.yml</code> 결과 5(SessionTests/WorkspaceTests/DaemonTests/SessionVerifier/DaemonDevCLI 5개 타겟 excludes에 추가됨)</li>
+  </ul>
+</div>
+
+<div class="day-card">
+  <h3 id="day-3">Day 3 — 조립 + navigation 분기 + 카드 그리드 폐기 + walkthrough</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd><code>AgentTreeView</code>/<code>AgentTreeRow</code>/<code>AgentSplitView</code>를 조립하고 <code>WorkspaceContentView</code>의 <code>.agentView</code> 케이스를 교체한다. 사이드바 ↔ 트리 navigation 분기 규칙을 wire한다. 옵션 C대로 카드 그리드 UI 자산을 폐기한다. GUI walkthrough 1회로 세션 공유를 실증한다.</dd>
+    <dt>산출물</dt>
+    <dd>
+      <ul>
+        <li><code>Sources/UI/AgentView/AgentTreeRow.swift</code> (신규) — leading <code>AgentStatusBadge</code>(기존 재활용) + tab name + 한 줄 preview(기존 truncator 재활용 가능 시).</li>
+        <li><code>Sources/UI/AgentView/AgentTreeView.swift</code> (신규) — <code>List(selection:)</code> + <code>OutlineGroup</code>. tab leaf만 selectable.</li>
+        <li><code>Sources/UI/AgentView/AgentSplitView.swift</code> (신규) — <code>HSplitView { AgentTreeView; AgentTerminalHostView 또는 EmptyState }</code>. <code>onAppear</code>에서 <code>selectFirstAvailable</code>. dangling 처리: <code>.onChange(of: manager.workspaces)</code>에서 <code>selectedTabId</code>가 더 이상 트리에 없으면(<code>registry.contains</code> 및 sessionIndex locate 모두 실패) <code>selectFirstAvailable</code> 재호출. graceful: 선택 tab의 surface가 release됐거나 snapshot <code>.exited</code>면 우측을 EmptyState로 렌더.</li>
+        <li><code>Sources/UI/WorkspaceContentView.swift</code> (수정) — <code>.agentView</code> 케이스를 <code>AgentDashboardView</code> → <code>AgentSplitView</code>로 교체. <code>jumpAction</code> 파라미터 제거.</li>
+      </ul>
+    </dd>
+    <dt>폐기(옵션 C)</dt>
+    <dd>
+      <ul>
+        <li>파일 삭제: <code>AgentDashboardView.swift</code>, <code>AgentCardView.swift</code>, <code>AgentSortFilterControls.swift</code>, <code>AgentViewSettings.swift</code>, <code>AgentJumpAction.swift</code>. <code>AgentDashboardViewModel.swift</code>는 Day 1 결과에 따라(join 로직이 <code>AgentTreeBuilder</code>로 완전 이전됐으면 삭제, 아니면 보존).</li>
+        <li><strong><code>AgentJumpAction</code> 폐기 연쇄</strong>: ① <code>RootView.swift</code> — <code>jumpAction</code> 저장 프로퍼티 + init 파라미터 제거, ② <code>WorkspaceContentView.swift</code> — 동일 제거, ③ <code>AppDelegate.swift</code> — <code>AgentJumpAction</code> 생성/주입 wiring 제거, ④ <code>SessionIndex.swift</code> 주석의 <code>AgentJumpAction</code> 언급 정리(코드 무관, 주석만), ⑤ 테스트 삭제: <code>Tests/SessionTests/AgentJumpActionTests.swift</code>, ⑥ 테스트 정합 확인: <code>Tests/SessionTests/AgentViewInvariantTests.swift</code>(jumpAction 참조 시 수정/삭제), <code>Tests/WorkspaceTests/AgentViewCloseInvariantTests.swift</code>(agent-view close invariant — jumpAction 주입 시그니처 변경 영향 확인 후 수정).</li>
+        <li><code>extraFields["agentView.settings"]</code> 키 cleanup — <code>AgentViewSettings</code>/<code>updateAgentViewExtraFields</code> 경로 제거. <strong>영속 JSON 호환</strong>: 기존 저장 파일에 <code>agentView.settings</code> 키가 있어도 <code>Workspace</code>/<code>extraFields</code> catch-all(forward-compat: unknown key를 <code>extraFields</code>로 흡수)이 무시하고 보존하므로 마이그레이션 불필요. 종료 조건에서 기존 영속 파일 로드 시 디코드 에러 0건으로 확인.</li>
+      </ul>
+    </dd>
+    <dt>navigation 분기</dt>
+    <dd>P3.5 D3-6 R8 규칙: 사이드바 클릭 → workspace 선택 + 트리 expand(selectedTabId 무변경). 트리 tab 클릭 → selectedTabId 갱신 + 부모 ws가 사이드바와 다르면 사이드바 동기화.</dd>
+    <dt>기술 노트</dt>
+    <dd><code>WorkspaceContentView</code>/<code>RootView</code>는 generic <code>NormalContent</code> 주입 구조다. agent-view 케이스만 교체하므로 normal workspace 렌더 경로는 무영향이나, <code>jumpAction</code> 주입 시그니처 정리가 동반된다(RootView/WorkspaceContentView/AppDelegate 3곳의 init/wiring 변경). 컴파일러가 미해결 참조를 강제 검출한다. <code>AgentTreeBuilder</code>는 역인덱스 순회와 다른 정방향 순회(workspaces → panes → tabs)를 신규 작성하므로, 보존되는 것은 코드가 아니라 검증된 데이터 인프라(<code>SessionStatusObserver</code>/<code>SessionStatusCoordinator</code>/<code>AgentStatusBadge</code>/<code>SessionIndex</code>)다. <code>AgentDashboardViewModel</code> 자체는 폐기 후보다.</dd>
+  </dl>
+  <h4>측정 가능한 종료 조건</h4>
+  <ul class="exit-criteria">
+    <li><input type="checkbox" disabled> <code>xcodegen generate</code> exit code 0 → <code>xcodebuild build -scheme ClaudeAlarmTerminal</code> exit code 0(카드 자산 삭제 후 미해결 참조 0건이 컴파일로 강제됨)</li>
+    <li><input type="checkbox" disabled> <code>grep -rlE "AgentDashboardView|AgentCardView|AgentSortFilterControls|AgentJumpAction" Sources/ Tests/</code> 결과 0건(폐기 + 테스트 연쇄 완료)</li>
+    <li><input type="checkbox" disabled> <code>grep -cE "jumpAction" Sources/UI/RootView.swift Sources/UI/WorkspaceContentView.swift Sources/ClaudeAlarmTerminal/AppDelegate.swift</code> 결과 0건(주입 시그니처 정리 완료)</li>
+    <li><input type="checkbox" disabled> <code>grep -cE "AgentSplitView" Sources/UI/WorkspaceContentView.swift</code> 결과 1(교체 완료)</li>
+    <li><input type="checkbox" disabled> <code>grep -rlE "agentView.settings" Sources/</code> 결과 0건(키 cleanup)</li>
+    <li><input type="checkbox" disabled> <code>xcodebuild test -scheme SessionTests</code> + <code>-scheme WorkspaceTests</code> + <code>-scheme DaemonTests</code> 전부 exit code 0 — 삭제/이전 테스트 조정 후 실패 0건. 총 함수 수는 § 7 A7 산식으로 검산</li>
+    <li><input type="checkbox" disabled> <code>xcodebuild test -scheme SessionTests -only-testing:SessionTests/AgentSplitSelectionTests</code> exit code 0 — dangling selectedTabId(선택 tab이 workspaces에서 제거됨) 시 <code>selectFirstAvailable</code> 재호출로 selectedTabId가 유효 tab 또는 nil로 수렴함을 검증</li>
+    <li><input type="checkbox" disabled> <code>xcodebuild test -scheme WorkspaceTests -only-testing:WorkspaceTests/SchemaCodecTests</code> exit code 0 — <code>agentView.settings</code> 키 포함 기존 JSON 로드 시 디코드 에러 0건(extraFields catch-all 흡수)</li>
+    <li><input type="checkbox" disabled> 수동 walkthrough 결과 <code>docs/plans/p5.5/walkthrough.md</code>에 1회 기록(세션 공유 실증 캡처 또는 텍스트 로그)</li>
+  </ul>
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-4">4. Architecture Diagram</h2>
+<div class="ascii">                      RootView (HSplitView)
+        ┌──────────────────────────┬────────────────────────────────────┐
+        │  SidebarView             │  WorkspaceContentView                │
+        │  (workspace 목록)         │   switch workspace.kind              │
+        │                          │   ├─ .normal → normalContent(closure)│
+        │   ★ 에이전트 뷰           │   └─ .agentView → AgentSplitView ◄── 교체 대상
+        │   ▼ ws alpha             │                                      │
+        │   ▼ ws beta              │                                      │
+        └──────────────────────────┴────────────────────────────────────┘
+                                              │
+                                  AgentSplitView (HSplitView)
+        ┌───────────────────────────────┬─────────────────────────────────┐
+        │ AgentTreeView (좌, 240~360px)  │ AgentTerminalHostView (우)         │
+        │  OutlineGroup 3단 트리          │  selectedTabId → acquireExisting   │
+        │   ▼ ws alpha                   │                                    │
+        │     ▼ pane L                   │   ┌──────────────────────────┐    │
+        │       ∙ Claude  ◄─ 선택        │   │  같은 NSView / 같은        │    │
+        │       ✻ 셸                     │   │  ghostty_surface_t /       │    │
+        │     ▼ pane R                   │   │  같은 PTY / 같은 scrollback│    │
+        │       ! Claude                 │   └──────────────────────────┘    │
+        │   ▼ ws beta ...                │                                    │
+        └───────────────────────────────┴─────────────────────────────────┘
+              │                                  │
+              │ AgentTreeBuilder.build           │ acquireExisting(id: tabId)
+              ▼ (순수 함수)                       ▼
+   ┌────────────────────────┐         ┌───────────────────────────────┐
+   │ WorkspaceManager        │         │ SurfaceRegistry                │
+   │  .workspaces (영속)     │         │  [tabId: NSView] 1:1 (ADR-I)   │
+   │ SessionStatusCoordinator│         │  owner of all surfaces         │
+   │  .snapshots (status)    │         │                                │
+   └────────────────────────┘         └───────────────────────────────┘
+
+  재부모화 메커니즘 (제약 1, 가정 — Day 2 스파이크 검증 대상):
+    acquireExisting 가 반환한 NSView 를 우측 호스트가 addSubview →
+    AppKit 이 워크스페이스 탭 컨테이너에서 removeFromSuperview 강제 (기대) →
+    "동시 2곳 표시 불가, 마지막 mount 한 컨테이너로 뷰가 이동"
+    선례 없음 → 스파이크 실패 시 read-only 미러 fallback 으로 전환
+
+  선행 추출 (Day 0, 빌더는 Sources/Session/ 에 배치):
+    PaneTerminalView.buildCommand ──추출──▶ Sources/Session/TerminalCommandBuilder.build
+                                                  ▲
+                          AgentTerminalHostView (lazy spawn 시 동일 로직 사용, 제약 2)</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-5">5. Critical Code Specs</h2>
+<p>helper/util는 생략하고 의미적 핵심(시그니처, 핵심 분기, 에러 처리, actor isolation)만 기술한다.</p>
+
+<h3>5.1 TerminalCommandBuilder (Day 0)</h3>
+<pre><code><span class="com">// Sources/Session/TerminalCommandBuilder.swift (신규)</span>
+<span class="com">// SwiftUI 비의존. Session 타겟 — SessionTests/WorkspaceTests/DaemonTests/</span>
+<span class="com">// SessionVerifier/DaemonDevCLI 5개 타겟에 자동 포함. resolveClaudeBinary</span>
+<span class="com">// (BinaryResolver.swift) 와 SessionSpawnEnv 가 같은 디렉터리에 있어 의존이 동일</span>
+<span class="com">// 타겟 안에서 해소된다. PaneTerminalView 와 AgentTerminalHostView 가 공유.</span>
+
+<span class="kw">enum</span> <span class="typ">TerminalCommandBuilder</span> {
+    <span class="com">/// 특정 tab 의 kind 로 실행 command 문자열을 합성한다.</span>
+    <span class="com">/// 형태: /usr/bin/env KEY=VAL /bin/zsh -l (POSIX env(1) 호환).</span>
+    <span class="com">/// 동작은 기존 PaneTerminalView.buildCommand 와 byte-identical 이어야 한다.</span>
+    <span class="com">/// tab 을 직접 받는 단일 시그니처. activeTab fallback 은 호출부(위임 스텁)가 담당.</span>
+    <span class="kw">static func</span> <span class="fn">build</span>(workspace: <span class="typ">Workspace</span>, pane: <span class="typ">Pane</span>, tab: <span class="typ">Tab</span>) -&gt; <span class="typ">String</span> {
+        <span class="kw">switch</span> tab.kind {
+        <span class="kw">case</span> .claude:
+            <span class="com">// R2 이유 보존: zsh -lic 'exec claude' 로 fnm/nvm PATH init.</span>
+            <span class="kw">let</span> claudePath = (<span class="kw">try?</span> resolveClaudeBinary()) ?? <span class="str">"claude"</span>
+            <span class="kw">let</span> shell = workspace.envSnapshot[<span class="str">"SHELL"</span>] ?? <span class="str">"/bin/zsh"</span>
+            <span class="kw">return</span> <span class="str">"\(shell) -lic 'exec \(shellQuote(claudePath))'"</span>
+        <span class="kw">case</span> .shell:
+            <span class="com">// HISTFILE 격리 path. 실패 시 빈 문자열 fallback (UI 가 죽지 않도록).</span>
+            <span class="kw">let</span> dir = (<span class="kw">try?</span> <span class="typ">SessionSpawnEnv</span>.zshHistoryDir(
+                workspaceId: workspace.id, paneId: pane.id)) ?? <span class="str">""</span>
+            <span class="kw">let</span> shell = workspace.envSnapshot[<span class="str">"SHELL"</span>] ?? <span class="str">"/bin/zsh"</span>
+            <span class="kw">return</span> <span class="str">"/usr/bin/env HISTFILE=\(shellQuote(dir + "/history")) \(shell) -l"</span>
+        }
+    }
+
+    <span class="com">/// 공백/특수문자 path 는 단일 인용부호로 quote. 기존 동작 보존.</span>
+    <span class="kw">static func</span> <span class="fn">shellQuote</span>(_ path: <span class="typ">String</span>) -&gt; <span class="typ">String</span> { <span class="com">/* 기존 로직 이전 */</span> }
+}
+
+<span class="com">// PaneTerminalView.swift 는 위임 스텁으로 축소 (activeTab nil fallback 명시).</span>
+<span class="com">// 기존 pane.activeTab?.kind ?? .shell 분기를 보존하기 위해, activeTab 부재 시</span>
+<span class="com">// 합성 shell tab 을 만들어 byte-identical 한 shell command 경로를 탄다.</span>
+<span class="com">//   static func buildCommand(workspace: Workspace, pane: Pane) -> String {</span>
+<span class="com">//       let tab = pane.activeTab ?? Tab(kind: .shell, name: "셸")  // fallback 보존</span>
+<span class="com">//       return TerminalCommandBuilder.build(workspace: workspace, pane: pane, tab: tab)</span>
+<span class="com">//   }</span>
+<span class="com">// 주의: 합성 fallback tab 은 .shell 이라 build 의 .shell 경로(HISTFILE 격리)와</span>
+<span class="com">// 동일 출력을 내야 한다. TerminalCommandBuilderTests 가 activeTab nil 케이스로 검증.</span></code></pre>
+
+<h3>5.2 AgentTreeBuilder + AgentTreeSelection (Day 1)</h3>
+<pre><code><span class="com">// Sources/UI/AgentView/AgentTreeNode.swift (신규)</span>
+<span class="kw">enum</span> <span class="typ">AgentTreeNode</span>: <span class="typ">Identifiable</span> {
+    <span class="kw">case</span> workspace(id: <span class="typ">UUID</span>, name: <span class="typ">String</span>, children: [<span class="typ">AgentTreeNode</span>])
+    <span class="kw">case</span> pane(id: <span class="typ">UUID</span>, position: <span class="typ">PanePosition</span>, children: [<span class="typ">AgentTreeNode</span>])
+    <span class="kw">case</span> tab(id: <span class="typ">UUID</span>, sessionId: <span class="typ">UUID</span>?, name: <span class="typ">String</span>, kind: <span class="typ">PaneKind</span>,
+             snapshot: <span class="typ">SessionStatusSnapshot</span>?)   <span class="com">// status 뱃지 source</span>
+
+    <span class="kw">var</span> id: <span class="typ">UUID</span> { <span class="com">/* 각 case 의 id */</span> }
+    <span class="kw">var</span> children: [<span class="typ">AgentTreeNode</span>]? { <span class="com">/* workspace/pane 만 non-nil, tab leaf 는 nil */</span> }
+    <span class="kw">var</span> selectableTabId: <span class="typ">UUID</span>? { <span class="com">/* tab case 일 때만 id, 나머지 nil */</span> }
+}
+
+<span class="com">// Sources/UI/AgentView/AgentTreeBuilder.swift (신규, 순수 함수)</span>
+<span class="kw">enum</span> <span class="typ">AgentTreeBuilder</span> {
+    <span class="com">/// workspaces × snapshots 를 3단 트리로 join. agentView kind 는 제외.</span>
+    <span class="com">/// 정렬: workspace 추가순 (P3.5 Q-β). 정방향 순회(ws → panes → tabs) + snapshot lookup.</span>
+    <span class="kw">static func</span> <span class="fn">build</span>(
+        workspaces: [<span class="typ">Workspace</span>],
+        snapshots: [<span class="typ">UUID</span>: <span class="typ">SessionStatusSnapshot</span>]
+    ) -&gt; [<span class="typ">AgentTreeNode</span>] {
+        workspaces
+            .filter { $0.kind == .normal }
+            .map { ws <span class="kw">in</span>
+                <span class="kw">let</span> paneNodes = ws.panes.map { pane <span class="kw">in</span>
+                    <span class="kw">let</span> tabNodes = pane.tabs.map { tab <span class="kw">in</span>
+                        <span class="typ">AgentTreeNode</span>.tab(
+                            id: tab.id, sessionId: tab.sessionId,
+                            name: tab.name, kind: tab.kind,
+                            snapshot: tab.sessionId.flatMap { snapshots[$0] }
+                        )
+                    }
+                    <span class="kw">return</span> <span class="typ">AgentTreeNode</span>.pane(
+                        id: pane.id, position: pane.position, children: tabNodes)
+                }
+                <span class="kw">return</span> <span class="typ">AgentTreeNode</span>.workspace(
+                    id: ws.id, name: ws.name, children: paneNodes)
+            }
+    }
+}
+
+<span class="com">// Sources/UI/AgentView/AgentTreeSelection.swift (신규)</span>
+<span class="kw">@MainActor</span>
+<span class="kw">final class</span> <span class="typ">AgentTreeSelection</span>: <span class="typ">ObservableObject</span> {
+    <span class="kw">@Published var</span> selectedTabId: <span class="typ">UUID</span>?
+    <span class="kw">@Published var</span> expandedNodeIds: <span class="typ">Set</span>&lt;<span class="typ">UUID</span>&gt; = []
+
+    <span class="com">/// 트리의 첫 sessionId 보유 tab 을 선택 (추가순 first). 전부 비면 nil.</span>
+    <span class="kw">func</span> <span class="fn">selectFirstAvailable</span>(workspaces: [<span class="typ">Workspace</span>]) {
+        <span class="kw">for</span> ws <span class="kw">in</span> workspaces <span class="kw">where</span> ws.kind == .normal {
+            <span class="kw">for</span> pane <span class="kw">in</span> ws.panes {
+                <span class="kw">for</span> tab <span class="kw">in</span> pane.tabs <span class="kw">where</span> tab.sessionId != nil {
+                    selectedTabId = tab.id
+                    expandedNodeIds.insert(ws.id)
+                    expandedNodeIds.insert(pane.id)
+                    <span class="kw">return</span>
+                }
+            }
+        }
+        selectedTabId = nil   <span class="com">// EmptyState 트리거</span>
+    }
+
+    <span class="com">/// 사이드바 클릭 동기화: workspace expand 만, selectedTabId 무변경 (R8 규칙).</span>
+    <span class="kw">func</span> <span class="fn">syncFromSidebar</span>(workspaceId: <span class="typ">UUID</span>) {
+        expandedNodeIds.insert(workspaceId)
+    }
+}</code></pre>
+
+<h3>5.3 AgentTerminalHostView (Day 2) — 재부모화 핵심</h3>
+<pre><code><span class="com">// Sources/UI/AgentView/AgentTerminalHostView.swift (신규)</span>
+<span class="com">// GhosttyKit 의존 → SessionTests/WorkspaceTests/DaemonTests/SessionVerifier/</span>
+<span class="com">// DaemonDevCLI 5개 타겟 excludes 에 추가 (GhosttyViewportProvider.swift 와 동일).</span>
+<span class="com">// 앱 타겟에서만 컴파일, 단위 테스트 제외.</span>
+<span class="com">// CRITICAL: 같은 tabId 에 대해 두 번째 GhosttyTerminalView 를 절대 생성하지 않는다.</span>
+<span class="com">// acquireExisting 이 nil 일 때(lazy 미생성)만 acquire factory 로 1회 생성.</span>
+
+<span class="kw">struct</span> <span class="typ">AgentTerminalHostView</span>: <span class="typ">NSViewRepresentable</span> {
+    <span class="kw">let</span> workspace: <span class="typ">Workspace</span>
+    <span class="kw">let</span> pane: <span class="typ">Pane</span>
+    <span class="kw">let</span> tab: <span class="typ">Tab</span>
+    <span class="kw">let</span> ghosttyApp: <span class="typ">GhosttyApp</span>
+    <span class="kw">let</span> registry: <span class="typ">SurfaceRegistry</span>   <span class="com">// @MainActor isolated</span>
+
+    <span class="kw">@MainActor</span>
+    <span class="kw">func</span> <span class="fn">makeNSView</span>(context: <span class="typ">Context</span>) -&gt; <span class="typ">NSView</span> {
+        <span class="com">// (1) 기존 surface 가 있으면 재부모화 시도 — 같은 PTY/scrollback 공유.</span>
+        <span class="com">//     [가정, Day 2 스파이크로 검증] 이 NSView 가 워크스페이스 탭에 mount 돼</span>
+        <span class="com">//     있었다면 AppKit 이 addSubview 시 그쪽 superview 에서 자동 제거된다고</span>
+        <span class="com">//     기대한다 (제약 1). 코드베이스에 선례 없는 동작이므로 스파이크 게이트 통과</span>
+        <span class="com">//     전에는 이 경로를 신뢰하지 않는다. 실패 시 read-only 미러 fallback.</span>
+        <span class="kw">if let</span> existing = registry.acquireExisting(id: tab.id) {
+            <span class="kw">return</span> existing
+        }
+        <span class="com">// (2) lazy 미생성 탭 — 신규 spawn (제약 2). 같은 tabId 로 등록되므로</span>
+        <span class="com">//     이후 워크스페이스 탭과 공유된다. TerminalCommandBuilder 재사용(Day 0).</span>
+        <span class="kw">return</span> registry.acquire(id: tab.id) {
+            <span class="kw">let</span> command = <span class="typ">TerminalCommandBuilder</span>.build(
+                workspace: workspace, pane: pane, tab: tab)
+            <span class="kw">return</span> <span class="typ">GhosttyTerminalView</span>(
+                app: ghosttyApp, tabId: tab.id,
+                command: command, cwd: workspace.cwd, frame: .zero)
+        }
+    }
+
+    <span class="kw">func</span> <span class="fn">updateNSView</span>(_ nsView: <span class="typ">NSView</span>, context: <span class="typ">Context</span>) {
+        <span class="com">// no-op. size 변경은 GhosttyTerminalView.layout()/setFrameSize 가 처리</span>
+        <span class="com">// (제약 3: 우측 frame → SIGWINCH → 같은 PTY 리사이즈).</span>
+    }
+}
+
+<span class="com">// AgentSplitView 에서 .id(selection.selectedTabId) 로 교체 트리거.</span>
+<span class="com">// selectedTabId 변경 시 representable 재생성 → 새 tab 의 surface 로 우측 갱신.</span></code></pre>
+
+<!-- =================================================================== -->
+<h2 id="sec-6">6. ADR 운영화 — ADR-I (1 surface = 1 NSView)</h2>
+<p>ADR-I(<code>SurfaceRegistry</code>가 모든 surface의 owner, hibernate/pause 0줄)를 본 phase의 구체 정책으로 적용한다. 근거: <code>docs/p2/adr-i-application.md</code>.</p>
+<table>
+  <thead><tr><th>ADR-I 원칙</th><th>P5.5 적용 정책</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>1 surface = 1 NSView (tabId 1:1)</td>
+      <td>agent-view 우측 호스트는 <strong>기존 surface가 있으면 신규 생성하지 않는다</strong>. <code>acquireExisting(id: tab.id)</code>로 기존 NSView를 그대로 mount, lazy 미생성 시에만 <code>acquire</code> factory로 1회 생성. 두 번째 <code>GhosttyTerminalView</code> 직접 생성 경로 부재는 Day 2 종료 조건 <code>grep -cE "GhosttyTerminalView\(" Sources/UI/AgentView/AgentTerminalHostView.swift</code> 결과 1(factory 내부 1건만)로 봉쇄.</td>
+    </tr>
+    <tr>
+      <td>registry가 lifetime owner</td>
+      <td>우측 호스트는 surface를 <strong>release하지 않는다</strong>. agent-view를 떠나도 surface는 워크스페이스 탭/registry에 alive. release는 기존 <code>WorkspaceCoordinator.closeTab/closePane/closeWorkspace</code>만 수행(무변경).</td>
+    </tr>
+    <tr>
+      <td>동시 미러링 불가</td>
+      <td>같은 tabId surface를 우측 호스트와 워크스페이스 탭에 동시 표시 불가. AppKit <code>addSubview</code>가 마지막 컨테이너로 강제 이동(제약 1). 본 정책을 <code>AgentTerminalHostView</code> 주석 + 수락 기준 A1로 명문화.</td>
+    </tr>
+    <tr>
+      <td>lazy 미생성 surface</td>
+      <td>한 번도 안 열린 탭은 <code>acquireExisting</code> nil → <code>acquire</code> factory로 1회 신규 spawn(제약 2). 이때 <code>TerminalCommandBuilder</code>(Day 0 추출)로 spawn command 일관성 보장.</td>
+    </tr>
+    <tr>
+      <td>리사이즈 공유</td>
+      <td>우측 host frame이 워크스페이스 탭과 다르면 같은 PTY로 SIGWINCH(제약 3). <code>GhosttyTerminalView</code>의 기존 <code>setFrameSize</code>/<code>layout()</code> 콜백 재사용. 신규 리사이즈 코드 0줄.</td>
+    </tr>
+    <tr>
+      <td>alloc/free 1:1 (ADR-E 인접)</td>
+      <td>우측 호스트는 <code>ghostty_surface_read_text</code>를 호출하지 않으므로 <code>GhosttyViewportProvider</code>의 alloc/free 1:1 불변식과 무관. mount만 수행.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-7">7. Acceptance Criteria</h2>
+<p>모든 명령은 <code>xcodegen generate</code> 선행 + <code>xcodebuild</code> 형식. 테스트 타겟 SessionTests 권고.</p>
+<table>
+  <thead><tr><th>#</th><th>기준</th><th>검증 일자</th><th>검증 절차</th><th>통과</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>A1</td>
+      <td>같은 세션 동시 미러링 불가가 의도된 동작임을 실증(제약 1). 우측 호스트로 본 세션이 워크스페이스 탭에서 사라지고, 탭 복귀 시 돌아온다.</td>
+      <td>Day 2(스파이크)+Day 3</td>
+      <td>Day 2 재부모화 GUI 스파이크 게이트 + Day 3 walkthrough: agent-view에서 tab 클릭 → 우측 표시 → 워크스페이스 탭 이동 시 같은 세션이 그곳에 mount됨을 <code>docs/plans/p5.5/walkthrough.md</code>에 기록</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A2</td>
+      <td>우측 터미널은 신규 셸이 아니라 기존 세션(같은 PTY/scrollback). 재부모화 동작은 walkthrough 게이트, SurfaceRegistry 불변식은 단위 테스트로 분리.</td>
+      <td>Day 2</td>
+      <td>(단위) <code>xcodebuild test -scheme SessionTests -only-testing:SessionTests/SurfaceRegistryInvariantTests</code> exit 0 — 동일 id <code>acquire</code>/<code>acquireExisting</code> 동일 인스턴스 <code>XCTAssertTrue(v1 === v2)</code>. (재부모화) Day 2 GUI 스파이크 게이트 통과. NSViewRepresentable 호스트 자체는 단위 테스트 불가(GhosttyKit + 테스트 타겟 제외)</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A3</td>
+      <td>lazy 미생성 탭 우측 클릭 시 <code>TerminalCommandBuilder</code>로 신규 spawn(제약 2).</td>
+      <td>Day 2</td>
+      <td><code>grep -cE "acquireExisting|acquire\(id:" Sources/UI/AgentView/AgentTerminalHostView.swift</code> 2 이상(두 경로) + <code>grep -cE "TerminalCommandBuilder.build" Sources/UI/AgentView/AgentTerminalHostView.swift</code> 1</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A4</td>
+      <td>신규 영속 모델 0건 — 트리는 기존 workspaces/snapshots 파생.</td>
+      <td>Day 1</td>
+      <td><code>grep -cE "Codable" Sources/UI/AgentView/AgentTreeNode.swift Sources/UI/AgentView/AgentTreeBuilder.swift</code> 결과 0건(영속 스키마 부재)</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A5</td>
+      <td>buildCommand 공용 추출 후 기존 동작 byte-identical(활성 tab + activeTab nil shell fallback 양 경로).</td>
+      <td>Day 0</td>
+      <td><code>xcodebuild test -scheme SessionTests -only-testing:SessionTests/TerminalCommandBuilderTests</code> exit 0(fallback 케이스 포함) + 기존 <code>WorkspaceCoordinatorTests</code> 등 green</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A6</td>
+      <td>카드 그리드 UI 자산 폐기 완료(옵션 C, 테스트 연쇄 포함).</td>
+      <td>Day 3</td>
+      <td><code>grep -rlE "AgentDashboardView|AgentCardView|AgentSortFilterControls|AgentJumpAction" Sources/ Tests/</code> 결과 0건 + <code>grep -cE "jumpAction" Sources/UI/RootView.swift Sources/UI/WorkspaceContentView.swift Sources/ClaudeAlarmTerminal/AppDelegate.swift</code> 0건</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A7</td>
+      <td>기존 테스트 비파괴 — 데몬/워크스페이스/세션 백엔드 무영향. 산식: 사전 집계 함수 330건. 폐기 N건, 신규 M건, 잔존 K=330−N+M건 green.</td>
+      <td>Day 0~3 매일</td>
+      <td><code>xcodebuild test -scheme SessionTests</code> + <code>-scheme WorkspaceTests</code> + <code>-scheme DaemonTests</code> 전부 exit 0. 폐기 N은 Day 3 사전 집계(AgentJumpActionTests + AgentDashboardViewModelTests + AgentViewSettingsTests + AgentDashboardIntegrationTests의 <code>func test</code> 수 합산, <code>grep -cE "func test" &lt;4파일&gt;</code>로 N 확정 후 K 산출)</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A8</td>
+      <td>navigation 분기 규칙 wire(R8). 사이드바 클릭=expand만, 트리 tab 클릭=우측 교체+사이드바 동기화.</td>
+      <td>Day 1(단위)+Day 3(통합)</td>
+      <td><code>xcodebuild test -scheme SessionTests -only-testing:SessionTests/AgentTreeSelectionTests</code> exit 0 — <code>syncFromSidebar</code>가 selectedTabId 무변경(<code>XCTAssertEqual</code> 호출 전후) + Day 3 walkthrough</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A9</td>
+      <td>트리 빌드 순수 함수 검증 — 노드 수/제외/정렬.</td>
+      <td>Day 1</td>
+      <td><code>xcodebuild test -scheme SessionTests -only-testing:SessionTests/AgentTreeBuilderTests</code> exit 0(빈/단일/다중/agentView제외 4케이스, <code>Executed N tests</code> N&gt;=4)</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A10</td>
+      <td>빌드 무결성.</td>
+      <td>Day 0~3 매일</td>
+      <td><code>xcodegen generate</code> exit 0 → <code>xcodebuild build -scheme ClaudeAlarmTerminal</code> exit 0</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A11</td>
+      <td>엣지: 선택 tab 제거/세션 exited 시 우측 graceful 전환(EmptyState) + selectedTabId 수렴.</td>
+      <td>Day 3</td>
+      <td><code>xcodebuild test -scheme SessionTests -only-testing:SessionTests/AgentSplitSelectionTests</code> exit 0 — dangling selectedTabId 시 <code>selectFirstAvailable</code> 재호출로 유효 tab 또는 nil 수렴. 보조: 선택 tab 제거/세션 exited 시 우측이 EmptyState로 전환됨을 walkthrough 1회 육안 확인(<code>docs/plans/p5.5/walkthrough.md</code>)</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-8">8. Risks &amp; Mitigations</h2>
+<table>
+  <thead><tr><th>위험</th><th>가능성</th><th>영향</th><th>완화</th><th>책임</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>재부모화 미검증 가정</strong> — <code>acquireExisting</code> NSView를 다른 SwiftUI 컨테이너로 mount하는 경로가 코드베이스에 선례 없음. scrollback/포커스 유실, 렌더 깨짐, 또는 SwiftUI representable 재생성과 AppKit addSubview 타이밍 충돌 가능.</td>
+      <td><span class="tag danger">상</span></td>
+      <td>높음(단계 존재 이유 훼손)</td>
+      <td><strong>Day 2 첫 종료 조건을 재부모화 GUI 스파이크 게이트로 신설</strong>(이 행에 바인딩). 스파이크가 "agent-view mount → 워크스페이스 탭 소거 → 복귀 시 scrollback 보존"을 실증해야 Day 3 진입. <code>SurfaceRegistry</code> 불변식은 별도 단위 테스트(A2). <code>.id(tabId)</code> 교체가 release를 트리거하지 않음을 코드 리뷰로 확인. <strong>fallback: 스파이크 실패 시 우측 호스트를 read-only 미러(ViewportPollingTimer 폴링 표시)로 격하 + 입력은 워크스페이스 탭 점프 버튼으로 위임</strong>.</td>
+      <td>executor + code-reviewer</td>
+    </tr>
+    <tr>
+      <td>동시 미러링 불가가 사용자에게 "버그"로 보임 — 워크스페이스 탭에서 세션이 사라짐</td>
+      <td><span class="tag warn">중</span></td>
+      <td>중</td>
+      <td>제약 1을 의도된 동작으로 A1에 명문화. <code>AgentTerminalHostView</code> 주석 + (선택) UI 힌트. 현 UI는 한 번에 한 탭만 보이므로 실사용 충돌 적음(master 명시).</td>
+      <td>planner(문서) + designer(UI 힌트)</td>
+    </tr>
+    <tr>
+      <td>카드 그리드 폐기가 숨은 의존(AppDelegate wiring, jumpAction 파라미터)을 깨뜨림</td>
+      <td><span class="tag warn">중</span></td>
+      <td>중</td>
+      <td>컴파일러가 미해결 참조를 강제 검출(<code>xcodebuild build -scheme ClaudeAlarmTerminal</code> exit 0이 종료 조건 A10). 폐기 연쇄(RootView/WorkspaceContentView/AppDelegate + 테스트 4건)를 Day 3에 몰아 한 번에 처리하고 관련 테스트 운명을 명시적 처리(삭제/이전).</td>
+      <td>executor</td>
+    </tr>
+    <tr>
+      <td>lazy spawn 경로가 워크스페이스 탭의 spawn과 다른 command 산출 → 불일치</td>
+      <td><span class="tag">낮음</span></td>
+      <td>중</td>
+      <td>Day 0에서 <code>TerminalCommandBuilder</code>로 단일화. byte-identical 종료 조건(A5). 양 호출처가 동일 타입 사용을 <code>grep</code>으로 검증.</td>
+      <td>executor + verifier</td>
+    </tr>
+    <tr>
+      <td>기존 테스트 중 카드 관련 ~6파일 삭제 시 커버리지 공백</td>
+      <td><span class="tag warn">중</span></td>
+      <td>낮음</td>
+      <td>데이터 인프라(observer/coordinator/index) 테스트는 보존(옵션 C). 폐기는 UI 컴포넌트 테스트만. 신규 트리 테스트(builder/selection/registry invariant)로 핵심 경로 대체.</td>
+      <td>test-engineer</td>
+    </tr>
+    <tr>
+      <td>리사이즈 공유로 워크스페이스 복귀 시 화면 깨짐(SIGWINCH 왕복)</td>
+      <td><span class="tag">낮음</span></td>
+      <td>낮음</td>
+      <td>제약 3을 기존 <code>GhosttyTerminalView.layout()</code> 재리사이즈에 위임(신규 코드 0). walkthrough에서 복귀 후 화면 정상 렌더 육안 확인.</td>
+      <td>executor</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-9">9. Exit Gate to P6a</h2>
+<p>P6a(Pairing UI + 토큰 발급) 진입 전 다음을 모두 충족한다.</p>
+<ul class="exit-criteria">
+  <li><input type="checkbox" disabled> A1~A11 전 기준 통과(체크박스 전건 통과)</li>
+  <li><input type="checkbox" disabled> <code>xcodegen generate</code> exit code 0 → <code>xcodebuild build -scheme ClaudeAlarmTerminal</code> exit code 0</li>
+  <li><input type="checkbox" disabled> <code>xcodebuild test -scheme SessionTests</code> + <code>-scheme WorkspaceTests</code> + <code>-scheme DaemonTests</code> 전부 exit code 0(폐기/이전 테스트 조정 반영, A7 산식 K건 green)</li>
+  <li><input type="checkbox" disabled> <code>grep -rlE "AgentDashboardView|AgentCardView|AgentJumpAction" Sources/ Tests/</code> 0건(옵션 C 폐기 + 테스트 연쇄 완료)</li>
+  <li><input type="checkbox" disabled> <code>grep -rlE "TerminalCommandBuilder" Sources/</code> — <code>Sources/Session/TerminalCommandBuilder.swift</code>(정의) + <code>PaneTerminalView</code>(위임) + <code>AgentTerminalHostView</code>(lazy spawn) 3곳에서 사용 확인</li>
+  <li><input type="checkbox" disabled> Day 2 재부모화 스파이크 게이트 통과(또는 fallback 전환 결정) 기록</li>
+  <li><input type="checkbox" disabled> 세션 공유 walkthrough 1회 기록(<code>docs/plans/p5.5/walkthrough.md</code>)</li>
+  <li><input type="checkbox" disabled> P3.5 REQ-5 부채 closed 표기 — <code>development-master-plan-v2.md</code> § 5 부채 표 갱신, project memory <code>project_p3.5_deferred_debt.md</code> 갱신(잔존 W-3-1만)</li>
+  <li><input type="checkbox" disabled> Day별 commit 완료. 데몬/모바일 트랙 코드 무변경 확인(<code>git diff --stat</code>에 <code>Sources/Daemon</code>/<code>Sources/Push</code> 0줄)</li>
+</ul>
+<p>P6a는 데스크톱 트랙의 다음 단계로, 본 단계와 독립적이다(P6a 의존성은 P4/P5 데몬 + WS 인증). 단, agent-view 안정화가 P6a 페어링 UI를 얹을 데스크톱 셸을 견고하게 한다.</p>
+
+<!-- =================================================================== -->
+<h2 id="app-a">부록 A — 환경 변수</h2>
+<table>
+  <thead><tr><th>변수</th><th>용도</th><th>P5.5 관련성</th></tr></thead>
+  <tbody>
+    <tr><td><code>CHAT_TERMINAL_DEBUG_SURFACE_STATS</code></td><td><code>~/Library/Logs/ClaudeAlarmTerminal/surface-stats.log</code>에 1Hz로 resident mem + active surface count 기록(ADR-I telemetry)</td><td>재부모화 시 surface count가 증가하지 않음(신규 생성 안 함) 검증 보조. agent-view 진입/이탈 전후 <code>surf=N</code> 동일 확인.</td></tr>
+    <tr><td><code>HISTFILE</code></td><td>shell tab의 history 격리 path(<code>TerminalCommandBuilder</code>가 주입)</td><td>lazy spawn 경로에서 동일 격리 적용 확인</td></tr>
+    <tr><td><code>SHELL</code></td><td><code>workspace.envSnapshot["SHELL"]</code> fallback <code>/bin/zsh</code></td><td>command 합성 입력(추출 후 동일)</td></tr>
+  </tbody>
+</table>
+
+<h2 id="app-b">부록 B — 참고 문헌</h2>
+<ul>
+  <li><code>docs/plans/development-master-plan-v2.md</code> § 3 P5.5 — 요구사항·알려진 제약 3건의 원천</li>
+  <li><code>docs/plans/p3.5/p3.5-detailed.html</code> D3-6(REQ-5 트리 컴포넌트 청사진), D3-7(P3 자산 보존/폐기 매핑)</li>
+  <li><code>docs/p2/adr-i-application.md</code> — ADR-I cmux 패턴 운영화(SurfaceRegistry/acquire/release/telemetry)</li>
+  <li><code>Sources/UI/SurfaceLifecycle.swift</code> — <code>SurfaceRegistry.acquire</code>/<code>acquireExisting</code>/<code>release</code></li>
+  <li><code>Sources/UI/Pane/PaneTerminalView.swift</code> — <code>buildCommand</code> 추출 원본(Day 0), 추출 후 위임 스텁</li>
+  <li><code>Sources/Session/BinaryResolver.swift</code> / <code>Sources/Session/SessionSpawnEnv.swift</code> — 빌더 의존 타입(빌더를 <code>Sources/Session/</code>에 두는 근거)</li>
+  <li><code>project.yml</code> — XcodeGen 타겟/스킴 정의(빌드/테스트 명령의 근거). SessionTests/WorkspaceTests/DaemonTests의 <code>Sources/UI</code> excludes 패턴</li>
+  <li><code>docs/plans/p5/p5-detailed.html:540/575</code> — xcodegen/xcodebuild 종료 조건 표준 형식</li>
+  <li><code>Sources/UI/AgentView/AgentDashboardViewModel.swift</code> — 폐기 대상(옵션 C). 보존되는 것은 하위 데이터 인프라</li>
+  <li><code>Sources/Session/SessionStatusCoordinator.swift</code> — 트리 status 뱃지 source</li>
+  <li><code>Sources/Session/SessionIndex.swift</code> — sessionId 역인덱스 패턴</li>
+  <li>project memory <code>project_p3.5_deferred_debt.md</code> — REQ-5 → P5.5 부활 결정 근거</li>
+  <li><code>~/.claude/rules/plan-documents.md</code> — 본 상세 계획서 작성 규약</li>
+</ul>
+
+</main>
+</div>
+</body>
+</html>

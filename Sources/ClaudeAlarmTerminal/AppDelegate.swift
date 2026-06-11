@@ -21,7 +21,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     )
     private let statusCoordinator = SessionStatusCoordinator()
     private let focusedPaneStore = FocusedPaneStore()
-    private var agentJumpAction: AgentJumpAction?
     private var sessionActionRouter: SessionActionRouter?
     private var viewportPollingTimer: ViewportPollingTimer?
 
@@ -98,13 +97,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         self.debugRenderStats = DebugRenderStats(registry: registry)
 
         // P3 Day 5 wiring: SessionStatusCoordinator 가 observer publisher 와 lifecycle
-        // hook 을 단방향 소비하도록 attach. AgentJumpAction 으로 카드 click 점프 가능.
-        let jumpAction = AgentJumpAction(
-            manager: manager,
-            focusedPaneStore: focusedPaneStore,
-            surfaceRegistry: registry
-        )
-        self.agentJumpAction = jumpAction
+        // hook 을 단방향 소비하도록 attach.
         statusCoordinator.attach(observer: statusObserver)
         Task { @MainActor [statusCoordinator, sessionManager] in
             await statusCoordinator.attach(lifecycleHooks: sessionManager.hooks)
@@ -169,10 +162,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         window.center()
 
         let app = self.ghosttyApp
+        // agentContent closure 가 캡처할 수 있도록 인스턴스 프로퍼티를 지역 상수화
+        // (normalContent 가 coordinator/app 을 지역 캡처하는 패턴과 동일).
+        let statusCoordinator = self.statusCoordinator
+        // P5.5: 트리 선택/펼침 상태를 뷰 밖에서 단일 소유 — agent-view 를
+        // 떠났다 돌아와도(뷰 재생성) 선택과 펼침이 보존된다.
+        let agentTreeSelection = AgentTreeSelection()
         let rootView = RootView(
             manager: manager,
             coordinator: statusCoordinator,
-            jumpAction: jumpAction,
             onCloseWorkspace: { id in
                 Task { @MainActor in
                     await coordinator.closeWorkspace(id: id)
@@ -182,18 +180,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 Task { @MainActor in
                     await coordinator.addWorkspace(cwd: cwd, name: name)
                 }
+            },
+            normalContent: { workspace in
+                if let app = app {
+                    WorkspacePaneContentView(
+                        workspace: workspace,
+                        ghosttyApp: app,
+                        coordinator: coordinator
+                    )
+                } else {
+                    Text("libghostty 가 초기화되지 않았습니다.")
+                }
+            },
+            agentContent: {
+                // P5.5: agent-view 좌우 스플릿(좌측 트리 + 우측 라이브 터미널 호스트).
+                // GhosttyApp/SurfaceRegistry 의존이라 closure 로 격리 주입.
+                if let app = app {
+                    AgentSplitView(
+                        manager: manager,
+                        coordinator: statusCoordinator,
+                        registry: registry,
+                        ghosttyApp: app,
+                        selection: agentTreeSelection
+                    )
+                } else {
+                    Text("libghostty 가 초기화되지 않았습니다.")
+                }
             }
-        ) { workspace in
-            if let app = app {
-                WorkspacePaneContentView(
-                    workspace: workspace,
-                    ghosttyApp: app,
-                    coordinator: coordinator
-                )
-            } else {
-                Text("libghostty 가 초기화되지 않았습니다.")
-            }
-        }
+        )
         let hosting = NSHostingView(rootView: rootView)
         window.contentView = hosting
 
