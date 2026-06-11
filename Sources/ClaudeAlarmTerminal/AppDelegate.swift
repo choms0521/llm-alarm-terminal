@@ -26,9 +26,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var viewportPollingTimer: ViewportPollingTimer?
 
     /// Day 7 lifecycle hook. P1 keeps the body of the will-sleep / did-wake
-    /// handlers empty (logs only). P4 will invalidate WS-attached state and
-    /// arm push fallback here. See `docs/lifecycle-policy.md`.
-    private let powerObserver = PowerEventObserver()
+    /// handlers empty (logs only). P5 Day 5 reconstructs this with an
+    /// `AttachmentInvalidator` so sleep arms the push fallback. `var` because the
+    /// reconstruction needs the registry, which only exists after `DaemonBootstrap`.
+    private var powerObserver = PowerEventObserver()
+
+    /// P5 Day 3 (g): in-process WebSocket daemon launched at startup by
+    /// `DaemonBootstrap`. Before P5 only the dev CLI / tests started the daemon;
+    /// the app now boots it.
+    private var daemonHandle: DaemonHandle?
+
+    /// P5 Day 4 (h): drives live internal-input attachment once the daemon is up.
+    private var internalInputCoordinator: InternalInputCoordinator?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // P2 Day 3: replace P1 single-surface window with a SwiftUI sidebar +
@@ -194,11 +203,57 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         configureMainMenu()
         powerObserver.start()
 
+        // P5 Day 3 (g): launch the in-process WebSocket daemon at startup.
+        // WSServer.start() is async, so hop onto a main-actor Task.
+        Task { @MainActor in
+            do {
+                let handle = try await DaemonBootstrap().start()
+                self.daemonHandle = handle
+                // P5 Day 5: lid-close → invalidate all WS attachments so push
+                // fallback fires during sleep. Reconstruct powerObserver (let→var)
+                // with the willSleep handler now that the registry exists.
+                let invalidator = AttachmentInvalidator(registry: handle.registry)
+                self.powerObserver.stop()
+                self.powerObserver = PowerEventObserver(
+                    willSleep: { Task { await invalidator.invalidateAllAttached() } }
+                )
+                self.powerObserver.start()
+                // P5 Day 4 (h): live-wire internal (Claude) input once the daemon
+                // is up. Runtime firing is verified by manual C2 sign-off.
+                let coordinator = InternalInputCoordinator(
+                    provider: RegistrySurfaceProvider(registry: registry),
+                    daemon: handle.daemon,
+                    internalSessions: { [weak self] in self?.internalClaudeSessions() ?? [] }
+                )
+                self.internalInputCoordinator = coordinator
+                coordinator.start()
+                Self.logger.info("daemon 기동 완료")
+            } catch {
+                Self.logger.error("daemon 기동 실패: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+
         // 종료조건 #7: v1 → v2 변환이 일어났으면 윈도우 표시 후 한국어 성공 다이얼로그 1회.
         // (modal 이 부팅을 막지 않도록 makeKeyAndOrderFront 이후에 표시.)
         if case .migrated(let backupURL) = migrationResult {
             SchemaMigrationDialogs.presentSuccess(backupURL: backupURL, in: window)
         }
+    }
+
+    /// P5 Day 4 (h): live Claude (internal) sessions as (tabId, sessionId) pairs.
+    /// Read-only traversal of the workspace model, mirroring `resolveSessionId`.
+    @MainActor
+    private func internalClaudeSessions() -> [(tabId: UUID, sessionId: UUID)] {
+        guard let mgr = workspaceManager else { return [] }
+        var out: [(tabId: UUID, sessionId: UUID)] = []
+        for ws in mgr.workspaces {
+            for pane in ws.panes {
+                for tab in pane.tabs where tab.kind == .claude {
+                    if let sid = tab.sessionId { out.append((tab.id, sid)) }
+                }
+            }
+        }
+        return out
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

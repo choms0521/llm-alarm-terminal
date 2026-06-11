@@ -58,4 +58,13 @@ public actor SessionBindRegistry {
         bindings[clientId] = nil
         lastSeq[clientId] = nil
     }
+
+    /// Sleep / lid-close invalidation: drops every client→session binding so
+    /// `boundClient(forSession:)` returns nil and the push fallback path fires.
+    /// `lastSeq` (seq tracking) is intentionally preserved — a client that
+    /// reconnects after wake must keep monotonic-seq continuity (P6), so
+    /// `clientCount` stays unchanged. Distinct from `cleanup`, which drops both.
+    public func invalidateAllBindings() {
+        bindings.removeAll(keepingCapacity: true)   // lastSeq preserved
+    }
 }
