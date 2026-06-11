@@ -144,10 +144,12 @@ Day 3 에서 `AgentSplitView`(좌측 `AgentTreeView` + 우측 `AgentTerminalHost
   agent-view 트리에서 처음 클릭한다. → 우측에 신규 셸이 spawn 된다(프롬프트가 새로
   뜸). 이후 사이드바에서 그 tab 의 normal workspace 로 이동하면 같은 셸이 공유된다.
 
-- [x] **(5) graceful EmptyState:** 우측에 mount 중인 tab 의 세션을 종료한다(`exit`
-  입력으로 `.exited`, 또는 사이드바에서 해당 workspace close). → 우측이 EmptyState
+- [x] **(5) graceful EmptyState:** 우측에 mount 중인 tab 을 close 한다(탭 close 또는
+  사이드바에서 해당 workspace close — surface release 경로). → 우측이 EmptyState
   ("좌측 트리에서 세션을 선택하세요")로 전환된다(크래시/빈 surface 잔존/검은 화면
   없음). 트리에서 다른 유효 tab 을 클릭하면 우측이 그 세션으로 정상 복귀한다.
+  참고: `exit` 입력만으로 `.exited` 가 된 세션은 surface 가 release 되기 전까지
+  마지막 화면을 그대로 표시한다 — normal 워크스페이스 탭과 동일한 의도된 동작.
 
 - [x] **(6) navigation 분기(A8, R8):** 사이드바에서 다른 normal workspace 를 클릭한다.
   → agent-view 좌측 트리에서 그 workspace 노드가 expand 되지만, 우측 호스트의 선택

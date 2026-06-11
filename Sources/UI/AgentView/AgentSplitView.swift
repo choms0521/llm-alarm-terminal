@@ -16,8 +16,10 @@ import SwiftUI
 ///
 /// - `manager.workspaces` 변경 시 선택 tab 이 더 이상 트리에 없으면(직접 탐색 실패)
 ///   `selectFirstAvailable` 로 유효 tab 또는 nil 로 수렴한다.
-/// - 선택 tab 의 surface 가 release 됐거나(`registry.contains` false) snapshot 이
-///   `.exited` 면 우측을 EmptyState 로 graceful 전환한다.
+/// - 선택 tab 의 세션이 `.exited` 이고 surface 도 release 된 경우(`registry.contains`
+///   false) 우측을 EmptyState 로 graceful 전환한다. 세션이 `.exited` 라도 surface 가
+///   살아 있으면(closeTab 전) 마지막 화면을 그대로 표시한다 — normal 워크스페이스
+///   탭이 종료된 세션을 보여주는 방식과 동일(같은 surface 공유의 일관성).
 ///
 /// GhosttyKit 의존(`AgentTerminalHostView`)이므로 앱 타겟 전용이다.
 struct AgentSplitView: View {
@@ -103,18 +105,20 @@ struct AgentSplitView: View {
 
     /// 호스팅 가능 여부(graceful 판정).
     /// - lazy 미생성 탭(sessionId nil): 호스트가 클릭 시 신규 spawn 하므로 hostable.
-    /// - 세션 있는 탭: surface 가 살아 있고 snapshot 이 `.exited` 가 아니면 hostable.
+    /// - 세션 있는 탭: surface 가 살아 있으면 hostable — `.exited` 라도 surface 가
+    ///   release 되기 전(closeTab 전)이면 마지막 화면을 표시한다(워크스페이스 탭과
+    ///   동일 동작). `.exited` 이면서 surface 까지 release 된 경우에만 EmptyState.
     private func isHostable(_ target: (workspace: Workspace, pane: Pane, tab: Tab)) -> Bool {
         guard let sessionId = target.tab.sessionId else {
             // 한 번도 안 열린 lazy 탭 — 우측 클릭 시 신규 spawn(제약 2).
             return true
         }
-        // surface 가 release 됐으면 EmptyState.
         guard registry.contains(id: target.tab.id) || coordinator.snapshots[sessionId] != nil else {
             // surface 미생성이고 snapshot 도 없으면 아직 한 번도 안 뜬 셈 → spawn 가능.
             return true
         }
-        // 세션이 종료됐으면 graceful EmptyState.
+        // 세션이 종료됐고 surface 도 release 됐으면(closeTab/closeWorkspace 이후)
+        // 재호스팅이 불가능하므로 graceful EmptyState.
         if coordinator.snapshots[sessionId]?.agentStatus == .exited,
            !registry.contains(id: target.tab.id) {
             return false
