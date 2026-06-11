@@ -147,11 +147,10 @@ final class TerminalCommandBuilderTests: XCTestCase {
                        "'/it'\\''s/claude'")
     }
 
-    /// 공백 포함 claude path 가 build 결과 안에서 quote 된 형태로 나타난다.
-    func test_build_claudeKind_quotesClaudePathWithSpace() {
-        // shellQuote 가 build 에 적용됨을 직접 검증.
+    /// 공백 포함 path 가 single-quote 로 감싸진다. build 는 claude 명령 합성 시
+    /// 이 shellQuote 를 사용하므로 quoting 규칙 자체를 직접 검증한다.
+    func test_shellQuote_quotesPathWithSpace() {
         let quoted = TerminalCommandBuilder.shellQuote("/My Tools/claude")
-        XCTAssertEqual(quoted, "'/My Tools/claude'",
-                       "공백 포함 path 는 build 내부에서 quote 되어 합성된다")
+        XCTAssertEqual(quoted, "'/My Tools/claude'")
     }
 }

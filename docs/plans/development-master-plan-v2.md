@@ -54,7 +54,7 @@ P5까지 데스크톱 데몬의 코어 파이프라인(PTY ↔ WS envelope ↔ P
 
 agent-view를 카드 그리드에서 **좌우 스플릿 작업 화면**으로 진화시킨다. 좌측은 workspace → pane → tab(세션) 계층 트리, 우측은 트리에서 클릭한 세션의 **라이브 터미널**이 즉시 뜨는 호스트 영역. 여러 셸을 agent-view 안에서 직접 오가며 작업할 수 있다.
 
-- **세션 공유가 핵심 요구**: 우측에 뜨는 터미널은 새 셸이 아니라 **기존 세션 그대로**(같은 PTY, 같은 scrollback). 근거 — ADR-I 구조상 `SurfaceRegistry`가 모든 터미널 NSView의 owner라서 화면 재구성과 무관하게 surface가 생존하며, `acquireExisting(id: tabId)`로 같은 NSView를 다른 컨테이너에 재부모화하는 패턴이 이미 워크스페이스 탭 전환에서 검증되어 있다
+- **세션 공유가 핵심 요구**: 우측에 뜨는 터미널은 새 셸이 아니라 **기존 세션 그대로**(같은 PTY, 같은 scrollback). 근거 — ADR-I 구조상 `SurfaceRegistry`가 모든 터미널 NSView의 owner라서 화면 재구성과 무관하게 surface가 생존하며, `acquireExisting(id: tabId)`로 같은 NSView를 다른 컨테이너에 재부모화한다. 컨테이너 간 재부모화는 기존 탭 전환(동일 컨테이너 내 surface 교체)과 다른 신규 동작이므로 P5.5 Day 2에서 `SurfaceRegistryInvariantTests` 스파이크 + GUI walkthrough로 검증했다
 - 좌측 트리 데이터는 `WorkspaceManager.workspaces` + `SessionStatusCoordinator.snapshots`(status 뱃지) 재사용 — 신규 모델 불필요
 - 우측 호스트: `acquireExisting`으로 선택 세션의 뷰를 mount하는 NSViewRepresentable + 재부모화 규율(워크스페이스 탭 복귀 시 뷰 반환). 다중 세션 동시 표시(우측 분할)는 각 세션이 독립 surface라 가능
 - 기존 카드 그리드/점프는 보존 또는 트리로 흡수(상세 계획에서 결정)

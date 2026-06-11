@@ -97,9 +97,12 @@ final class SurfaceRegistryInvariantTests: XCTestCase {
         XCTAssertEqual(agentHostContainer.subviews.count, 0)
 
         // (2) agent-view 진입: acquireExisting 으로 같은 인스턴스를 가져와 부모 B 에 mount.
-        let mounted = registry.acquireExisting(id: id)
+        guard let mounted = registry.acquireExisting(id: id) else {
+            XCTFail("등록된 id 에 대해 acquireExisting 이 nil 을 반환")
+            return
+        }
         XCTAssertTrue(mounted === surface, "재부모화 대상은 동일 인스턴스(신규 생성 아님)")
-        agentHostContainer.addSubview(mounted!)
+        agentHostContainer.addSubview(mounted)
 
         // (3) AppKit 이 부모 A 에서 자동 제거하고 부모 B 로 이동(재부모화 자동 동작).
         XCTAssertTrue(surface.superview === agentHostContainer,
@@ -109,9 +112,12 @@ final class SurfaceRegistryInvariantTests: XCTestCase {
         XCTAssertEqual(agentHostContainer.subviews.count, 1)
 
         // (4) 워크스페이스 탭 복귀: 다시 부모 A 로 재부모화 — 여전히 동일 인스턴스.
-        let restored = registry.acquireExisting(id: id)
+        guard let restored = registry.acquireExisting(id: id) else {
+            XCTFail("복귀 시 acquireExisting 이 nil 을 반환")
+            return
+        }
         XCTAssertTrue(restored === surface, "복귀 시에도 동일 인스턴스(surface/scrollback 보존)")
-        workspaceContainer.addSubview(restored!)
+        workspaceContainer.addSubview(restored)
         XCTAssertTrue(surface.superview === workspaceContainer,
                       "복귀 시 부모 A 로 재부모화")
         XCTAssertEqual(agentHostContainer.subviews.count, 0,
@@ -131,8 +137,11 @@ final class SurfaceRegistryInvariantTests: XCTestCase {
         let containerB = NSView()
         containerA.addSubview(surface)
         // agent-view 호스트가 acquireExisting 으로 같은 surface 를 mount.
-        let again = registry.acquireExisting(id: id)
-        containerB.addSubview(again!)
+        guard let again = registry.acquireExisting(id: id) else {
+            XCTFail("등록된 id 에 대해 acquireExisting 이 nil 을 반환")
+            return
+        }
+        containerB.addSubview(again)
 
         XCTAssertEqual(registry.activeCount, 1,
                        "재부모화는 신규 surface 를 생성하지 않음(activeCount 불변)")
