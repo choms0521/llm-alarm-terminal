@@ -41,6 +41,7 @@ targets:
       - path: Sources/UI
       - path: Sources/Daemon
       - path: Sources/Push
+      - path: Sources/Pairing
     resources:
       - path: Resources
         excludes:
@@ -273,6 +274,7 @@ targets:
           - "**/AgentSplitView.swift"
           - "**/PushSettingsView.swift"
       - path: Sources/Daemon
+      - path: Sources/Pairing
       - path: Sources/DaemonDevCLI
     dependencies:
       - package: AnyCodable
@@ -307,6 +309,7 @@ targets:
           - "**/AgentSplitView.swift"
       - path: Sources/Daemon
       - path: Sources/Push
+      - path: Sources/Pairing
       - path: Tests/DaemonTests
     dependencies:
       - package: AnyCodable
