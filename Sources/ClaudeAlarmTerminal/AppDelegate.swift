@@ -38,6 +38,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     /// P5 Day 4 (h): drives live internal-input attachment once the daemon is up.
     private var internalInputCoordinator: InternalInputCoordinator?
 
+    /// P6a Day 3: 신뢰 디바이스를 실 Keychain에 보관하는 store. DaemonBootstrap에 주입해
+    /// 데몬 토큰 인증이 실 Keychain을 보게 하고, 페어링 UI도 같은 store를 공유한다.
+    private let deviceStore: any DeviceStore = KeychainDeviceStore()
+
+    /// P6a Day 3: 6자리 코드 발급 세션. 페어링 UI가 코드/QR을 발급하는 데 쓴다.
+    private let pairingSession = PairingSession()
+
+    /// P6a Day 3: 페어링 화면 모델. 데몬 port를 알아야 wsEndpoint를 구성할 수 있어
+    /// DaemonBootstrap 완료 후 생성한다.
+    private var pairingModel: PairingModel?
+
+    /// P6a Day 3: 페어링 창. 메뉴에서 처음 열 때 lazy 생성한다.
+    private var pairingWindow: NSWindow?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // P2 Day 3: replace P1 single-surface window with a SwiftUI sidebar +
         // workspace content split. libghostty is instantiated up-front because
@@ -221,8 +235,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // WSServer.start() is async, so hop onto a main-actor Task.
         Task { @MainActor in
             do {
-                let handle = try await DaemonBootstrap().start()
+                // P6a Day 3: 실 Keychain store를 주입해 데몬 토큰 인증이 디스크의 신뢰 목록을
+                // 보게 한다. 페어링 UI도 같은 store를 공유한다.
+                let handle = try await DaemonBootstrap(store: self.deviceStore).start()
                 self.daemonHandle = handle
+
+                // P6a Day 3: 데몬 port가 정해졌으니 페어링 화면 모델을 구성한다. wsEndpoint는
+                // loopback ws://127.0.0.1:<port>/ (D-5).
+                self.pairingModel = PairingModel(
+                    session: self.pairingSession,
+                    store: self.deviceStore,
+                    wsEndpoint: "ws://127.0.0.1:\(handle.port)/"
+                )
                 // P5 Day 5: lid-close → invalidate all WS attachments so push
                 // fallback fires during sleep. Reconstruct powerObserver (let→var)
                 // with the willSleep handler now that the registry exists.
@@ -295,6 +319,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             keyEquivalent: ""
         )
         appMenu.addItem(NSMenuItem.separator())
+
+        // P6a Day 3: 페어링 창 진입점. PushSettings와 나란히 앱 메뉴에 둔다.
+        let pairingItem = NSMenuItem(
+            title: "디바이스 페어링…",
+            action: #selector(openPairingWindow(_:)),
+            keyEquivalent: ""
+        )
+        pairingItem.target = self
+        appMenu.addItem(pairingItem)
+        appMenu.addItem(NSMenuItem.separator())
+
         appMenu.addItem(
             withTitle: "Hide \(appName)",
             action: #selector(NSApplication.hide(_:)),
@@ -481,6 +516,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         MainActor.assumeIsolated {
+            // 페어링 항목은 workspace와 무관하다. 데몬 부트스트랩으로 모델이 준비됐을 때만 활성.
+            if menuItem.action == #selector(openPairingWindow(_:)) {
+                return pairingModel != nil
+            }
             guard let manager = workspaceManager else { return false }
             switch menuItem.action {
             case #selector(closeCurrentWorkspaceFromMenu(_:)):
@@ -509,6 +548,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 return true
             }
         }
+    }
+
+    // MARK: - Pairing window (P6a Day 3)
+
+    /// 페어링 창을 연다. 처음 열 때 NSHostingView로 PairingView를 lazy 생성한다. 데몬
+    /// 부트스트랩이 끝나야 pairingModel이 존재하므로, 미준비 시 안내 다이얼로그를 띄운다.
+    @objc private func openPairingWindow(_ sender: Any?) {
+        guard let model = pairingModel else {
+            let alert = NSAlert()
+            alert.messageText = "페어링을 아직 준비하지 못했습니다."
+            alert.informativeText = "데몬이 기동된 뒤 다시 시도해 주세요."
+            alert.addButton(withTitle: "확인")
+            alert.runModal()
+            return
+        }
+
+        if let window = pairingWindow {
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        let hosting = NSHostingView(rootView: PairingView(model: model))
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 640),
+            styleMask: [.titled, .closable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "디바이스 페어링"
+        window.contentView = hosting
+        window.isReleasedWhenClosed = false
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        self.pairingWindow = window
     }
 
     // MARK: - Workspace shortcut handlers

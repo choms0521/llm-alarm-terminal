@@ -140,6 +140,9 @@ targets:
           - "**/AgentTerminalHostView.swift"
           - "**/AgentSplitView.swift"
           - "**/PushSettingsView.swift"
+          - "**/PairingView.swift"
+          - "**/QRImageView.swift"
+          - "**/PairingModel.swift"
       - path: Sources/SessionVerifier
     dependencies:
       - package: AnyCodable
@@ -205,6 +208,9 @@ targets:
           - "**/PushSettingsView.swift"
           - "**/AgentTerminalHostView.swift"
           - "**/AgentSplitView.swift"
+          - "**/PairingView.swift"
+          - "**/QRImageView.swift"
+          - "**/PairingModel.swift"
       - path: Tests/WorkspaceTests
     dependencies:
       - package: AnyCodable
@@ -239,6 +245,9 @@ targets:
           - "**/PushSettingsView.swift"
           - "**/AgentTerminalHostView.swift"
           - "**/AgentSplitView.swift"
+          - "**/PairingView.swift"
+          - "**/QRImageView.swift"
+          - "**/PairingModel.swift"
       - path: Tests/SessionTests
     dependencies:
       - package: AnyCodable
@@ -273,6 +282,9 @@ targets:
           - "**/AgentTerminalHostView.swift"
           - "**/AgentSplitView.swift"
           - "**/PushSettingsView.swift"
+          - "**/PairingView.swift"
+          - "**/QRImageView.swift"
+          - "**/PairingModel.swift"
       - path: Sources/Daemon
       - path: Sources/Pairing
       - path: Sources/DaemonDevCLI
@@ -307,6 +319,9 @@ targets:
           - "**/GhosttyViewportProvider.swift"
           - "**/AgentTerminalHostView.swift"
           - "**/AgentSplitView.swift"
+          - "**/PairingView.swift"
+          - "**/QRImageView.swift"
+          - "**/PairingModel.swift"
       - path: Sources/Daemon
       - path: Sources/Push
       - path: Sources/Pairing
