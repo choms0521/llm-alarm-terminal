@@ -78,24 +78,16 @@ struct WorkspacePaneContentView: View {
 
     @ViewBuilder
     private func paneSlot(pane: Pane) -> some View {
-        PaneTerminalView(
+        // P3.5 Day 3 (REQ-2): bare PaneTerminalView 를 PaneTabContainer 로 wrap.
+        // pane 단위 close 버튼 overlay 는 제거됐다. pane 정리는 per-tab close +
+        // cascade(REQ-4)로 일원화된다(탭바의 "×" 가 마지막 tab 을 닫으면 pane 자동 제거).
+        PaneTabContainer(
             workspace: workspace,
             pane: pane,
             ghosttyApp: ghosttyApp,
-            registry: coordinator.surfaceRegistry
+            coordinator: coordinator
         )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .overlay(alignment: .topTrailing) {
-                PaneCloseButton(onClose: {
-                    Task { @MainActor in
-                        await coordinator.closePane(
-                            workspaceId: workspace.id,
-                            paneId: pane.id
-                        )
-                    }
-                })
-                .padding(6)
-            }
             .id(pane.id)
     }
 

@@ -331,6 +331,118 @@ REQ-3 사용자 체감 회복 검증. P3 시연에서 매번 재로그인 surfac
 
 ---
 
+## Day 3 — schema migration + pane 좌우 분할 + 탭 cascade 검증 항목 (3건)
+
+REQ-1(좌우 분할) + REQ-2(멀티탭) + REQ-4(탭 close cascade) + Day 2 migration 의 통합 시연. 실제 v1 fixture 를 변환한 뒤 변환된 workspace 에서 분할/탭 동작을 검증한다.
+
+### W-3-1. v1 → v2 schema migration (한국어 성공 다이얼로그 + backup 생성)
+
+Day 2 의 v1→v2 migration 이 실제 v1 fixture 에서 동작하고, 변환 시 한국어 성공 다이얼로그 1회 + backup 파일 1개를 남기는지 확인.
+
+**사전 준비**
+
+1. 앱 종료 (Cmd+Q)
+2. v1 형식(schema version 1, pane 에 `top`/`bottom` + 단일 `sessionId`/`kind`) workspaces.json 을 배치:
+   ```
+   cp docs/p3.5/fixtures/workspaces-v1-sample.json \
+      "$HOME/Library/Application Support/ClaudeAlarmTerminal/workspaces.json"
+   ```
+   (fixture 부재 시 기존 v1 백업본 사용)
+
+**절차**
+
+1. 앱 실행
+2. 부팅 직후 다이얼로그 관찰
+3. backup 파일 생성 확인:
+   ```
+   ls -la "$HOME/Library/Application Support/ClaudeAlarmTerminal/"workspaces.json.v1-pre-migration-* 2>/dev/null
+   ```
+
+**기대 결과**
+
+- 한국어 schema 변환 성공 다이얼로그가 **정확히 1회** 표시 (backup 경로 안내 포함)
+- `workspaces.json.v1-pre-migration-<ISO8601 타임스탬프>` 형식 backup 파일 **1개** 생성
+  (P2 atomic write 의 `.bak`(직전 정상본)과는 의미가 분리된 별도 영속 backup)
+- 변환된 workspace 가 사이드바에 정상 노출 (pane 의 `top`/`bottom` → `left`/`right`, 단일 session → 단일 tab)
+
+**통과 판정**
+
+- [ ] PASS: 다이얼로그 1회 + backup 1개 + 변환 workspace 정상 노출
+- [ ] FAIL: 다이얼로그 미표시/중복 / backup 미생성 / 변환 실패
+
+---
+
+### W-3-2. pane 좌우(HStack) 분할 (REQ-1)
+
+REQ-1 (상하 → 좌우 분할) 이 시각적으로 좌 | 우 배치인지 확인.
+
+**절차**
+
+1. 변환된(또는 신규) normal workspace 선택
+2. 하단 control bar 의 "Pane 분할" 버튼(또는 Cmd+D) → kind 선택(claude/shell)
+3. 두 번째 pane 이 추가된 배치 관찰
+
+**기대 결과**
+
+- 두 pane 이 **좌 | 우** 로 배치 (상/하 아님)
+- 좌측 pane | Divider | 우측 pane 형태
+- 세 번째 분할 시도는 비활성 (pane 최대 2개 invariant)
+
+**통과 판정**
+
+- [ ] PASS: 좌우 분할 배치 확인 + 3번째 분할 차단
+- [ ] FAIL: 상하 분할로 surfacing 또는 3번째 pane 허용
+
+---
+
+### W-3-3. 탭 추가 / 전환 / close cascade (REQ-2 + REQ-4)
+
+멀티탭 컨테이너의 탭바 동작과 close → pane → workspace 자동 정리 cascade 를 확인.
+
+**절차**
+
+1. normal workspace 의 한 pane 선택
+2. 탭바 우측 "+" 클릭 → kind 선택 → 새 탭 추가 (탭 2개 됨)
+3. 탭바에서 탭 클릭하여 전환 (또는 Cmd+Shift+] / [) → surface 가 탭별로 교체되는지 관찰
+4. 첫 탭의 "×" 클릭 → 탭만 닫히고 pane 유지 확인
+5. 남은 탭의 "×" (또는 Cmd+W) 클릭 → pane 자동 제거 확인
+6. (단일 pane workspace 였다면) 마지막 pane 제거 → workspace 자동 close 확인
+7. agent-view 선택 상태에서 Cmd+W / Cmd+Shift+W 가 비활성인지 확인
+
+**기대 결과**
+
+- "+" → 새 탭 생성 + 새 탭이 활성화
+- 탭 전환 시 각 탭의 surface 가 보존된 채 교체 (상태 유지, 재spawn 부재)
+- 다중 탭 중 1개 close → 탭만 제거, pane 유지 (cascade 미발동)
+- 마지막 탭 close → pane 자동 제거 (cascade)
+- 마지막 pane 제거 → workspace 자동 close (cascade)
+- agent-view 활성 시 Cmd+W(탭 닫기) / Cmd+Shift+W(워크스페이스 닫기) 둘 다 비활성
+
+**통과 판정**
+
+- [ ] PASS: 탭 추가/전환/close + 3단 cascade + agent-view 보호 전부 정상
+- [ ] FAIL: 탭 전환 시 surface 재생성(상태 소실) / cascade 미발동 / agent-view close 허용
+
+---
+
+## Day 3 종합 통과 판정
+
+위 3개 항목(W-3-1, W-3-2, W-3-3) 전부 통과해야 Day 4 (agent-view 재설계) 진입 가능. 자동 테스트(WorkspaceManagerCascadeTests 11건)는 cascade 모델 로직을 커버하나, 좌우 분할 시각 배치와 탭 전환 시 surface 보존은 본 manual walkthrough 로만 검증 가능하다.
+
+판정 결과는 본 walkthrough 카탈로그 하단의 Day 3 실행 결과에 timestamp + 결정자 sign-off 로 기록한다.
+
+### Day 3 실행 결과
+
+| 항목 | 검증 일자 | 결과 | 결정자 sign-off |
+| --- | --- | --- | --- |
+| W-3-1 schema migration | _시연 대기_ | — | (v1 fixture 배치 후 시연 예정) |
+| W-3-2 좌우 분할 | 2026-06-09 14:18 KST | **PASS** | choms0521 |
+| W-3-3 탭 cascade | 2026-06-09 14:18 KST | **PASS** | choms0521 |
+
+> **상태**: Day 3 코드 구현 + 자동 테스트(257건 전부 통과) 완료. W-3-2(좌우 분할) + W-3-3(탭 추가/전환/close cascade)는 결정자 직접 시연 PASS. W-3-1(v1→v2 migration)은 v1 형식 `workspaces.json` 배치가 필요한 특수 경로로, `docs/p3.5/fixtures/workspaces-v1-sample.json` 배치 후 시연 예정.
+
+---
+
 ## 카탈로그 운영 원칙
 
 1. **walkthrough 종료마다 결과 기록 의무** — Day 0/1/3/5/8 마다 timestamp + 통과/실패 + 결정자 sign-off
