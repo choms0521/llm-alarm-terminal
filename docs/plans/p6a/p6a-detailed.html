@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P6a 상세 계획서 — 페어링 UI + 토큰 발급 (QR + 6자리 코드) (2026-06-11)</title>
+<style>
+  :root {
+    --bg: #fbfaf7;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d8dee4;
+    --accent: #0550ae;
+    --accent-soft: #ddf4ff;
+    --warn: #9a6700;
+    --warn-soft: #fff8c5;
+    --danger: #cf222e;
+    --danger-soft: #ffebe9;
+    --ok: #1a7f37;
+    --ok-soft: #dafbe1;
+    --code-bg: #f3f0ea;
+    --code-fg: #24292f;
+    --table-stripe: #f6f3ec;
+    --table-head: #eceae3;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Helvetica, Arial, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 32px;
+    padding: 32px 24px;
+  }
+
+  aside.toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    border-right: 1px solid var(--border);
+    padding-right: 16px;
+    font-size: 13.5px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+  }
+
+  aside.toc h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin: 0 0 12px 0;
+  }
+
+  aside.toc ol {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+  }
+
+  aside.toc ol li {
+    margin: 4px 0;
+  }
+
+  aside.toc ol ol {
+    padding-left: 14px;
+    margin-top: 4px;
+  }
+
+  aside.toc a {
+    color: var(--fg);
+    text-decoration: none;
+  }
+
+  aside.toc a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+
+  main {
+    max-width: 900px;
+    min-width: 0;
+  }
+
+  h1 {
+    font-size: 28px;
+    margin: 0 0 8px 0;
+    line-height: 1.3;
+  }
+
+  h2 {
+    font-size: 22px;
+    margin-top: 40px;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h3 {
+    font-size: 18px;
+    margin-top: 28px;
+    margin-bottom: 8px;
+  }
+
+  h4 {
+    font-size: 15px;
+    margin-top: 20px;
+    margin-bottom: 6px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  p { margin: 8px 0; }
+
+  .meta {
+    color: var(--muted);
+    font-size: 13.5px;
+    margin-bottom: 24px;
+  }
+
+  .meta strong { color: var(--fg); }
+
+  code {
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+
+  pre {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 14px 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    border: 1px solid var(--border);
+  }
+
+  pre code {
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+  }
+
+  .kw { color: #cf222e; font-weight: 600; }
+  .str { color: #0a3069; }
+  .com { color: #6e7781; font-style: italic; }
+  .num { color: #0550ae; }
+  .typ { color: #953800; }
+  .fn { color: #8250df; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13.5px;
+  }
+
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    background: var(--table-head);
+    font-weight: 600;
+  }
+
+  tbody tr:nth-child(even) {
+    background: var(--table-stripe);
+  }
+
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin: 16px 0;
+  }
+
+  .callout.warn {
+    border-left-color: var(--warn);
+    background: var(--warn-soft);
+  }
+
+  .callout.danger {
+    border-left-color: var(--danger);
+    background: var(--danger-soft);
+  }
+
+  .callout.ok {
+    border-left-color: var(--ok);
+    background: var(--ok-soft);
+  }
+
+  .callout .label {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    margin-bottom: 4px;
+  }
+
+  .day-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin: 18px 0;
+    background: #fff;
+  }
+
+  .day-card h3 {
+    margin-top: 0;
+  }
+
+  .day-card dl {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 6px 16px;
+    margin: 8px 0 12px 0;
+    font-size: 14px;
+  }
+
+  .day-card dt {
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .day-card dd {
+    margin: 0;
+  }
+
+  ul.exit-criteria {
+    list-style: none;
+    padding-left: 0;
+    margin: 8px 0 0 0;
+  }
+
+  ul.exit-criteria li {
+    margin: 4px 0;
+    font-size: 14px;
+  }
+
+  ul.exit-criteria input[type="checkbox"] {
+    margin-right: 8px;
+  }
+
+  .ascii {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.45;
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    background: var(--accent-soft);
+    color: var(--accent);
+    margin-right: 4px;
+  }
+
+  .tag.warn { background: var(--warn-soft); color: var(--warn); }
+  .tag.danger { background: var(--danger-soft); color: var(--danger); }
+  .tag.ok { background: var(--ok-soft); color: var(--ok); }
+
+  .pending {
+    color: var(--warn);
+    font-style: italic;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 28px 0;
+  }
+
+  @media print {
+    aside.toc { display: none; }
+    .layout { display: block; max-width: 100%; padding: 0; }
+    main { max-width: 100%; }
+    .day-card { page-break-inside: avoid; }
+    pre, .ascii { page-break-inside: avoid; }
+    body { font-size: 11pt; }
+    h2 { page-break-after: avoid; }
+  }
+
+  @media (max-width: 900px) {
+    .layout {
+      grid-template-columns: 1fr;
+    }
+    aside.toc {
+      position: static;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      padding-right: 0;
+      padding-bottom: 16px;
+      max-height: none;
+    }
+    .day-card dl {
+      grid-template-columns: 1fr;
+    }
+    .day-card dt {
+      margin-top: 4px;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <h2>목차</h2>
+  <ol>
+    <li><a href="#sec-1">1. 개요</a></li>
+    <li><a href="#sec-2">2. RALPLAN-DR Summary</a>
+      <ol>
+        <li><a href="#sec-2-1">2.1 Principles</a></li>
+        <li><a href="#sec-2-2">2.2 Decision Drivers</a></li>
+        <li><a href="#sec-2-3">2.3 Option D-1 — WS 인증 게이트 위치</a></li>
+        <li><a href="#sec-2-4">2.4 Option D-2 — Device 저장 전략</a></li>
+        <li><a href="#sec-2-5">2.5 Option D-4 — payload 전달 경로</a></li>
+        <li><a href="#sec-2-6">2.6 잔여 결정 D-3/D-5</a></li>
+      </ol>
+    </li>
+    <li><a href="#sec-3">3. Day-by-Day Work Package</a>
+      <ol>
+        <li><a href="#day-0">Day 0 — 핸드셰이크 reject 스파이크</a></li>
+        <li><a href="#day-1">Day 1 — DeviceStore + 토큰 발급 코어</a></li>
+        <li><a href="#day-2">Day 2 — WS 인증 2단 게이트</a></li>
+        <li><a href="#day-3">Day 3 — Pairing UI (QR + 6자리)</a></li>
+        <li><a href="#day-4">Day 4 — e2e 시뮬레이션 + Exit</a></li>
+      </ol>
+    </li>
+    <li><a href="#sec-4">4. Architecture Diagram</a></li>
+    <li><a href="#sec-5">5. Critical Code Specs</a></li>
+    <li><a href="#sec-6">6. ADR 운영화 — ADR-A</a></li>
+    <li><a href="#sec-7">7. Pre-mortem + 확장 테스트 계획</a>
+      <ol>
+        <li><a href="#sec-7-1">7.1 Pre-mortem (4 시나리오)</a></li>
+        <li><a href="#sec-7-2">7.2 확장 테스트 계획</a></li>
+      </ol>
+    </li>
+    <li><a href="#sec-8">8. Acceptance Criteria</a></li>
+    <li><a href="#sec-9">9. Risks &amp; Mitigations</a></li>
+    <li><a href="#sec-10">10. Exit Gate to P6b</a></li>
+    <li><a href="#app-a">부록 A. 환경 변수</a></li>
+    <li><a href="#app-b">부록 B. 참고 문헌</a></li>
+  </ol>
+</aside>
+
+<main>
+
+<h1>P6a 상세 계획서 — 페어링 UI + 토큰 발급 (QR + 6자리 코드)</h1>
+<p class="meta">
+  <strong>대상 단계</strong>: development-master-plan-v2 § 3 P6a<br>
+  <strong>대상 레포</strong>: macOS Swift 앱 (libghostty 기반 터미널, in-process 데몬)<br>
+  <strong>문서 작성일</strong>: 2026-06-11<br>
+  <strong>예상 작업 일수</strong>: 5일 (Day 0~4, master 범위 3~5일의 상한 — deliberate 보안 단계)<br>
+  <strong>합의 모드</strong>: <span class="tag danger">DELIBERATE</span> (보안/인증 영역 — pre-mortem + 확장 테스트 필수)<br>
+  <strong>승인 경로</strong>: ralplan 합의 (Planner v1 → Architect SOUND → Critic APPROVE). 합의 이력은 APPROVE 후 <code>docs/plans/p6a/p6a-history.md</code>
+</p>
+
+<!-- =================================================================== -->
+<h2 id="sec-1">1. 개요</h2>
+
+<h4>Goal</h4>
+<p>데스크톱이 모바일 디바이스를 <strong>신뢰 목록(device registry)</strong>에 올리는 입구를 만든다. 사용자는 <strong>QR 원샷</strong> 또는 <strong>6자리 코드</strong>(5분 만료) 두 경로로 디바이스를 페어링하고, 데스크톱은 디바이스별 토큰을 발급해 Keychain에 보관한다. 발급 이후 모든 WS 연결은 <code>Authorization: Bearer</code>를 요구하며, 미인증 연결은 즉시 close된다. 모바일 클라이언트 없이 <code>DaemonDevCLI</code> 확장으로 디바이스를 흉내내어 토큰 등록 → WS 인증 라운드트립을 e2e 검증한다.</p>
+
+<h4>Side</h4>
+<p>desktop (macOS, Apple Silicon). 모바일 트랙은 P8 이후이며, 본 단계는 데스크톱 단독으로 완결된 vertical slice를 가진다.</p>
+
+<h4>Scope (in) — 이번 단계에서 반드시 끝낸다</h4>
+<ul>
+  <li>페어링 payload 모델 <code>PairingPayload { pairingId, deviceTokenSecret, wsEndpoint, pushChannelHint, expiresAt }</code> + base64url(JSON) 인코딩 + custom URL scheme</li>
+  <li>QR 생성: CoreImage <code>CIQRCodeGenerator</code>로 payload를 QR 이미지로 렌더 (NSImage)</li>
+  <li>6자리 코드: <code>SecRandomCopyBytes</code> 기반 충돌-방지 난수 코드 + 5분 만료 카운트다운 + 데몬 <code>pairing claim</code> WS endpoint에서 secret 교환</li>
+  <li><code>Device { id, name, fcmToken?, apnsToken?, expiresAt, revoked }</code> 모델 + <code>DeviceStore</code> protocol seam (<code>KeychainDeviceStore</code> 실 구현 + <code>InMemoryDeviceStore</code> 테스트 fake)</li>
+  <li>토큰 발급/검증: <code>DeviceTokenIssuer</code> (HMAC-SHA256 또는 random secret) + <code>DeviceTokenVerifier</code> (constant-time 비교)</li>
+  <li>WS 인증 2단 게이트: 핸드셰이크 <code>setClientRequestHandler</code>가 구조 검증 통과 <code>(tokenId, secret)</code>를 클라이언트 일회성 nonce를 키로 <code>pendingAuth</code>에 등록(coarse) + 첫 envelope이 echo한 nonce 매칭으로 그 항목 소비 + secret 대조로 승격(fine) (D-1 옵션 A)</li>
+  <li>기존 WS 클라이언트 마이그레이션: <code>WSClient</code>에 Bearer 헤더 첨부 인터페이스 추가 + <code>DaemonDevCLI</code> 4개 모드 전부 헤더 첨부</li>
+  <li>Pairing UI: <code>PairingView</code> (QR 표시 / 6자리 코드 표시 / 만료 카운트다운 / 페어링된 디바이스 목록 read-only)</li>
+  <li><strong>ADR-A 본문</strong>: <code>chatRoomId</code> 발급 주체 + 데몬 재시작 시 sessionId invalidate 정책 (§6, P7 freeze 전 동결)</li>
+  <li>e2e 검증: <code>DaemonDevCLI --pair</code> + <code>--connect-auth</code> 모드로 페어링 → 토큰 등록 → 인증 WS 라운드트립</li>
+</ul>
+
+<h4>Scope (out) — 이번 단계에서 다루지 않는다 (P6b 이연)</h4>
+<ul>
+  <li>토큰 30일 만료 정책 + 만료 7일 전 알림 — P6b. 단, <code>Device.expiresAt</code> 스키마는 P6b를 수용 가능하게 미리 둔다</li>
+  <li>수동 revoke UI + "Device lost" 즉시 무효화 흐름 — P6b. 단, <code>Device.revoked</code> 필드와 <code>DeviceStore.revoke(id:)</code> seam은 P6a에서 미리 둔다 (UI 미배선)</li>
+  <li>Tailscale tailnet 노출 — P6b. P6a의 <code>wsEndpoint</code>는 loopback <code>ws://127.0.0.1:&lt;port&gt;/</code> 그대로 (D-5)</li>
+  <li>실 FCM/APNs 토큰 등록 — S1/P10a. <code>fcmToken</code>/<code>apnsToken</code>은 nilable 필드로만 예약, P6a는 mock <code>pushChannelHint</code></li>
+  <li>모바일 페어링 UX (QR 스캔/코드 입력 화면) — P9. P6a는 데스크톱 발급 측만</li>
+</ul>
+
+<h4>Key Deliverables</h4>
+<table>
+  <thead><tr><th>#</th><th>산출물</th><th>설명</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td><code>Device</code> + <code>DeviceStore</code> + <code>InMemoryDeviceStore</code> (신규, <code>Sources/Pairing/</code>)</td><td>디바이스 모델 + 저장 protocol seam + 테스트 fake. <code>list/upsert/find(byTokenId:)/revoke</code></td></tr>
+    <tr><td>2</td><td><code>KeychainDeviceStore</code> (신규, <code>Sources/Pairing/</code>)</td><td><code>SecItem</code> 기반 실 Keychain 구현. unit test 비대상 — GUI/CLI 검증 게이트로 분리</td></tr>
+    <tr><td>3</td><td><code>PairingPayload</code> + <code>PairingCodec</code> (신규)</td><td>payload 모델 + base64url(JSON) 인코딩/디코딩 + URL scheme 빌더. 순수 함수, 단위 테스트 대상</td></tr>
+    <tr><td>4</td><td><code>DeviceTokenIssuer</code> + <code>DeviceTokenVerifier</code> (신규)</td><td>secret 발급(<code>SecRandomCopyBytes</code>) + constant-time 검증. 토큰 ID ↔ deviceId 바인딩</td></tr>
+    <tr><td>5</td><td><code>PairingSession</code> + <code>SixDigitCode</code> (신규, actor)</td><td>5분 만료 in-flight 페어링 상태 + 6자리 코드 발급/claim. <code>expiresAt</code> 경계 단위 테스트</td></tr>
+    <tr><td>6</td><td><code>WSAuthGate</code> (신규, nonce 키 <code>pendingAuth</code> + <code>registerPending(nonce:)</code>/<code>consumePending(nonce:)</code>/<code>isNonceRegistered</code>) + <code>WSServer</code> 게이트 배선</td><td>핸드셰이크 nonce 키 <code>(tokenId, secret)</code> 등록 + 첫 envelope nonce echo 매칭+secret 대조 2단. <code>setClientRequestHandler</code> 사용</td></tr>
+    <tr><td>7</td><td><code>WSClient</code> 헤더 마이그레이션 + <code>DaemonDevCLI</code> <code>--pair</code>/<code>--connect-auth</code></td><td>클라이언트 Bearer 첨부 + 시뮬레이션 디바이스 드라이버</td></tr>
+    <tr><td>8</td><td><code>PairingView</code> + <code>QRImageView</code> + <code>PairingModel</code> (신규, <code>Sources/UI/Pairing/</code>)</td><td>QR/6자리 코드 표시 + 만료 카운트다운 + 디바이스 목록. SwiftUI Form, 한국어 라벨</td></tr>
+    <tr><td>9</td><td>ADR-A 문서</td><td><code>docs/adr/A-chatroomid-sessionid-lifetime.md</code> — chatRoomId 발급 주체 + sessionId invalidation</td></tr>
+    <tr><td>10</td><td>테스트</td><td>신규 단위/통합 테스트 + e2e CLI 게이트. 기준선 336 green 비파괴 (산식 <code>336 + 신규 M = K</code>)</td></tr>
+  </tbody>
+</table>
+
+<h4>Dependencies</h4>
+<table>
+  <thead><tr><th>의존</th><th>현재 상태</th><th>본 단계 사용처</th></tr></thead>
+  <tbody>
+    <tr><td><code>WSServer</code> (actor)</td><td><code>Sources/Daemon/WSServer.swift</code> — NWListener + NWProtocolWebSocket, loopback. 인증 게이트 없음</td><td>핸드셰이크 nonce 키 <code>(tokenId, secret)</code> 등록 + 첫 envelope nonce echo 증명 배선(<code>ingestInbound</code> 이전)</td></tr>
+    <tr><td><code>NWProtocolWebSocket.Options.setClientRequestHandler</code></td><td>macOS SDK 검증 완료 — handler가 헤더 받아 <code>Response(status:.accept/.reject)</code> 반환</td><td>Day 0 스파이크로 reject 클라이언트 관측 실증</td></tr>
+    <tr><td><code>WSClient</code></td><td><code>Sources/Daemon/WSClient.swift</code> — <code>init(host:port:)</code>만, 헤더 첨부 없음</td><td>Bearer 헤더 인터페이스 추가 (마이그레이션)</td></tr>
+    <tr><td>핸드셰이크 <code>Authorization: Bearer</code> + <code>X-Pair-Nonce</code> 헤더</td><td>WS <code>additionalHeaders</code>로 운반(envelope 바이트에는 토큰 없음, nonce echo만 — <code>WSEnvelope</code> 스키마 무변경)</td><td>토큰·secret의 유일한 운반 매체는 Bearer 헤더. <code>X-Pair-Nonce</code>는 연결마다 신규 일회성 공개값. 게이트 ①이 헤더에서 추출·nonce 키로 <code>pendingAuth</code> 등록 → 게이트 ②가 첫 envelope이 echo한 nonce 매칭으로 소비. <code>actor.deviceId</code>는 self-asserted라 신뢰 입력 아님</td></tr>
+    <tr><td><code>DaemonBootstrap</code></td><td><code>Sources/Daemon/DaemonBootstrap.swift</code> — registry→daemon→server→start()</td><td><code>DeviceStore</code> + <code>WSAuthGate</code> 주입 지점 확장</td></tr>
+    <tr><td><code>AppDelegate</code></td><td><code>Sources/ClaudeAlarmTerminal/AppDelegate.swift:224</code> — <code>DaemonBootstrap().start()</code> 호출</td><td>Pairing UI 와이어링 + Keychain store 주입</td></tr>
+    <tr><td><code>DaemonDevCLI</code></td><td><code>Sources/DaemonDevCLI/main.swift</code> — <code>--roundtrip/--flood/--serve-probe/--connect</code></td><td><code>--pair</code>/<code>--connect-auth</code> 추가, 기존 4모드 헤더 마이그레이션</td></tr>
+    <tr><td><code>Pane.chatRoomId</code></td><td><code>Sources/Workspace/Pane.swift:37</code> — <code>String?</code> placeholder (master § P9 1:1 바인딩 주석)</td><td>ADR-A에서 발급 주체 동결 (코드 변경은 P9)</td></tr>
+    <tr><td>CoreImage <code>CIQRCodeGenerator</code> / CryptoKit / <code>SecRandomCopyBytes</code></td><td>코드베이스 미사용 — 신규 도입</td><td>QR 렌더 + 난수 + HMAC/constant-time</td></tr>
+  </tbody>
+</table>
+
+<div class="callout danger">
+  <div class="label">보안 영역 — deliberate 모드 근거</div>
+  <p>본 단계는 신뢰 경계(trust boundary)를 처음 코드베이스에 도입한다. 토큰 발급·검증·저장·전송이 한 단계에 모인다. 한 곳의 결함(timing 누출, 토큰 평문 로그, 핸드셰이크 우회)이 전체 보안 모델을 무력화하므로, master § 7 "보안" 횡단 원칙(키/토큰 Keychain 전용, 코드·로그 노출 금지)을 매 Day 종료 조건으로 강제한다. pre-mortem 4 시나리오(§7.1, deliberate 필수 3 + claim 채널 보강 1)와 확장 테스트 계획(§7.2)이 필수다.</p>
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-2">2. RALPLAN-DR Summary</h2>
+
+<h3 id="sec-2-1">2.1 Principles (설계 원칙)</h3>
+<ol>
+  <li><strong>신뢰 경계는 단일 게이트로</strong> — WS 인증은 <code>WSAuthGate</code> 한 곳에 격리한다. 게이트 ②의 nonce echo 매칭 후 secret 대조가 같은 검증 로직(<code>DeviceTokenVerifier</code>)을 호출하여 인증의 실질(secret 대조)이 한 곳에 모인다. 게이트 ①은 구조 검증·nonce 키 등록만 하고 secret 대조를 게이트 ②로 지연한다.</li>
+  <li><strong>비밀은 Keychain 전용, 테스트는 fake로</strong> — 실 토큰 secret은 <code>KeychainDeviceStore</code>를 통해서만 디스크에 닿는다. 단위 테스트는 <code>InMemoryDeviceStore</code>로 entitlement/서명 오염 없이 정책을 검증하고, 실 Keychain은 GUI/CLI 검증 게이트로 분리한다.</li>
+  <li><strong>토큰은 로그·운영 envelope payload에 절대 평문 노출 금지</strong> — <code>deviceTokenSecret</code>은 (1) QR 인코딩, (2) <code>pairing.response</code> 본문, (3) <code>Authorization</code> 헤더, 세 곳에만 존재한다. <code>input/output/ack/error</code> 등 <strong>운영 envelope</strong>의 payload에는 절대 담지 않는다. <code>pairing.response</code>가 secret을 담는 것은 명시적 예외다 — 페어링 전용 kind, loopback 한정, 일회성(claim 1회 소비)이라 운영 채널과 신뢰 모델이 다르다. 로그는 토큰 ID(앞 8자 + 마스킹)만 남긴다. 이는 grep 검증 가능한 종료 조건이다.</li>
+  <li><strong>두 페어링 경로는 평등하게</strong> — QR과 6자리 코드는 같은 <code>PairingPayload</code>를 다른 전달 채널로 옮길 뿐, 발급된 토큰의 권한·수명은 동일하다. 어느 경로든 같은 <code>DeviceStore.upsert</code>로 수렴한다.</li>
+  <li><strong>P6b/P7을 수용하는 스키마, 미배선 정책</strong> — <code>Device.expiresAt</code>/<code>revoked</code>/<code>fcmToken</code>/<code>apnsToken</code> 필드는 P6a에 두되 lifecycle UI·실 push는 미배선이다. ADR-A는 P7 freeze 전 동결할 정책만 확정하고 코드 강제는 해당 phase로 넘긴다.</li>
+</ol>
+
+<h3 id="sec-2-2">2.2 Decision Drivers (Top 3)</h3>
+<ol>
+  <li><strong>핸드셰이크 reject의 실증 불확실성</strong> — <code>setClientRequestHandler</code>가 connection 객체를 받지 않아 "이 연결 = 어느 디바이스"를 handler만으로 못 묶는다(그래서 게이트 ②를 carry-over 일치 증명으로 둔다). 또한 reject 시 클라이언트 관측 동작(HTTP 상태/즉시 close)이 SDK 문서에 빈약하다. Day 0 스파이크가 실패하면 게이트 전략(2단 → 첫-envelope 단일, 옵션 B)을 전환해야 하므로 단계 성패의 1차 분기다.</li>
+  <li><strong>보안 결함 0 허용 (deliberate)</strong> — timing 공격, 토큰 평문 누출, 핸드셰이크 우회는 모두 "동작은 하지만 안전하지 않은" 결함이다. 기능 테스트로는 잡히지 않으므로 constant-time 검증·로그 마스킹·우회 시나리오 테스트를 1급 종료 조건으로 둔다.</li>
+  <li><strong>기존 WS 자산 비파괴 마이그레이션</strong> — <code>DaemonDevCLI</code> 4모드 + <code>RoundTripTests</code>/<code>DaemonSmokeTests</code>가 헤더 미첨부 클라이언트로 green이다. Bearer 의무화는 이들을 전부 깨뜨린다. 마이그레이션 범위를 Day 2에 명시하고 336 기준선 비파괴를 검산한다.</li>
+</ol>
+
+<h3 id="sec-2-3">2.3 Option D-1 — WS 인증 게이트 위치</h3>
+<table>
+  <thead><tr><th>옵션</th><th>구조</th><th>Pros</th><th>Cons</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>A (채택)</strong> 2단 게이트 (carry-over)</td>
+      <td>핸드셰이크 헤더 Bearer를 구조 검증 후 클라이언트의 일회성 <code>nonce</code>를 키로 <code>(tokenId, secret)</code>를 <code>pendingAuth</code>에 등록(coarse) + 첫 envelope이 echo한 nonce와 일치하는 항목만 소비 + 그 tokenId의 secret 대조 통과 시 승격(fine, carry-over 일치 증명). 토큰·secret은 헤더로만 운반(envelope엔 nonce echo만). 미통과 시 close</td>
+      <td>핸드셰이크에서 무자격 연결을 조기 차단(격리점 선확보) + identity 바인딩은 "그 connection이 echo한 nonce의 carry-over"로 성립(SDK가 connection identity를 안 줘도 무방). self-asserted deviceId 동어반복 회피 + nonce 매칭으로 동시 핸드셰이크 identity 교차 차단. replay 1회 소비</td>
+      <td>검증 경로가 2곳 — secret 대조를 게이트 ② 한 곳으로 수렴해 완화. Day 0 스파이크 의존(reject 관측 실증 필요). pendingAuth 시간창 관리 필요</td>
+    </tr>
+    <tr>
+      <td>B 핸드셰이크 무게이트</td>
+      <td>핸드셰이크 클로저가 구조 검증 reject만 생략하고 전부 accept하되 헤더 Bearer는 여전히 <code>nonce</code> 키로 <code>pendingAuth</code>에 carry, 게이트 ②가 nonce 매칭 소비·secret 대조로 인증, 미인증 즉시 close</td>
+      <td>구현 단순(구조 reject 분기 생략). SDK 핸드셰이크 reject 관측 제약 회피. 인증 강도는 A와 동일(nonce carry-over + secret 대조가 실질)</td>
+      <td>무자격 연결이 핸드셰이크·소켓을 점유한 뒤에야 차단 — DoS 표면 확대. master "미인증 즉시 close" 요구를 핸드셰이크가 아닌 첫 프레임 후로 늦춤. A의 폴백 대상</td>
+    </tr>
+    <tr>
+      <td>C 핸드셰이크 단일 게이트</td>
+      <td>핸드셰이크에서 Bearer + (헤더에 deviceId 동봉) 한 번에 검증, 첫 envelope 재검증·carry-over 없음</td>
+      <td>검증 1곳, 조기 차단</td>
+      <td>connection ↔ 인증 결과 바인딩을 핸드셰이크에만 의존 — handler가 connection 객체를 못 받아 "검증한 그 헤더의 연결이 이 연결"임을 보증 못 함. 인증 성공이 실제 연결로 carry-over되지 않아 위조 표면 존재. 또한 핸드셰이크 큐에서 Keychain 동기 조회 발생(accept 큐 블록)</td>
+    </tr>
+  </tbody>
+</table>
+<div class="callout ok">
+  <div class="label">선택 근거 — Option A (carry-over 증명)</div>
+  <p>SDK 제약(handler가 connection 객체 미수신)이 옵션 C의 identity 보증을 구조적으로 막는다 — 핸드셰이크에서 검증한 헤더와 실제 연결을 묶을 다리가 없다. 옵션 B는 master의 "미인증 즉시 close"를 핸드셰이크가 아닌 첫 프레임 후로 늦춘다. 옵션 A는 핸드셰이크 헤더 Bearer를 구조 검증해 클라이언트의 일회성 <code>nonce</code>를 키로 <code>(tokenId, secret)</code>를 <code>pendingAuth</code>에 등록(coarse 차단 + 격리점 선확보) + 첫 envelope이 echo한 nonce와 일치하는 등록 항목만 소비하고 그 secret을 대조해야 승격하는 <strong>nonce 매칭 carry-over 일치 증명</strong>(fine 바인딩)으로 두 약점을 메운다. 토큰·secret은 헤더로만 운반되고 첫 envelope에는 다시 싣지 않으며 nonce만 echo한다. envelope의 self-asserted <code>actor.deviceId</code>가 아니라 "방금 핸드셰이크를 통과한 그 토큰을, 같은 nonce를 아는 첫 화자가 가져왔다는 carry-over 사실"이 identity를 묶으므로, 유효 토큰 탈취자가 deviceId를 위조해도 통과할 수 없다(secret 대조 + replay 1회 소비). nonce 키 매칭은 서로 다른 토큰의 동시 핸드셰이크에서도 각 connection이 자신의 항목만 소비하게 해 identity 교차 바인딩을 차단한다. secret 대조는 게이트 ①(핸드셰이크 큐)이 아니라 게이트 ②(actor 컨텍스트)에서 일어나 동일 <code>DeviceTokenVerifier</code> 한 곳으로 수렴한다. 단, Day 0 스파이크로 reject 클라이언트 관측을 실증한 뒤에만 A를 확정한다 — 스파이크 실패 시 B로 폴백하되, 인증의 실질(secret 대조)은 게이트 ②에 있으므로 보안 강도는 보존된다.</p>
+</div>
+
+<h3 id="sec-2-4">2.4 Option D-2 — Device 저장 전략</h3>
+<table>
+  <thead><tr><th>옵션</th><th>구조</th><th>Pros</th><th>Cons</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>A (채택)</strong> protocol seam</td>
+      <td><code>DeviceStore</code> protocol + <code>KeychainDeviceStore</code>(실) + <code>InMemoryDeviceStore</code>(fake). 정책/UI는 protocol에만 의존</td>
+      <td>단위 테스트가 Keychain entitlement/서명/CI 오염 없이 전 정책 검증. P5의 <code>PushTransport</code> seam 선례와 동형. P6b revoke 추가가 protocol 확장으로 흡수</td>
+      <td>간접 레이어 1겹 추가 — P5 Push seam이 이미 검증한 패턴이라 위험 낮음</td>
+    </tr>
+    <tr>
+      <td>B Keychain 직접</td>
+      <td>정책/UI가 <code>SecItem</code> API를 직접 호출</td>
+      <td>레이어 없음, 코드 적음</td>
+      <td>단위 테스트가 실 Keychain을 쳐야 함 — 서명/entitlement 의존, CI 오염, 테스트 격리 붕괴. master "비밀 Keychain 전용" 검증을 자동화 불가</td>
+    </tr>
+  </tbody>
+</table>
+<div class="callout ok">
+  <div class="label">선택 근거 — Option A</div>
+  <p>코드베이스가 이미 <code>PushTransport</code>(protocol) + <code>MockPushTransport</code>(fake)로 동일 문제(실 외부 자원을 단위 테스트에서 못 침)를 해결한 선례가 있다(<code>Sources/Push/PushTransport.swift</code>). 같은 패턴을 <code>DeviceStore</code>에 적용하면 정책 로직(토큰 발급·만료·revoke 분기)을 fake로 완전 검증하고, 실 Keychain은 GUI/CLI 게이트로 분리한다. 옵션 B는 "비밀은 Keychain 전용"이라는 보안 원칙을 자동 검증 불가능하게 만들어 deliberate 모드에 부적합하다.</p>
+</div>
+
+<h3 id="sec-2-5">2.5 Option D-4 — payload 전달 경로 (QR vs 6자리 코드)</h3>
+<table>
+  <thead><tr><th>옵션</th><th>QR 인코딩</th><th>6자리 코드 secret 교환</th><th>판정</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>A (채택)</strong></td>
+      <td>QR = <code>claudealarm://pair?d=&lt;base64url(JSON payload)&gt;</code> — payload 전체를 QR에 직접 인코딩(원샷, 네트워크 왕복 없음)</td>
+      <td>6자리 코드는 <strong>단축 식별자</strong>일 뿐. 데몬이 코드↔in-flight <code>PairingSession</code> 매핑 보유. 클라이언트가 코드를 데몬 <code>pairing claim</code> WS endpoint(loopback)에 제출 → 데몬이 payload(secret 포함) 응답</td>
+      <td>QR은 자급자족(대용량 OK), 6자리는 사람이 입력 가능한 단축(짧아야 함). 두 채널의 본질 차이에 맞춤</td>
+    </tr>
+    <tr>
+      <td>B 통일</td>
+      <td colspan="2">두 경로 모두 코드 제출 → claim endpoint에서 payload 교환 (QR도 식별자만 인코딩)</td>
+      <td>QR의 원샷 이점 소멸(불필요한 왕복). reject</td>
+    </tr>
+    <tr>
+      <td>C 통일(역)</td>
+      <td colspan="2">두 경로 모두 payload 직접 인코딩 (6자리도 payload 전체)</td>
+      <td>6자리에 payload 전체를 못 담음(secret이 6자리에 안 들어감). 물리적 불가. reject</td>
+    </tr>
+  </tbody>
+</table>
+<div class="callout ok">
+  <div class="label">선택 근거 — Option A</div>
+  <p>QR과 6자리 코드는 정보 용량이 근본적으로 다르다. QR(수 KB)은 payload 전체를 직접 담아 오프라인 원샷이 되고, 6자리(약 20비트)는 secret을 담을 수 없어 "코드는 식별자, secret은 별도 채널"이 물리적 필연이다. P6a는 데스크톱 단독 검증 단계이므로 "별도 채널"을 loopback WS <code>pairing claim</code> endpoint로 구현한다(P6b에서 tailnet으로 확장). 두 경로가 발급하는 토큰은 동일 권한(Principle 4)이라 보안 등가성은 유지된다. 6자리 코드의 brute-force 표면(20비트)은 5분 만료 + 시도 횟수 제한(rate-limit)으로 좁힌다 — pre-mortem 시나리오 2 참조.</p>
+</div>
+
+<h3 id="sec-2-6">2.6 잔여 결정 D-3 / D-5</h3>
+<table>
+  <thead><tr><th>결정</th><th>채택</th><th>근거</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>D-3</strong> ADR-A chatRoomId 발급 주체</td>
+      <td><strong>데스크톱</strong>이 pane 생성 시 발급 (§6 ADR-A 본문)</td>
+      <td>master § P9 "채팅룸=pane 1:1 바인딩"에서 pane은 데스크톱 소유 자원이다. 발급 주체가 모바일이면 데스크톱이 모르는 ID가 push <code>chatRoomId</code>에 들어가 라우팅 불능. 데스크톱 발급이 single source of truth</td>
+    </tr>
+    <tr>
+      <td><strong>D-3</strong> 데몬 재시작 시 sessionId 정책</td>
+      <td><strong>전부 invalidate</strong> + <code>session.terminated</code>(orphaned 신호) (§6 ADR-A)</td>
+      <td>데몬 재시작 후 in-memory <code>SessionBindRegistry</code>는 비어 있어 옛 sessionId는 해석 불가. master § P9 lifecycle 매트릭스 "데몬 재시작 → orphaned"와 정합. 메시지는 모바일 SQLite에 영속되므로 데이터 손실 없음</td>
+    </tr>
+    <tr>
+      <td><strong>D-5</strong> P6a의 <code>wsEndpoint</code> 값</td>
+      <td><code>ws://127.0.0.1:&lt;OS-port&gt;/</code> (loopback)</td>
+      <td>P6b Tailscale 전이므로 tailnet 주소가 없다. 데몬 <code>WSServer.port</code>(커널 할당)를 그대로 넣어 데스크톱 단독 e2e가 성립. P6b에서 tailnet 주소로 교체되는 자리표시. <code>pushChannelHint</code>는 mock 채널 ID 문자열</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-3">3. Day-by-Day Work Package</h2>
+
+<div class="day-card" id="day-0">
+  <h3>Day 0 — 핸드셰이크 reject 스파이크 (1차 분기 게이트)</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd><code>NWProtocolWebSocket.Options.setClientRequestHandler</code>가 Bearer 헤더를 검사해 <code>Response(status:.reject)</code>를 반환할 때, 클라이언트가 이를 관측 가능한 형태(연결 실패/즉시 close)로 받는지 실증한다. D-1 옵션 A 확정 여부의 1차 분기.</dd>
+    <dt>산출물</dt>
+    <dd><code>Tests/DaemonTests/WSHandshakeRejectSpikeTests.swift</code> (스파이크) + <code>WSAuthGate</code> 골격 (검증 함수 시그니처만)</dd>
+    <dt>OMC 위임</dt>
+    <dd>executor(model=opus) — SDK 제약 영역, 미검증 가정의 실증이라 깊은 추론 필요</dd>
+    <dt>예상 소요</dt>
+    <dd>1일</dd>
+    <dt>기술 노트</dt>
+    <dd>P5.5의 <code>SurfaceRegistryInvariantTests</code> 스파이크 게이트 선례를 따른다. 서버에 <code>setClientRequestHandler</code> 부착(유효 Bearer만 accept) → <code>WSClient</code>에 헤더 첨부 인터페이스 추가 → (1) 유효 토큰 클라이언트 connect 성공, (2) 무토큰/위조 토큰 클라이언트 connect가 <code>.failed</code> 또는 즉시 <code>.cancelled</code>로 관측되는지 측정. 관측 불가(accept처럼 보임)면 옵션 B로 폴백 결정을 본 Day에 내린다.</dd>
+    <dt>종료 조건</dt>
+    <dd>
+      <ul class="exit-criteria">
+        <li><input type="checkbox" disabled> <code>xcodegen generate</code> 실행 후 <code>xcodebuild test -scheme DaemonTests -only-testing:DaemonTests/WSHandshakeRejectSpikeTests</code> exit code 0</li>
+        <li><input type="checkbox" disabled> 유효 Bearer 클라이언트 connect 성공 1건, 무토큰 클라이언트 connect 거부(<code>.failed</code>/<code>.cancelled</code> 5초 이내 도달) 1건이 테스트 어서션으로 측정됨</li>
+        <li><input type="checkbox" disabled> 스파이크 결과를 <code>.omc/research/p6a-handshake-spike.md</code>에 기록 — "옵션 A 확정" 또는 "옵션 B 폴백" 1개 명시</li>
+        <li><input type="checkbox" disabled><code>grep -rn "Bearer\|deviceTokenSecret" .omc/research/p6a-handshake-spike.md</code> 결과에 실 토큰 값 0건 (마스킹 확인)</li>
+      </ul>
+    </dd>
+  </dl>
+</div>
+
+<div class="day-card" id="day-1">
+  <h3>Day 1 — DeviceStore + 토큰 발급 코어</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd><code>Device</code> 모델, <code>DeviceStore</code> seam, 토큰 발급/검증, 페어링 payload 코덱, 6자리 코드/만료를 순수 로직 수준에서 완성하고 단위 테스트로 측정한다. (Keychain·UI·WS 배선 제외)</dd>
+    <dt>산출물</dt>
+    <dd><code>Sources/Pairing/</code>: <code>Device.swift</code>, <code>DeviceStore.swift</code>(+<code>InMemoryDeviceStore</code>), <code>PairingPayload.swift</code>, <code>PairingCodec.swift</code>, <code>DeviceTokenIssuer.swift</code>, <code>DeviceTokenVerifier.swift</code>, <code>PairingSession.swift</code>, <code>SixDigitCode.swift</code> + 단위 테스트</dd>
+    <dt>OMC 위임</dt>
+    <dd>executor(model=opus) — 보안 코어(constant-time, 난수)는 정확도 필수</dd>
+    <dt>예상 소요</dt>
+    <dd>1일</dd>
+    <dt>기술 노트</dt>
+    <dd>토큰 secret은 <code>SecRandomCopyBytes</code> 32바이트 → base64url. 검증은 CryptoKit <code>HMAC</code> 또는 <code>Data</code> constant-time 비교(<code>fixedTimeEqual</code> 패턴). <code>PairingCodec</code>은 JSON → base64url → URL scheme 라운드트립이 byte-identical. <code>project.yml</code>에 <code>Sources/Pairing/</code> 신규 path 추가 + <code>DaemonTests</code> source에 포함. <code>xcodegen generate</code> 선행(안 하면 "0 tests executed" 거짓 통과).</dd>
+    <dt>종료 조건</dt>
+    <dd>
+      <ul class="exit-criteria">
+        <li><input type="checkbox" disabled> <code>xcodegen generate &amp;&amp; xcodebuild test -scheme DaemonTests</code> exit code 0, 신규 <code>PairingCoreTests</code> 함수 ≥ 12건 executed (0 executed 아님)</li>
+        <li><input type="checkbox" disabled> <code>PairingCodec</code> 라운드트립 테스트: 한국어/emoji/4KB 경계 payload 3종이 encode→decode 후 원본과 <code>XCTAssertEqual</code></li>
+        <li><input type="checkbox" disabled> <code>DeviceTokenVerifier</code> constant-time 테스트: 일치/불일치 검증이 동일 코드 경로(early-return 없음) — <code>grep -n "return.*==" Sources/Pairing/DeviceTokenVerifier.swift</code> 결과에 short-circuit 비교 0건</li>
+        <li><input type="checkbox" disabled> <code>PairingSession</code> 만료 테스트: <code>expiresAt</code> 경계(만료 1초 전 claim 성공 / 1초 후 claim 실패)가 <code>XCTAssertEqual</code>로 측정</li>
+        <li><input type="checkbox" disabled> <code>SixDigitCode</code> 충돌 테스트: 10,000회 생성에서 형식 위반(6자리 아님) 0건</li>
+        <li><input type="checkbox" disabled> 기준선 비파괴: <code>SessionTests</code>+<code>WorkspaceTests</code>+<code>DaemonTests</code> = 336 + 신규 green, 기존 함수 실패 0건</li>
+      </ul>
+    </dd>
+  </dl>
+</div>
+
+<div class="day-card" id="day-2">
+  <h3>Day 2 — WS 인증 2단 게이트 + 클라이언트 마이그레이션</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>Day 0 스파이크 결과(옵션 A/B)대로 <code>WSServer</code>에 인증 게이트를 배선한다. 핸드셰이크 tokenId 등록(<code>pendingAuth</code>) + 첫 envelope carry-over 일치 + secret 대조(<code>ingestInbound</code> 이전). 기존 WS 클라이언트(<code>WSClient</code> 5곳, <code>DaemonDevCLI</code> 4모드, raw 2종 <code>BootstrapWSClient</code>/<code>WSTestClient</code>)를 전부 Bearer 첨부로 마이그레이션한다.</dd>
+    <dt>산출물</dt>
+    <dd><code>Sources/Pairing/WSAuthGate.swift</code>(nonce 키 <code>pendingAuth</code> 매핑 + <code>registerPending(nonce:)</code>/<code>consumePending(nonce:)</code>/<code>isNonceRegistered</code>) + <code>WSServer</code> 게이트 배선 + <code>WSClient</code> 헤더 인터페이스(<code>bearerToken:</code> + nonce 생성·<code>X-Pair-Nonce</code> 첨부·첫 envelope nonce echo) + <code>DaemonBootstrap</code> store 주입 + 마이그레이션된 테스트/CLI. <strong>raw 클라이언트 2종 Bearer 마이그레이션</strong>: <code>BootstrapWSClient</code>(<code>Tests/DaemonTests/DaemonBootstrapTests.swift:59</code>, 사용 :25) + <code>WSTestClient</code>(<code>Tests/DaemonTests/SessionBindTests.swift:238</code>, 사용 5곳)</dd>
+    <dt>OMC 위임</dt>
+    <dd>executor(model=opus) — actor isolation + 인증 우회 표면, 회귀 범위 넓음</dd>
+    <dt>예상 소요</dt>
+    <dd>1일</dd>
+    <dt>기술 노트</dt>
+    <dd><code>WSServer.makeListenerParameters</code>에 <code>ws.setClientRequestHandler</code> 추가(actor 외부 — <code>@Sendable</code> 클로저는 <code>WSAuthGate</code>를 캡처). 클로저는 헤더 Bearer + <code>X-Pair-Nonce</code>를 구조 분해해 <code>(tokenId, presentedSecret)</code>를 <code>nonce</code> 키로 <code>pendingAuth</code>에 carry(중복 nonce reject, Keychain 조회·secret 대조 금지 — 핸드셰이크 큐 블록 방지). 게이트 ②는 <code>handleMessage</code>에서 <code>ingestInbound</code> <strong>이전</strong>에 첫 envelope이 echo한 nonce로 <code>consumePending(nonce:)</code>한 <code>(tokenId, presentedSecret)</code>를 actor 컨텍스트에서 constant-time secret 대조(§5.3). 미echo·미등록 nonce 또는 미통과 시 <code>makeError(code:"UNAUTHORIZED")</code> + <code>connection.cancel()</code>, <code>ingestInbound</code>/<code>bind</code> 미진입. <strong>토큰·secret 운반은 핸드셰이크 헤더 단일 매체</strong> — 클라이언트는 <code>WSClient.init</code>에 <code>bearerToken:</code> 추가 후 연결마다 신규 무작위 nonce를 생성해 WS builder <code>additionalHeaders</code>의 <code>Authorization: Bearer</code> + <code>X-Pair-Nonce</code>로 첨부하고, 첫 envelope 바이트에는 토큰을 싣지 않고 그 nonce만 echo한다(<code>WSEnvelope</code> 무변경). raw 클라이언트 2종도 동일 패턴(nonce 생성·첨부·echo 포함). 신규 에러 코드 <code>UNAUTHORIZED</code>를 <code>DaemonErrorCode</code>에 추가.</dd>
+    <dt>종료 조건</dt>
+    <dd>
+      <ul class="exit-criteria">
+        <li><input type="checkbox" disabled> <code>grep -rnE "WSClient\(|NWProtocolWebSocket\.Options|NWConnection\(to:" Sources/ Tests/</code> 결과의 모든 WS 클라이언트 생성처가 Bearer 첨부 경로 보유 (<code>WSClient</code> 5곳 + <code>BootstrapWSClient</code> + <code>WSTestClient</code> 마이그레이션 누락 0건)</li>
+        <li><input type="checkbox" disabled> <code>xcodebuild test -scheme DaemonTests</code> exit code 0, <code>RoundTripTests</code>+<code>DaemonSmokeTests</code>+<code>SessionBindTests</code>+<code>DaemonBootstrapTests</code> 기존 함수 전부 green (헤더 첨부 후에도 라운드트립 성립)</li>
+        <li><input type="checkbox" disabled> 인증 거부 테스트: 무토큰/carry-over 없는 envelope이 <code>UNAUTHORIZED</code> 에러 수신 + 연결 <code>.cancelled</code> 5초 이내 (<code>XCTAssertEqual</code>)</li>
+        <li><input type="checkbox" disabled> <strong>registry seq 불변 어서션</strong>: 미인증 envelope(seq=1) 전송 후 <code>await registry.boundSession(clientId:) == nil</code> 그리고 후속 인증 연결의 첫 seq가 거부 없이 수용됨을 <code>XCTAssertEqual</code>로 측정 (미인증 envelope이 <code>ingestInbound</code>로 seq를 전진시키지 못함 — C2 순서 보증)</li>
+        <li><input type="checkbox" disabled> 토큰 운반 매체 테스트: 인증 성립 연결의 첫 envelope 바이트를 디코드해 토큰/secret 문자열이 payload에 없음을 <code>XCTAssertNil</code>/<code>XCTAssertFalse(contains)</code>로 측정 + 헤더 Bearer 제거 시 인증 실패 (운반 매체가 헤더 단일임을 실증, A12)</li>
+        <li><input type="checkbox" disabled> nonce 거부 테스트: 동일 tokenId로 2연결이 같은 nonce로 동시 핸드셰이크 시 두 번째는 중복 nonce reject, 또 첫 envelope이 nonce를 echo하지 않거나 미등록 nonce를 echo하면 <code>UNAUTHORIZED</code> close (<code>XCTAssertEqual</code>(승격 수, 1) — nonce 중복/미echo 거부 실증)</li>
+        <li><input type="checkbox" disabled> identity 비교차 테스트: 서로 다른 토큰 Ta≠Tb 두 연결이 각자 nonce로 동시 핸드셰이크 후 각자 첫 envelope에 자신의 nonce echo → 각 connection이 자신의 tokenId로 승격, identity 교차 0건 (<code>XCTAssertEqual</code>(각 연결의 승격 deviceId, 자신의 토큰 deviceId))</li>
+        <li><input type="checkbox" disabled> carry-over 증명 테스트: 핸드셰이크 통과 토큰 A의 secret이 Keychain에서 대조 성공 시 승격, 폐기/위조 secret이면 <code>UNAUTHORIZED</code> close (<code>XCTAssertEqual</code>) — 옵션 A carry-over 실증</li>
+        <li><input type="checkbox" disabled> replay 테스트: 동일 nonce로 등록된 <code>pendingAuth</code> 항목이 1회 consume 후 재사용 불가 (같은 nonce를 echo한 두 번째 첫-envelope이 소비할 항목 없어 거부)</li>
+        <li><input type="checkbox" disabled> <code>grep -rnE "deviceTokenSecret|bearerToken" Sources/ | grep -iE "PushLog|os_log|print|FileHandle"</code> 결과 0건 (토큰 로그 노출 없음)</li>
+        <li><input type="checkbox" disabled> <code>DaemonDevCLI --connect-auth</code>가 유효 토큰으로 session.start ack 수신 (exit code 0)</li>
+      </ul>
+    </dd>
+  </dl>
+</div>
+
+<div class="day-card" id="day-3">
+  <h3>Day 3 — Pairing UI (QR + 6자리 코드) + Keychain 실 구현</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>SwiftUI <code>PairingView</code>로 QR/6자리 코드/만료 카운트다운/디바이스 목록을 표시하고, <code>KeychainDeviceStore</code> 실 구현을 배선한다. <code>AppDelegate</code>에 Pairing UI 진입점 + Keychain store 주입.</dd>
+    <dt>산출물</dt>
+    <dd><code>Sources/UI/Pairing/</code>: <code>PairingView.swift</code>, <code>QRImageView.swift</code>, <code>PairingModel.swift</code> + <code>Sources/Pairing/KeychainDeviceStore.swift</code> + <code>AppDelegate</code>/<code>project.yml</code> 와이어링</dd>
+    <dt>OMC 위임</dt>
+    <dd>executor(model=sonnet) — UI 조립 + 기존 <code>PushSettingsView</code> 패턴 재사용. Keychain은 designer 리뷰 후 executor</dd>
+    <dt>예상 소요</dt>
+    <dd>1일</dd>
+    <dt>기술 노트</dt>
+    <dd>QR: <code>CIQRCodeGenerator</code> 필터 → <code>CIContext</code> → <code>NSImage</code>. 만료 카운트다운은 <code>Timer.publish</code> + <code>PairingSession.expiresAt</code>. <code>PairingView</code>가 <code>Sources/Pairing/</code> 타입(데몬 의존) 사용 시 <code>PushSettingsView</code>처럼 5개 non-app 타겟에서 <strong>exclude 필요</strong> — <code>project.yml</code>의 <code>SessionVerifier</code>/<code>WorkspaceTests</code>/<code>SessionTests</code> 등 excludes에 <code>**/PairingView.swift</code>/<code>**/QRImageView.swift</code> 추가. <code>KeychainDeviceStore</code>는 <code>SecItemAdd</code>/<code>SecItemCopyMatching</code>/<code>SecItemDelete</code> + <code>kSecClassGenericPassword</code>. env에는 Keychain item account ID만(secret 본문 금지).</dd>
+    <dt>종료 조건</dt>
+    <dd>
+      <ul class="exit-criteria">
+        <li><input type="checkbox" disabled> <code>xcodegen generate &amp;&amp; xcodebuild build -scheme ClaudeAlarmTerminal</code> exit code 0 (UI 컴파일)</li>
+        <li><input type="checkbox" disabled> <code>xcodebuild build -scheme SessionVerifier &amp;&amp; xcodebuild build -scheme WorkspaceTests</code> exit code 0 (exclude 갱신으로 non-app 타겟 비파괴)</li>
+        <li><input type="checkbox" disabled> GUI walkthrough: 앱 실행 → Pairing 화면 진입 → QR 이미지 렌더 + 6자리 코드 표시 + 만료 카운트다운 감소 관측. 절차/스크린샷을 <code>docs/plans/p6a/walkthrough.md</code>에 기록</li>
+        <li><input type="checkbox" disabled> Keychain 왕복: GUI에서 페어링 1건 → <code>security find-generic-password -s com.choms0521.ClaudeAlarmTerminal.device</code>로 item 존재 확인, secret 본문은 출력하지 않음</li>
+        <li><input type="checkbox" disabled> <code>grep -rn "deviceTokenSecret" Sources/UI/</code> 결과에 평문 표시 0건 (UI에 secret 노출 없음 — QR/코드만)</li>
+      </ul>
+    </dd>
+  </dl>
+</div>
+
+<div class="day-card" id="day-4">
+  <h3>Day 4 — e2e 시뮬레이션 디바이스 + Exit Gate</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>모바일 없이 <code>DaemonDevCLI --pair</code>(시뮬레이션 디바이스)로 페어링 → 토큰 발급 수신 → <code>--connect-auth</code>로 인증 WS 라운드트립까지 전 경로를 e2e로 통과시킨다. ADR-A 문서를 동결하고 Exit Gate를 채운다.</dd>
+    <dt>산출물</dt>
+    <dd><code>DaemonDevCLI</code> <code>--pair</code>/<code>--connect-auth</code> 완성 + <code>Tests/DaemonTests/PairingE2ETests.swift</code> + <code>docs/adr/A-chatroomid-sessionid-lifetime.md</code> + Exit Gate 체크</dd>
+    <dt>OMC 위임</dt>
+    <dd>executor(model=opus) e2e 배선 + verifier(model=opus) Exit 검증 게이트(별도 lane, self-approve 금지)</dd>
+    <dt>예상 소요</dt>
+    <dd>1일</dd>
+    <dt>기술 노트</dt>
+    <dd><code>--pair</code>: 데몬 기동 → 6자리 코드 발급 → CLI가 <code>pairing claim</code> endpoint에 코드 제출 → payload(secret 포함) 수신 → <code>DeviceStore</code>에 디바이스 등록 확인. <code>--connect-auth</code>: 발급된 Bearer로 인증 WS connect → session.start → input "가나다" → output echo 수신(P6a는 <code>/bin/cat</code> 세션). 6자리 brute-force 방어: 동일 코드 5회 오claim 시 코드 폐기(rate-limit) 테스트. ADR-A는 §6 본문을 그대로 <code>docs/adr/</code>로 옮긴다.</dd>
+    <dt>종료 조건</dt>
+    <dd>
+      <ul class="exit-criteria">
+        <li><input type="checkbox" disabled> <code>./daemon-dev-cli --pair</code> exit code 0, stdout에 "PAIRED &lt;deviceId&gt;" 출력 + secret 평문 0건</li>
+        <li><input type="checkbox" disabled> <code>./daemon-dev-cli --connect-auth</code> exit code 0, "가나다" echo 수신 (인증 라운드트립 성립)</li>
+        <li><input type="checkbox" disabled> rate-limit 테스트: 동일 6자리 코드 5회 오claim 후 6회째가 거부(<code>XCTAssertEqual</code>) + 만료 코드 claim 거부</li>
+        <li><input type="checkbox" disabled> replay/재페어링 테스트: 성공한 코드 재claim이 <code>PAIRING_CODE_INVALID</code> + 동일 deviceId 재페어링 후 옛 secret 인증 실패(<code>XCTAssertEqual</code>)</li>
+        <li><input type="checkbox" disabled> <code>PairingE2ETests</code> exit code 0, 페어링→인증→라운드트립 전 경로 1개 테스트로 측정</li>
+        <li><input type="checkbox" disabled> <code>docs/adr/A-chatroomid-sessionid-lifetime.md</code> 존재 + Decision/Drivers/Alternatives/Why/Consequences/Follow-ups 6 섹션 전부 채움</li>
+        <li><input type="checkbox" disabled> 최종 회귀: 전체 3 테스트 타겟 green, 토큰 노출 grep 0건, Exit Gate(§10) 전 항목 체크</li>
+      </ul>
+    </dd>
+  </dl>
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-4">4. Architecture Diagram</h2>
+
+<div class="ascii">
+                         P6a 페어링 + 인증 데이터 흐름 (데스크톱 단독)
+
+  ┌─────────────────────────── 데스크톱 앱 (in-process) ───────────────────────────┐
+  │                                                                                │
+  │   ┌──────────────┐   발급 요청    ┌───────────────────┐                         │
+  │   │ PairingView  │──────────────▶│  PairingModel      │                         │
+  │   │ (SwiftUI)    │               │  (@MainActor)      │                         │
+  │   │  QR 이미지    │◀──── payload ──│                    │                         │
+  │   │  6자리 코드   │               └─────────┬─────────┘                         │
+  │   │  만료 카운트  │                         │ issue()                            │
+  │   └──────────────┘                         ▼                                    │
+  │                          ┌──────────────────────────────────┐                  │
+  │                          │  DeviceTokenIssuer                │                  │
+  │                          │   SecRandomCopyBytes → secret     │                  │
+  │                          │  PairingSession (5분 만료, actor)  │                  │
+  │                          └──────┬──────────────────┬────────┘                  │
+  │                                 │ upsert(Device)   │ payload(secret)            │
+  │                                 ▼                  ▼                            │
+  │              ┌──────────────────────────┐   PairingPayload                      │
+  │              │  DeviceStore (protocol)   │   { pairingId, deviceTokenSecret,     │
+  │              │  ─ KeychainDeviceStore    │     wsEndpoint=ws://127.0.0.1:PORT,    │
+  │              │  ─ InMemoryDeviceStore    │     pushChannelHint, expiresAt }       │
+  │              │    (test fake)            │            │                          │
+  │              └────────────┬─────────────┘            │ QR=base64url / 코드=claim │
+  │                           │ find(byTokenId:)         ▼                          │
+  │                           │            ┌──────────────────────────────┐         │
+  │            ┌──────────────▼─────────┐  │  (시뮬레이션) 디바이스         │         │
+  │            │  WSAuthGate            │  │  DaemonDevCLI --pair          │         │
+  │            │  ① 핸드셰이크: 구조검증   │  │  DaemonDevCLI --connect-auth  │         │
+  │            │     →nonce 키 pendingAuth│◀─┤  Authorization: Bearer <tok>  │         │
+  │            │  ② 첫 envelope: nonce echo│  │  X-Pair-Nonce: <nonce>        │         │
+  │            │     매칭+secret 대조→승격 │  └──────────────────────────────┘         │
+  │                       │ accept / cancel(UNAUTHORIZED)                            │
+  │                       ▼                                                          │
+  │   ┌────────────────────────────────────────────────────────────┐               │
+  │   │  WSServer (actor)  ── NWListener + NWProtocolWebSocket       │               │
+  │   │   setClientRequestHandler(게이트 ①)  ·  handleMessage(게이트 ②)│              │
+  │   │   loopback 127.0.0.1 : OS-assigned port                      │               │
+  │   └────────────────────────────────────────────────────────────┘               │
+  └────────────────────────────────────────────────────────────────────────────────┘
+
+   범례:  ① = 핸드셰이크 게이트(coarse, 격리점 선확보, nonce 키 (tokenId,secret)→pendingAuth)
+          ② = envelope 게이트(fine, nonce echo 매칭+secret 대조→승격)
+          실 secret 경로 = QR / pairing.response / Bearer 헤더 한정.  첫 envelope payload엔 nonce echo만(토큰 0).
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-5">5. Critical Code Specs</h2>
+
+<h4>5.1 Device + DeviceStore seam (Sources/Pairing/)</h4>
+<pre><code><span class="com">// 신뢰 목록의 1 디바이스. P6a는 발급만 — expiresAt/revoked/fcm/apns는</span>
+<span class="com">// P6b/S1을 수용하는 스키마이되 P6a에서 lifecycle UI·실 push는 미배선.</span>
+<span class="kw">public struct</span> <span class="typ">Device</span>: <span class="typ">Codable</span>, <span class="typ">Equatable</span>, <span class="typ">Sendable</span> {
+    <span class="kw">public let</span> id: <span class="typ">UUID</span>
+    <span class="kw">public let</span> name: <span class="typ">String</span>
+    <span class="kw">public let</span> tokenId: <span class="typ">String</span>           <span class="com">// secret 자체가 아닌 식별자(로그·매칭에 안전)</span>
+    <span class="kw">public let</span> fcmToken: <span class="typ">String</span>?       <span class="com">// 예약 — S1/P10a에서 실 등록</span>
+    <span class="kw">public let</span> apnsToken: <span class="typ">String</span>?      <span class="com">// 예약 — S1/P10a</span>
+    <span class="kw">public let</span> expiresAt: <span class="typ">Date</span>          <span class="com">// 예약 — P6b lifecycle UI가 강제</span>
+    <span class="kw">public let</span> revoked: <span class="typ">Bool</span>            <span class="com">// 예약 — P6b revoke UI가 토글</span>
+}
+
+<span class="com">// protocol seam: 정책/UI는 이 추상에만 의존. 실 Keychain은 한 conformer로 격리</span>
+<span class="com">// (P5의 PushTransport ← MockPushTransport 선례와 동형). 비밀이 디스크에 닿는 곳을 1점으로.</span>
+<span class="kw">public protocol</span> <span class="typ">DeviceStore</span>: <span class="typ">Sendable</span> {
+    <span class="kw">func</span> <span class="fn">list</span>() <span class="kw">async throws</span> -> [<span class="typ">Device</span>]
+    <span class="kw">func</span> <span class="fn">upsert</span>(_ device: <span class="typ">Device</span>, secret: <span class="typ">Data</span>) <span class="kw">async throws</span>   <span class="com">// secret은 Keychain으로만. 동일 deviceId 재페어링 시 옛 secret 즉시 폐기(replace)</span>
+    <span class="kw">func</span> <span class="fn">find</span>(byTokenId: <span class="typ">String</span>) <span class="kw">async throws</span> -> <span class="typ">Device</span>?   <span class="com">// tokenId → Device (verifier가 revoked/expiresAt 확인)</span>
+    <span class="kw">func</span> <span class="fn">secret</span>(forTokenId: <span class="typ">String</span>) <span class="kw">async throws</span> -> <span class="typ">Data</span>?   <span class="com">// 검증 시 secret 조회(constant-time 대조용)</span>
+    <span class="kw">func</span> <span class="fn">revoke</span>(id: <span class="typ">UUID</span>) <span class="kw">async throws</span>                     <span class="com">// 미배선 seam — P6b가 UI 연결</span>
+}
+</code></pre>
+
+<h4>5.2 DeviceTokenVerifier — constant-time (보안 핵심)</h4>
+<pre><code><span class="com">// 왜 constant-time인가: 토큰 비교가 첫 불일치 바이트에서 early-return하면</span>
+<span class="com">// 응답 시간이 일치 prefix 길이에 비례해 누출된다(timing 공격으로 토큰 추측 가능).</span>
+<span class="com">// 모든 바이트를 항상 비교하고 누적 XOR로만 판정한다. pre-mortem 시나리오 1 방어.</span>
+<span class="kw">public struct</span> <span class="typ">DeviceTokenVerifier</span>: <span class="typ">Sendable</span> {
+    <span class="kw">let</span> store: <span class="kw">any</span> <span class="typ">DeviceStore</span>
+
+    <span class="com">// 게이트 ②(actor 컨텍스트)가 호출하는 단일 검증점. 입력은 carry-over가 넘긴 tokenId +</span>
+    <span class="com">// 핸드셰이크 헤더에서 추출돼 pendingAuth에 함께 carry된 presented secret이다.</span>
+    <span class="com">// Keychain 조회(store.secret)는 여기(actor)서 일어난다 — 핸드셰이크 큐를 블록하지 않는다.</span>
+    <span class="kw">public func</span> <span class="fn">verify</span>(tokenId: <span class="typ">String</span>, presentedSecret: <span class="typ">Data</span>) <span class="kw">async</span> -> <span class="typ">VerifiedDevice</span>? {
+        <span class="kw">guard let</span> stored = <span class="kw">try?</span> <span class="kw">await</span> store.<span class="fn">secret</span>(forTokenId: tokenId) <span class="kw">else</span> { <span class="kw">return nil</span> }
+        <span class="com">// CryptoKit 또는 수동 누적 XOR. 길이 불일치도 상수시간 처리(패딩 비교).</span>
+        <span class="kw">guard</span> <span class="typ">Self</span>.<span class="fn">constantTimeEqual</span>(presentedSecret, stored) <span class="kw">else</span> { <span class="kw">return nil</span> }
+        <span class="kw">guard let</span> device = <span class="kw">try?</span> <span class="kw">await</span> store.<span class="fn">find</span>(byTokenId: tokenId),
+              !device.revoked, device.expiresAt > <span class="typ">Date</span>() <span class="kw">else</span> { <span class="kw">return nil</span> }
+        <span class="kw">return</span> <span class="typ">VerifiedDevice</span>(deviceId: device.id, tokenId: tokenId)
+    }
+
+    <span class="com">// 누적 차이만 본다 — 첫 불일치에서 멈추지 않아 시간이 입력에 비의존.</span>
+    <span class="kw">static func</span> <span class="fn">constantTimeEqual</span>(_ a: <span class="typ">Data</span>, _ b: <span class="typ">Data</span>) -> <span class="typ">Bool</span> {
+        <span class="kw">var</span> diff = <span class="typ">UInt8</span>(a.count ^ b.count)
+        <span class="kw">let</span> n = <span class="fn">max</span>(a.count, b.count)
+        <span class="kw">for</span> i <span class="kw">in</span> <span class="num">0</span>..&lt;n {
+            diff |= (i &lt; a.count ? a[i] : <span class="num">0</span>) ^ (i &lt; b.count ? b[i] : <span class="num">0</span>)
+        }
+        <span class="kw">return</span> diff == <span class="num">0</span>
+    }
+}
+</code></pre>
+
+<h4>5.3 WSServer 인증 2단 게이트 배선 (D-1 옵션 A — carry-over 증명)</h4>
+<div class="callout danger">
+  <div class="label">핵심 메커니즘 — carry-over 일치 증명 (헤더/사실-기반)</div>
+  <p><code>setClientRequestHandler</code> 클로저는 connection 객체를 받지 않는다. 따라서 핸드셰이크에서 본 Bearer를 <code>newConnectionHandler</code>→<code>accept</code>가 발급하는 <code>clientId</code>와 직접 묶을 다리가 없다(<code>connectionBearer[clientId]</code> 같은 매핑은 채워질 수 없다). 게이트 ②는 envelope이 self-assert한 <code>actor.deviceId</code>를 검증해서는 안 된다 — 유효 토큰 탈취자가 그 토큰이 가리키는 deviceId를 그대로 적으면 통과하는 동어반복이기 때문이다. 대신 게이트 ②를 <strong>nonce 매칭 carry-over 일치 증명</strong>으로 정의한다: <strong>토큰·secret은 WS 핸드셰이크 <code>additionalHeaders</code>로만 운반되고 첫 envelope에는 다시 싣지 않으며, 클라이언트가 연결마다 생성한 일회성 nonce만 <code>X-Pair-Nonce</code> 헤더로 함께 보내고 첫 envelope이 그 nonce를 echo한다</strong>(nonce는 토큰·secret이 아닌 공개값이라 운영 payload에 토큰을 절대 두지 않는 Principle 3과 무관). 핸드셰이크 클로저(게이트 ①)가 헤더 Bearer를 구조 분해해 <code>(tokenId, presentedSecret)</code>를 <code>nonce</code>를 키로 <code>pendingAuth</code>에 등록한다(secret 대조는 핸드셰이크 큐를 블록하므로 하지 않고 carry만). 게이트 ②는 첫 envelope이 echo한 nonce가 핸드셰이크 등록 항목과 일치함을 증명하여(nonce 일치로 그 connection의 항목만 소비) 소비된 <code>presentedSecret</code>을 그 <code>tokenId</code>의 Keychain secret과 actor 컨텍스트에서 constant-time 대조해 승격한다. 즉 증명은 "envelope이 토큰을 또 제시함"이 아니라 "방금 시간창 내 핸드셰이크를 통과한 그 토큰·secret을, 같은 nonce를 아는 첫 화자가 가져왔다는 carry-over 사실"이다.</p>
+</div>
+<div class="callout warn">
+  <div class="label">첫 envelope 토큰 운반 규약 (단일 매체 + nonce echo)</div>
+  <p>토큰·secret의 운반 매체는 <strong>WS 핸드셰이크 <code>additionalHeaders</code>의 <code>Authorization: Bearer</code> 한 곳뿐</strong>이다. 첫 envelope의 바이트에는 토큰도, 별도 토큰 필드도 없고 핸드셰이크의 <code>X-Pair-Nonce</code>를 echo하는 nonce 하나만 담긴다(<code>WSEnvelope</code> 스키마 무변경 — payload 내부 값일 뿐, nonce는 토큰·secret이 아닌 일회성 공개값이라 Principle 3과 무관). 게이트 ②가 <code>tokenId</code>를 envelope에서 추출하지 않는 이유가 이것이다 — 헤더로 받은 토큰은 envelope 본문에 존재하지 않기 때문이다. 핸드셰이크 시점(게이트 ①)에 헤더에서 추출·<code>nonce</code>를 키로 <code>pendingAuth</code> 등록을 끝내고, 게이트 ②는 첫 envelope이 echo한 nonce로 그 항목만 지목해 소비할 뿐이다. (대안인 "envelope 신규 토큰 필드"는 §5.5의 <code>pairing.*</code>처럼 스키마·Principle 3 예외를 새로 열어야 해 채택하지 않는다 — 헤더 단일 매체 + nonce echo가 운영 payload 토큰 0 원칙과 자연 정합.) <strong>옵션 B 폴백</strong>에도 동일 운반 규약이 적용된다: 핸드셰이크 클로저는 reject 없이 전부 accept하되 헤더 Bearer를 여전히 분해해 <code>(tokenId, presentedSecret)</code>를 <code>nonce</code> 키로 <code>pendingAuth</code>에 carry하고 첫 envelope의 nonce echo로 소비한다(SDK가 게이트 ②에 connection별 헤더를 안 주는 제약은 옵션 B에서도 같으므로 nonce carry는 필수). 게이트 ②의 nonce 매칭 소비·secret 대조 경로는 옵션 A와 동일하다 — 옵션 B는 "구조 검증 reject를 생략"할 뿐 carry-over 자체는 유지된다.</p>
+</div>
+<pre><code><span class="com">// 게이트 ① — 핸드셰이크. setClientRequestHandler는 connection 객체를 안 주므로</span>
+<span class="com">// 여기서는 토큰의 "구조적 유효성"만 본다(coarse). secret 대조는 게이트 ②로 지연한다 —</span>
+<span class="com">// 핸드셰이크 큐에서 Keychain 동기 조회를 하면 accept 큐가 블록되기 때문이다.</span>
+<span class="com">// 클라이언트가 함께 보낸 일회성 nonce를 키로 pendingAuth에 등록해, 게이트 ②가 '바로 그</span>
+<span class="com">// connection'의 항목만 nonce 일치로 소비하게 한다(FIFO cross-소비로 인한 identity 교차 차단).</span>
+<span class="com">// makeListenerParameters 안에서 ws 옵션에 부착(actor 외부 — @Sendable 클로저).</span>
+<span class="kw">private static func</span> <span class="fn">makeListenerParameters</span>(authGate: <span class="typ">WSAuthGate</span>) -> <span class="typ">NWParameters</span> {
+    <span class="kw">let</span> params = <span class="typ">NWParameters</span>.tcp
+    <span class="kw">let</span> ws = <span class="typ">NWProtocolWebSocket</span>.<span class="typ">Options</span>()
+    ws.autoReplyPing = <span class="kw">true</span>
+    ws.<span class="fn">setClientRequestHandler</span>(authGate.queue) { _, headers <span class="kw">in</span>
+        <span class="com">// headers: [(name, value)]. Authorization 헤더에서 Bearer(tokenId.secret) 추출 +</span>
+        <span class="com">// X-Pair-Nonce 헤더에서 연결마다 신규 무작위 nonce(클라이언트 생성) 추출.</span>
+        <span class="com">// nonce 형식: SecRandomCopyBytes 16바이트 무작위값의 base64url 인코딩. isNonceRegistered</span>
+        <span class="com">// 충돌(reject) 시 클라이언트는 새 nonce를 생성해 재시도한다(충돌 확률은 2^128분의 1 수준).</span>
+        <span class="com">// 구조 검증만(tokenId 형식 + secret base64url 형식 + nonce 형식). Keychain 조회·secret 대조는</span>
+        <span class="com">// 여기서 안 한다 — 핸드셰이크 큐를 블록하면 안 되므로 대조는 게이트 ②(actor)로 지연한다.</span>
+        <span class="kw">guard let</span> (tokenId, presentedSecret) = authGate.<span class="fn">structurallySplit</span>(<span class="typ">Self</span>.<span class="fn">bearer</span>(from: headers)),
+              <span class="kw">let</span> nonce = <span class="typ">Self</span>.<span class="fn">nonce</span>(from: headers),
+              !authGate.<span class="fn">isNonceRegistered</span>(nonce) <span class="kw">else</span> {   <span class="com">// 중복 nonce는 reject</span>
+            <span class="kw">return</span> <span class="typ">NWProtocolWebSocket</span>.<span class="typ">Response</span>(status: .reject, subprotocol: <span class="kw">nil</span>)
+        }
+        <span class="com">// nonce 키로 carry-over 등록: (nonce -> (tokenId, presentedSecret, 등록시각)).</span>
+        <span class="com">// 토큰/secret은 여기(헤더)서만 보고 첫 envelope에는 다시 싣지 않는다(단일 매체).</span>
+        <span class="com">// nonce만 첫 envelope이 echo해 '어느 핸드셰이크가 이 연결인지'를 지목한다.</span>
+        authGate.<span class="fn">registerPending</span>(nonce: nonce, tokenId: tokenId, secret: presentedSecret, at: <span class="typ">Date</span>())
+        <span class="kw">return</span> <span class="typ">NWProtocolWebSocket</span>.<span class="typ">Response</span>(status: .accept, subprotocol: <span class="kw">nil</span>)
+    }
+    params.defaultProtocolStack.applicationProtocols.<span class="fn">insert</span>(ws, at: <span class="num">0</span>)
+    params.requiredLocalEndpoint = <span class="typ">NWEndpoint</span>.<span class="fn">hostPort</span>(host: <span class="str">"127.0.0.1"</span>, port: .any)
+    <span class="kw">return</span> params
+}
+
+<span class="com">// 게이트 ② — 첫 envelope. carry-over 일치 증명 + secret 대조.</span>
+<span class="com">// 순서가 핵심: decode → 게이트 ②(인증) → ingestInbound(seq 전진) → kind switch(bind).</span>
+<span class="com">// 인증 미통과 시 ingestInbound/bind에 절대 진입하지 않는다 — 미인증 연결이 registry seq나</span>
+<span class="com">// 세션 바인딩(PTY 부수효과)을 오염시키지 못하게 한다.</span>
+<span class="kw">private func</span> <span class="fn">handleMessage</span>(_ data: <span class="typ">Data</span>, clientId: <span class="typ">UUID</span>, connection: <span class="typ">NWConnection</span>) <span class="kw">async</span> {
+    <span class="kw">let</span> env: <span class="typ">WSEnvelope</span>
+    <span class="kw">do</span> { env = <span class="kw">try</span> <span class="typ">EnvelopeCodec</span>.<span class="fn">decode</span>(data) }
+    <span class="kw">catch</span> { <span class="com">/* 기존 malformedSeq/malformedPayload 에러 응답 (변경 없음) */</span> <span class="kw">return</span> }
+
+    <span class="com">// 게이트 ② — ingestInbound(seq) 이전에 인증. 첫 envelope이 echo한 nonce가 트리거.</span>
+    <span class="kw">if</span> authState[clientId] == <span class="kw">nil</span> {
+        <span class="com">// 토큰·secret은 envelope에 없다(헤더로만 운반). env.actor.deviceId도 신뢰 입력 아님.</span>
+        <span class="com">// 첫 envelope payload는 핸드셰이크에서 보낸 nonce만 echo한다(토큰·secret이 아닌 일회성 공개값</span>
+        <span class="com">// — payload echo는 Principle 3(운영 payload 토큰 금지)과 무관). 미echo·미등록 nonce는 거부.</span>
+        <span class="com">// echo 위치: 첫 envelope(session.start)의 payload JSON에 "nonce" 필드를 합류(예:</span>
+        <span class="com">// {"sessionId":"...","nonce":"..."}). 다른 kind가 먼저 도착하면 nonce 미echo로 간주해 UNAUTHORIZED.</span>
+        <span class="com">// consumePending(nonce:): 그 nonce로 등록된 pendingAuth 항목만 원자 소비 — '바로 그 connection'.</span>
+        <span class="kw">guard let</span> echoedNonce = <span class="typ">Self</span>.<span class="fn">echoedNonce</span>(env.payload),
+              <span class="kw">let</span> claimed = <span class="kw">await</span> authGate.<span class="fn">consumePending</span>(nonce: echoedNonce, within: pendingWindow),   <span class="com">// -> (tokenId, presentedSecret)?</span>
+              <span class="kw">let</span> verified = <span class="kw">await</span> verifier.<span class="fn">verify</span>(tokenId: claimed.tokenId,
+                                                  presentedSecret: claimed.secret) <span class="kw">else</span> {   <span class="com">// constant-time 대조(Keychain은 actor서 조회)</span>
+            <span class="fn">send</span>(<span class="fn">makeError</span>(code: <span class="typ">DaemonErrorCode</span>.unauthorized.rawValue,
+                          message: <span class="str">"unauthenticated connection"</span>), to: connection, clientId: clientId)
+            connection.<span class="fn">cancel</span>()   <span class="com">// master "미인증 즉시 close" — registry 미오염</span>
+            <span class="kw">return</span>
+        }
+        authState[clientId] = verified   <span class="com">// 승격: 이후 envelope은 통과(carry-over 1회로 충분)</span>
+    }
+
+    <span class="com">// 인증 통과 후에만 seq 전진 + kind 처리. 순서 역전 금지.</span>
+    <span class="kw">do</span> { <span class="kw">try await</span> registry.<span class="fn">ingestInbound</span>(clientId: clientId, env: env) }
+    <span class="kw">catch</span> { <span class="com">/* 기존 NON_MONOTONIC_SEQ 에러 응답 (변경 없음) */</span> <span class="kw">return</span> }
+    <span class="com">// ... 기존 kind switch (.sessionStart → bind + sessionStartHandler 등) ...</span>
+}
+</code></pre>
+
+<div class="callout warn">
+  <div class="label">carry-over 시간창 만료 정책</div>
+  <p><code>pendingAuth</code> 항목은 <code>pendingWindow = 10초</code> 내에 첫 envelope으로 소비(consume)되지 않으면 만료·삭제한다(<code>CLAUDE_ALARM_PAIRING_PENDING_WINDOW_SECONDS</code>, 부록 A). <code>consumePending(nonce:within:)</code>은 <strong>nonce 매칭(원자적)</strong>이다 — <code>WSAuthGate</code> actor 격리 하에서 echo된 nonce와 일치하는 항목만 점유·제거(1회 소비, replay 방지)하고 그 <code>(tokenId, presentedSecret)</code>를 반환하며, 동일 항목이 두 번 소비되는 일은 없다(한 번 핸드셰이크는 한 번의 첫 envelope만 증명). 일치 항목이 없거나 시간창 만료 시 삭제하고 <code>nil</code>. 핸드셰이크는 통과했으나 시간창 내 첫 envelope이 안 오면 연결은 인증 미승격 상태로 남아 어떤 운영 envelope도 처리되지 않는다. <code>pendingAuth</code>의 <code>presentedSecret</code>은 consume 또는 만료 즉시 메모리에서 폐기(참조 해제)하고 어떤 경로로도 로그하지 않는다.</p>
+</div>
+
+<div class="callout warn">
+  <div class="label">SDK 주의 — Day 0 스파이크로 실증</div>
+  <p><code>setClientRequestHandler</code>가 <code>.reject</code>를 반환할 때 클라이언트가 받는 관측(HTTP 상태/즉시 close)이 SDK 문서에 빈약하다. 위 코드의 게이트 ①은 Day 0 스파이크가 "reject가 클라이언트에 관측 가능"을 실증한 뒤에만 확정한다. 실증 실패 시 핸드셰이크 구조 검증 reject만 생략하는 옵션 B로 폴백한다(클로저는 전부 accept하되 헤더 Bearer를 여전히 분해해 <code>nonce</code> 키로 <code>pendingAuth</code> carry, 게이트 ②의 nonce 매칭 소비·secret 대조는 옵션 A와 동일 — carry-over 메커니즘은 유지). 어느 경우든 게이트 ②의 secret 대조가 인증의 실질이므로, 게이트 ①의 유무는 조기 차단·격리점 선확보 여부일 뿐 인증 강도에 영향이 없다. <strong>클라이언트 진단 신호가 다르다</strong>: 옵션 A는 핸드셰이크 단계의 무신호 reject(연결 자체가 안 섬)이고, 옵션 B는 핸드셰이크 성립 후 첫 envelope에 대한 <code>UNAUTHORIZED</code> 에러 envelope + close다 — 클라이언트는 이 분기로 "토큰이 구조적으로 거부됐는지(A)" vs "secret이 틀렸는지(B/A 게이트②)"를 진단한다.</p>
+</div>
+
+<h4>5.4 PairingPayload 코덱 + URL scheme</h4>
+<pre><code><span class="com">// QR은 payload 전체를 직접 인코딩(원샷). 6자리 코드는 식별자만 — pairing.claim→pairing.response로 secret 교환(§5.5).</span>
+<span class="kw">public struct</span> <span class="typ">PairingPayload</span>: <span class="typ">Codable</span>, <span class="typ">Equatable</span>, <span class="typ">Sendable</span> {
+    <span class="kw">public let</span> pairingId: <span class="typ">String</span>
+    <span class="kw">public let</span> deviceTokenSecret: <span class="typ">String</span>   <span class="com">// base64url(32 random bytes). QR/claim 응답에만 존재</span>
+    <span class="kw">public let</span> wsEndpoint: <span class="typ">String</span>          <span class="com">// P6a: ws://127.0.0.1:&lt;port&gt;/ (D-5). P6b: tailnet</span>
+    <span class="kw">public let</span> pushChannelHint: <span class="typ">String</span>     <span class="com">// P6a: mock 채널 ID. S1/P10a 실 채널</span>
+    <span class="kw">public let</span> expiresAt: <span class="typ">Date</span>
+}
+
+<span class="kw">public enum</span> <span class="typ">PairingCodec</span> {
+    <span class="com">// JSON → base64url → custom scheme. 라운드트립 byte-identical(Day 1 테스트).</span>
+    <span class="kw">public static func</span> <span class="fn">encodeURL</span>(_ p: <span class="typ">PairingPayload</span>) <span class="kw">throws</span> -> <span class="typ">URL</span> {
+        <span class="kw">let</span> json = <span class="kw">try</span> <span class="typ">JSONEncoder</span>.<span class="fn">iso8601</span>().<span class="fn">encode</span>(p)
+        <span class="kw">let</span> b64 = json.<span class="fn">base64URLEncodedString</span>()   <span class="com">// +/= 치환, padding 제거</span>
+        <span class="kw">return</span> <span class="typ">URL</span>(string: <span class="str">"claudealarm://pair?d=\(b64)"</span>)!
+    }
+}
+</code></pre>
+
+<h4>5.5 6자리 코드 교환 — pairing.claim / pairing.response 신규 EnvelopeKind</h4>
+<p>QR은 payload를 직접 인코딩하지만(원샷, 왕복 없음), 6자리 코드는 식별자라 secret을 못 담는다(D-4). 따라서 6자리 경로는 loopback WS 위에서 <code>pairing.claim</code>(요청) / <code>pairing.response</code>(응답) 2종 신규 envelope kind로 secret을 교환한다. 이 2종은 <strong>인증 게이트 이전(pre-auth)</strong>에 처리되는 유일한 kind이며, loopback에서만, 일회성으로 동작한다.</p>
+<pre><code><span class="com">// EnvelopeKind에 2종 추가(v0.9 → P7에서 v1.0 freeze 대상 편입, §6/Exit Gate).</span>
+<span class="kw">public enum</span> <span class="typ">EnvelopeKind</span>: <span class="typ">String</span>, <span class="typ">Codable</span>, <span class="typ">Sendable</span>, <span class="typ">CaseIterable</span> {
+    <span class="com">// ... 기존 input/output/session.start/.../ack/error/pause/resume ...</span>
+    <span class="kw">case</span> pairingClaim = <span class="str">"pairing.claim"</span>        <span class="com">// 요청: 6자리 코드 제출(pre-auth)</span>
+    <span class="kw">case</span> pairingResponse = <span class="str">"pairing.response"</span>  <span class="com">// 응답: PairingPayload(secret 포함) 또는 에러</span>
+}
+
+<span class="com">// pairing.claim payload 스키마 — 6자리 코드만(secret 없음).</span>
+<span class="com">// { "code": "428913" }</span>
+
+<span class="com">// pairing.response payload 스키마 — 성공 시 PairingPayload 전체(secret 포함).</span>
+<span class="com">// secret 전송 형태: PairingPayload.deviceTokenSecret을 base64url 문자열로 JSON 본문에 담는다.</span>
+<span class="com">// 별도 암호화 없음 — loopback(127.0.0.1) 평문 채널이 신뢰 경계이기 때문(P6b tailnet에서 재평가).</span>
+<span class="com">// {</span>
+<span class="com">//   "pairingId": "...", "deviceTokenSecret": "base64url(32B)",</span>
+<span class="com">//   "wsEndpoint": "ws://127.0.0.1:PORT/", "pushChannelHint": "mock-...",</span>
+<span class="com">//   "expiresAt": "2026-06-11T..."</span>
+<span class="com">// }</span>
+<span class="com">// 실패 시 kind=error, code=PAIRING_CODE_INVALID | PAIRING_CODE_EXPIRED | PAIRING_RATE_LIMITED.</span>
+
+<span class="com">// 데몬 처리: handleMessage가 인증 게이트 ② '이전'에 pairing.claim을 분기한다.</span>
+<span class="com">// (claim은 아직 토큰이 없는 디바이스가 보내므로 pre-auth가 필연 — 단 loopback + 일회성 + rate-limit으로 제한)</span>
+<span class="kw">case</span> .pairingClaim:
+    <span class="kw">guard let</span> code = <span class="typ">Self</span>.<span class="fn">claimCode</span>(env.payload),
+          <span class="kw">let</span> payload = <span class="kw">await</span> pairingSession.<span class="fn">claim</span>(code: code) <span class="kw">else</span> {
+        <span class="fn">send</span>(<span class="fn">makeError</span>(code: pairingSession.lastRejectCode, message: <span class="str">"pairing claim rejected"</span>),
+             to: connection, clientId: clientId)
+        <span class="kw">return</span>   <span class="com">// claim 실패는 인증 승격 없음 — registry 미진입</span>
+    }
+    <span class="fn">send</span>(<span class="typ">WSEnvelope</span>(kind: .pairingResponse, payload: <span class="typ">PairingCodec</span>.<span class="fn">encodeJSON</span>(payload)),
+         to: connection, clientId: clientId)
+    <span class="com">// claim은 secret만 넘기고 연결을 인증 상태로 승격하지 않는다. 디바이스는 받은 secret으로</span>
+    <span class="com">// 별도 인증 connect(게이트 ①②)를 새로 맺는다 — claim 채널과 운영 채널 분리.</span>
+</code></pre>
+<div class="callout warn">
+  <div class="label">claim 채널 격리 원칙</div>
+  <p><code>pairing.claim</code>은 인증 게이트를 거치지 않는 유일한 pre-auth 경로다. 표면을 좁히기 위해: (1) loopback에서만 수신(WSServer가 이미 127.0.0.1 강제), (2) <code>PairingSession</code> rate-limit(코드당 5회, 부록 A) + 5분 만료, (3) claim은 secret을 넘길 뿐 연결을 승격하지 않는다 — 디바이스는 받은 secret으로 <strong>새 인증 connect</strong>를 맺어야 운영 envelope을 보낼 수 있다(claim 채널과 운영 채널의 분리). 이로써 claim 채널이 인증 우회 통로가 되지 못한다.</p>
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-6">6. ADR 운영화 — ADR-A: chatRoomId 발급 주체 + sessionId lifetime</h2>
+
+<div class="callout danger">
+  <div class="label">동결 필수</div>
+  <p>master § 6 ADR 목록에서 ADR-A는 <strong>P7 freeze 전 동결 필수</strong>로 지정된다. 본 §6 본문이 그대로 <code>docs/adr/A-chatroomid-sessionid-lifetime.md</code>가 된다(Day 4). 모바일 트랙(P9/P10a)이 이 결정에 의존한다.</p>
+</div>
+
+<h4>Decision (결정)</h4>
+<ol>
+  <li><strong>chatRoomId 발급 주체 = 데스크톱.</strong> 데스크톱이 pane을 생성하는 시점에 <code>chatRoomId</code>를 발급하고, 이를 single source of truth로 둔다. 모바일은 발급하지 않고 데스크톱이 push/WS로 전달한 <code>chatRoomId</code>를 수신해 라우팅에만 쓴다.</li>
+  <li><strong>데몬 재시작 시 모든 sessionId invalidate.</strong> 데몬이 재시작하면 in-memory <code>SessionBindRegistry</code>는 비어 있어 옛 sessionId는 해석 불가다. 재시작 직후 데몬은 직전 살아 있던 세션들에 대해 <code>session.terminated</code>(orphaned 사유)를 발신하고, chatRoomId↔sessionId 바인딩을 폐기한다. chatRoomId 자체는 pane이 영속이면 보존된다(재바인딩은 새 세션 생성 시). pane 영속(workspace JSON persistence)은 P2 스키마가 보장하며, chatRoomId의 모바일 배선 책임은 P9에 있다.</li>
+</ol>
+
+<h4>Drivers (결정 동인)</h4>
+<ul>
+  <li>master § P9 "채팅룸=데스크톱 pane 1:1 바인딩" — pane은 데스크톱 소유 자원이므로 그 식별자 발급도 데스크톱이 자연 소유한다.</li>
+  <li>push <code>chatRoomId</code> 라우팅 정합 — 모바일이 발급하면 데스크톱이 모르는 ID가 push payload에 들어가 라우팅 불능. <code>PushEnvelope.chatRoomId</code>(현재 sessionId placeholder)의 실 source가 데스크톱이어야 일관.</li>
+  <li>master § P10 dedupe key 후보(messageId vs sessionId+seq)와 정합 — chatRoomId가 데스크톱 발급이면 messageId도 데스크톱 단조 발급이 가능해 dedupe 설계가 단순.</li>
+</ul>
+
+<h4>Alternatives considered (검토한 대안)</h4>
+<table>
+  <thead><tr><th>대안</th><th>내용</th><th>기각 사유</th></tr></thead>
+  <tbody>
+    <tr><td>모바일 발급</td><td>모바일이 채팅룸 진입 시 chatRoomId 생성 후 데스크톱에 통보</td><td>데스크톱이 pane 소유자인데 ID를 모름 → push 라우팅 시 역매핑 테이블 필요, 두 발급원 충돌 가능. single source of truth 붕괴</td></tr>
+    <tr><td>합의 발급(양측 hash)</td><td>pane id + device id를 해시해 양측이 같은 chatRoomId 도출</td><td>pane id 변경/재생성 시 충돌, 해시 충돌 표면, 디버깅 난해. 단순 데스크톱 발급 대비 이득 없음</td></tr>
+    <tr><td>재시작 시 sessionId 보존</td><td>데몬이 sessionId를 디스크 영속해 재시작 후 재바인딩</td><td>PTY는 데몬 프로세스 자식이라 재시작 시 이미 죽음 — 보존된 sessionId가 가리킬 실 세션이 없어 거짓 생존. orphaned 신호가 정직</td></tr>
+  </tbody>
+</table>
+
+<h4>Why chosen (선택 이유)</h4>
+<p>데스크톱 발급 + 재시작 전부 invalidate가 "pane 소유권 = 데스크톱"이라는 master 정보 구조와 일치하고, push 라우팅·dedupe·lifecycle 매트릭스(orphaned)를 모두 모순 없이 만족하는 유일한 조합이다. 데이터 손실 우려는 메시지가 모바일 SQLite에 영속(master § P9)되므로 sessionId invalidation이 메시지를 지우지 않는다 — 세션 핸들만 끊고 채팅 이력은 보존된다.</p>
+
+<h4>Consequences (결과)</h4>
+<ul>
+  <li>(+) push <code>chatRoomId</code>가 데스크톱 단조 발급이라 P10a dedupe 설계가 단순해진다.</li>
+  <li>(+) 데몬 재시작이 "조용한 좀비 세션" 없이 orphaned로 정직하게 노출된다.</li>
+  <li>(−) 모바일은 chatRoomId를 발급/예측 못 해 항상 데스크톱 통지에 의존 — 오프라인 선발급 UX 불가(MVP 범위 밖이라 수용).</li>
+  <li>(−) <code>Pane.chatRoomId</code>를 데스크톱이 채우는 코드는 P9에서 배선(P6a는 placeholder 유지) — ADR만 동결, 구현 이연.</li>
+</ul>
+
+<h4>Follow-ups (후속)</h4>
+<ul>
+  <li>P9: <code>Pane.chatRoomId</code> 실 발급 배선 + 모바일 수신 라우팅 (master § P9).</li>
+  <li>P9: <strong>pane 영속 보장 책임</strong> — 본 ADR은 "chatRoomId는 pane이 영속이면 보존"을 전제한다. pane 영속(<code>WorkspaceManager</code> 저장 스키마)이 chatRoomId 수명을 보장하는지 검증·배선은 P9이 책임진다(P6a는 ADR 전제만 동결, pane 저장 코드 미변경).</li>
+  <li>P10a: ADR-C(dedupe key) 확정 시 본 결정 참조 — messageId 데스크톱 발급 전제.</li>
+  <li>P7: envelope v1.0에 <code>session.terminated</code> orphaned 사유 코드 + <code>pairing.claim</code>/<code>pairing.response</code> 2종 kind 동결(§5.5 — P7 freeze 대상 편입).</li>
+</ul>
+
+<!-- =================================================================== -->
+<h2 id="sec-7">7. Pre-mortem + 확장 테스트 계획 (deliberate 특수 섹션)</h2>
+
+<h3 id="sec-7-1">7.1 Pre-mortem — 4 실패 시나리오</h3>
+<p>"P6a가 출시됐는데 보안 사고가 났다. 무엇이 잘못됐나?"를 역산한다.</p>
+
+<h4>시나리오 1 — 토큰 검증 timing 누출로 토큰 탈취</h4>
+<table>
+  <tbody>
+    <tr><th>증상</th><td>공격자가 loopback 또는 (P6b 후) tailnet에서 Bearer 토큰을 반복 추측. 검증이 첫 불일치 바이트에서 early-return해 응답 시간이 일치 prefix 길이에 비례 → byte-by-byte 토큰 복원.</td></tr>
+    <tr><th>근본 원인</th><td><code>DeviceTokenVerifier</code>가 <code>==</code> 또는 <code>String</code> 비교(short-circuit)를 써서 timing 비의존성 위반.</td></tr>
+    <tr><th>완화 (계획 반영)</th><td>§5.2 <code>constantTimeEqual</code>(누적 XOR, 길이 불일치도 상수시간). Day 1 종료 조건: <code>grep</code>로 short-circuit 비교 0건 측정. Day 2: 검증이 게이트 ①②에서 동일 함수 호출.</td></tr>
+  </tbody>
+</table>
+
+<h4>시나리오 2 — 6자리 코드 brute-force로 무단 페어링</h4>
+<table>
+  <tbody>
+    <tr><th>증상</th><td>공격자가 6자리(약 20비트) 코드를 claim endpoint에 대량 시도해 유효 in-flight 코드를 맞춰 디바이스 등록. 토큰을 정당하게 발급받아 이후 모든 게이트 통과.</td></tr>
+    <tr><th>근본 원인</th><td>코드 만료(5분)만 있고 시도 횟수 제한이 없어 5분 내 10^6 시도가 가능.</td></tr>
+    <tr><th>완화 (계획 반영)</th><td><code>PairingSession</code>에 claim 시도 카운터 — 동일 코드 5회 오claim 시 즉시 폐기(rate-limit). 5분 만료 병행. Day 4 종료 조건: 5회 오claim 후 6회째 거부 + 만료 코드 거부 테스트. master § 보안 원칙과 정합.</td></tr>
+  </tbody>
+</table>
+
+<h4>시나리오 3 — 토큰 평문이 로그/QR 스크린샷/envelope에 노출</h4>
+<table>
+  <tbody>
+    <tr><th>증상</th><td><code>deviceTokenSecret</code>이 <code>os_log</code>/디버그 print/envelope payload/UI 텍스트에 평문으로 찍혀, 로그 수집·화면 공유·패킷 캡처로 유출.</td></tr>
+    <tr><th>근본 원인</th><td>로그·UI가 토큰 ID 대신 secret 본문을 출력. envelope이 secret을 payload에 동봉.</td></tr>
+    <tr><th>완화 (계획 반영)</th><td>Principle 3 — secret은 QR/<code>pairing.response</code>/<code>Authorization</code> 헤더에만(운영 envelope 금지). 로그는 tokenId 앞 8자+마스킹. Day 2 종료: <code>grep</code>로 로그 함수에 토큰 0건. Day 3 종료: <code>Sources/UI/</code>에 secret 평문 0건(QR/코드만 표시). Day 0/4: 산출 문서에 토큰 0건.</td></tr>
+  </tbody>
+</table>
+
+<h4>시나리오 4 — claim 채널 replay / 재페어링 후 옛 토큰 잔존</h4>
+<table>
+  <tbody>
+    <tr><th>증상</th><td>(a) 공격자가 정당한 <code>pairing.claim</code>↔<code>pairing.response</code> 교환을 캡처해 동일 코드로 secret을 재수신(replay). (b) 디바이스를 재페어링했는데 옛 secret이 Keychain에 남아, 분실된 옛 토큰으로도 인증이 계속 성립.</td></tr>
+    <tr><th>근본 원인</th><td>(a) claim 코드가 1회 소비되지 않고 만료까지 재사용 가능. (b) <code>upsert</code>가 새 secret을 추가만 하고 동일 deviceId의 옛 secret을 폐기하지 않음.</td></tr>
+    <tr><th>완화 (계획 반영)</th><td>(a) <code>PairingSession.claim</code>이 성공 시 코드를 즉시 폐기(1회 소비) — 같은 코드 두 번째 claim은 <code>PAIRING_CODE_INVALID</code>. carry-over <code>pendingAuth</code>도 nonce 키로 consume 1회 — 같은 nonce echo 재전송은 소비할 항목 없어 거부(§5.3). (b) <code>DeviceStore.upsert</code>가 동일 deviceId 재페어링 시 옛 secret을 즉시 replace(폐기) — §5.1 주석 명문화. Day 4 종료 조건의 rate-limit 테스트에 "재페어링 후 옛 secret 검증 실패" 케이스 포함.</td></tr>
+  </tbody>
+</table>
+
+<h3 id="sec-7-2">7.2 확장 테스트 계획 (unit / integration / e2e / observability)</h3>
+
+<h4>Unit (Day 1, <code>DaemonTests</code>)</h4>
+<table>
+  <thead><tr><th>대상</th><th>케이스</th><th>측정</th></tr></thead>
+  <tbody>
+    <tr><td><code>PairingCodec</code></td><td>한국어/emoji/4KB 경계 payload encode→decode 라운드트립</td><td><code>XCTAssertEqual</code> 원본 일치 3종</td></tr>
+    <tr><td><code>DeviceTokenVerifier</code></td><td>일치/불일치/길이 다름/빈 토큰 검증</td><td>일치만 <code>VerifiedDevice</code> 반환, short-circuit 0건(grep)</td></tr>
+    <tr><td><code>PairingSession</code></td><td>만료 1초 전/후 claim, 만료 후 코드 폐기</td><td>경계 <code>XCTAssertEqual</code></td></tr>
+    <tr><td><code>SixDigitCode</code></td><td>10,000회 생성 형식·분포</td><td>형식 위반 0건</td></tr>
+    <tr><td><code>InMemoryDeviceStore</code></td><td>upsert/find/revoke/secret 조회</td><td>revoked 디바이스 검증 실패 측정</td></tr>
+  </tbody>
+</table>
+
+<h4>Integration (Day 2, <code>DaemonTests</code> — WSServer in-process)</h4>
+<table>
+  <thead><tr><th>대상</th><th>케이스</th><th>측정</th></tr></thead>
+  <tbody>
+    <tr><td>인증 통과</td><td>유효 Bearer + 일치 deviceId envelope → session.start ack</td><td>ack 5초 이내 수신</td></tr>
+    <tr><td>핸드셰이크 거부 (게이트 ①)</td><td>무토큰/구조 위반 토큰 connect</td><td><code>.failed</code>/<code>.cancelled</code> 5초 이내 (옵션 A 시)</td></tr>
+    <tr><td>carry-over 실패 (게이트 ②)</td><td>헤더 토큰/nonce 없이 핸드셰이크(pendingAuth 미등록) 또는 첫 envelope이 nonce 미echo·미등록 nonce echo 또는 시간창 만료 후 → 일치 항목 없음</td><td><code>UNAUTHORIZED</code> + close 측정</td></tr>
+    <tr><td>secret 불일치 (게이트 ②)</td><td>구조 유효 토큰 핸드셰이크 + 폐기/위조 secret</td><td><code>UNAUTHORIZED</code> + close 측정</td></tr>
+    <tr><td>replay 거부 (게이트 ②)</td><td>동일 nonce 항목 2회 소비 시도(같은 nonce echo 재전송)</td><td>두 번째 거부 측정</td></tr>
+    <tr><td>seq 불변 (C2 순서)</td><td>미인증 envelope 후 registry 상태</td><td><code>boundSession == nil</code> <code>XCTAssertEqual</code></td></tr>
+    <tr><td>revoked 토큰</td><td>revoke 후 동일 토큰 connect</td><td>검증 실패 close</td></tr>
+    <tr><td>기존 라운드트립 비파괴</td><td><code>RoundTripTests</code> 헤더 첨부 후</td><td>"가나다" echo 성립</td></tr>
+  </tbody>
+</table>
+
+<h4>e2e (Day 4, <code>DaemonDevCLI</code> 시뮬레이션 디바이스)</h4>
+<table>
+  <thead><tr><th>경로</th><th>케이스</th><th>측정</th></tr></thead>
+  <tbody>
+    <tr><td><code>--pair</code> (6자리)</td><td>코드 발급 → claim → payload 수신 → 디바이스 등록</td><td>"PAIRED &lt;id&gt;" exit 0, secret 평문 0건</td></tr>
+    <tr><td><code>--connect-auth</code></td><td>발급 Bearer로 인증 connect → input → echo</td><td>"가나다" echo exit 0</td></tr>
+    <tr><td>rate-limit</td><td>동일 코드 5회 오claim</td><td>6회째 거부 측정</td></tr>
+    <tr><td>claim replay</td><td>성공한 코드 재claim</td><td><code>PAIRING_CODE_INVALID</code> (1회 소비)</td></tr>
+    <tr><td>재페어링 무효화</td><td>동일 deviceId 재페어링 후 옛 secret로 인증</td><td>옛 secret 검증 실패 측정</td></tr>
+    <tr><td>GUI walkthrough (Day 3)</td><td>QR/코드/카운트다운 표시 + Keychain 등록</td><td><code>security find-generic-password</code> item 존재</td></tr>
+  </tbody>
+</table>
+
+<h4>Observability</h4>
+<ul>
+  <li><strong>인증 거부 로그</strong>: 게이트 ①② 거부 시 <code>PushLog</code> 패턴으로 사유 코드(<code>UNAUTHORIZED</code>/<code>TOKEN_EXPIRED</code>/<code>RATE_LIMITED</code>) + tokenId 마스킹 기록. secret 본문 절대 금지.</li>
+  <li><strong>페어링 메트릭</strong>: in-flight <code>PairingSession</code> 수, 만료/claim/오claim 카운트를 <code>PairingSession</code> actor가 testable 카운터로 노출(P5 <code>PushSender.rejectedCount</code> 선례).</li>
+  <li><strong>토큰 노출 감사</strong>: 매 Day 종료 시 <code>grep -rn "deviceTokenSecret" Sources/ | grep -iE "log|print|FileHandle|os_log"</code> 0건이 종료 조건. CI에 동일 grep 게이트 추가 권고(P6b).</li>
+</ul>
+
+<!-- =================================================================== -->
+<h2 id="sec-8">8. Acceptance Criteria</h2>
+<table>
+  <thead><tr><th>#</th><th>기준</th><th>검증 일자</th><th>검증 절차</th><th>통과</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>A1</td>
+      <td>핸드셰이크 reject 관측이 실증되어 D-1 옵션(A/B)이 확정됐다</td>
+      <td>Day 0</td>
+      <td><code>xcodebuild test -only-testing:DaemonTests/WSHandshakeRejectSpikeTests</code> exit 0 + <code>.omc/research/p6a-handshake-spike.md</code>에 옵션 결정 1개 명시</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A2</td>
+      <td>토큰 검증이 constant-time이다 (timing 누출 없음)</td>
+      <td>Day 1</td>
+      <td><code>grep -nE "return.*(==|!=)" Sources/Pairing/DeviceTokenVerifier.swift</code> short-circuit 비교 0건 + 일치/불일치 테스트 green</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A3</td>
+      <td>PairingPayload 코덱이 한국어/emoji/4KB 경계에서 byte-identical 라운드트립</td>
+      <td>Day 1</td>
+      <td><code>xcodebuild test -only-testing:DaemonTests/PairingCodecTests</code> exit 0, 3종 <code>XCTAssertEqual</code></td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A4</td>
+      <td>미인증 WS 연결이 즉시 close되고 registry seq를 오염시키지 않는다 (게이트 ①② carry-over)</td>
+      <td>Day 2</td>
+      <td>헤더 무토큰/시간창 만료 후 첫 envelope(소비 항목 없음)/replay 3 케이스가 <code>UNAUTHORIZED</code> + <code>.cancelled</code> 5초 이내 + 미인증 후 <code>boundSession == nil</code> <code>XCTAssertEqual</code> 측정</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A5</td>
+      <td>모든 WS 클라이언트(raw 2종 포함)가 Bearer로 마이그레이션됐고 라운드트립 비파괴</td>
+      <td>Day 2</td>
+      <td><code>grep -rnE "WSClient\(|NWProtocolWebSocket\.Options|NWConnection\(to:" Sources/ Tests/</code>의 모든 클라이언트 생성처가 Bearer 첨부 보유(<code>BootstrapWSClient</code>/<code>WSTestClient</code> 포함) + <code>RoundTripTests</code>+<code>SessionBindTests</code>+<code>DaemonBootstrapTests</code> green</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A6</td>
+      <td>토큰 secret이 로그·UI·운영 envelope payload에 평문 노출 0건 (<code>pairing.response</code>는 명시적 예외)</td>
+      <td>Day 2/3</td>
+      <td><code>grep -rn "deviceTokenSecret" Sources/ | grep -iE "log|print|FileHandle|os_log"</code> 0건 + <code>Sources/UI/</code> 평문 0건. <code>pairing.response</code> 외 envelope kind 구성에서 secret 동봉 0건(코드 리뷰)</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A7</td>
+      <td>Pairing UI가 QR/6자리 코드/만료 카운트다운을 표시하고 non-app 타겟 빌드 비파괴</td>
+      <td>Day 3</td>
+      <td><code>xcodebuild build -scheme ClaudeAlarmTerminal</code> + <code>SessionVerifier</code>/<code>WorkspaceTests</code> exit 0 + GUI walkthrough 기록</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A8</td>
+      <td>6자리 코드 rate-limit + 만료가 brute-force를 차단한다</td>
+      <td>Day 4</td>
+      <td>동일 코드 5회 오claim 후 6회째 거부 + 만료 코드 거부 <code>XCTAssertEqual</code></td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A9</td>
+      <td>시뮬레이션 디바이스 e2e: 페어링 → 토큰 발급 → 인증 WS 라운드트립 전 경로 통과</td>
+      <td>Day 4</td>
+      <td><code>./daemon-dev-cli --pair</code> exit 0 + <code>--connect-auth</code> exit 0 ("가나다" echo) + <code>PairingE2ETests</code> green</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A10</td>
+      <td>ADR-A가 동결됐다 (chatRoomId 발급 주체 + sessionId invalidation)</td>
+      <td>Day 4</td>
+      <td><code>docs/adr/A-chatroomid-sessionid-lifetime.md</code> 존재 + 6 섹션(Decision/Drivers/Alternatives/Why/Consequences/Follow-ups) 전부 채움</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A11</td>
+      <td>전체 테스트 기준선 비파괴 (336 + 신규 green)</td>
+      <td>Day 4</td>
+      <td>3 타겟 전부 exit 0, 기존 함수 실패 0건, <code>336 + 신규 M = K</code> 검산</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A12</td>
+      <td>첫 envelope 토큰 운반 매체가 운영 payload가 아니며 carry-over 증명이 헤더/nonce 매칭으로 성립한다</td>
+      <td>Day 2</td>
+      <td>인증 성립 연결의 첫 envelope payload에 토큰/secret 문자열 부재(nonce echo만 존재) <code>XCTAssertFalse(contains)</code> + 헤더 Bearer 제거 시 인증 실패 + 첫 envelope nonce 미echo·미등록 nonce echo 시 <code>UNAUTHORIZED</code></td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+    <tr>
+      <td>A13</td>
+      <td>서로 다른 토큰의 동시 핸드셰이크에서 nonce 매칭으로 identity 교차가 0건이다</td>
+      <td>Day 2</td>
+      <td>서로 다른 토큰 Ta≠Tb 두 연결이 각자 nonce로 동시 핸드셰이크 후 각자 자신의 nonce echo → <code>XCTAssertEqual</code>(각 연결의 승격 deviceId, 자신의 토큰 deviceId), identity 교차 0건</td>
+      <td><input type="checkbox" disabled></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-9">9. Risks &amp; Mitigations</h2>
+<table>
+  <thead><tr><th>위험</th><th>가능성</th><th>영향</th><th>완화</th><th>책임</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>핸드셰이크 reject가 클라이언트에 관측 불가능 (게이트 ① 무력)</td>
+      <td><span class="tag warn">중</span></td>
+      <td><span class="tag danger">높음</span></td>
+      <td>Day 0 스파이크를 1차 게이트로 배치. 실증 실패 시 옵션 B(게이트 ②만)로 즉시 폴백 — 인증 자체는 첫 envelope에서 항상 성립하므로 보안 손실 없음(조기 차단 이점만 상실)</td>
+      <td>Day 0 executor</td>
+    </tr>
+    <tr>
+      <td>constant-time 비교가 컴파일러 최적화로 short-circuit화</td>
+      <td><span class="tag warn">중</span></td>
+      <td><span class="tag danger">높음</span></td>
+      <td>CryptoKit <code>HMAC.isValidAuthenticationCode</code> 우선 사용(라이브러리 보증). 수동 구현 시 <code>@inline(never)</code> + 누적 변수 <code>volatile</code> 패턴. timing 테스트는 결정적이지 않으므로 코드 리뷰(grep + security-reviewer)로 보강</td>
+      <td>Day 1 executor + security-reviewer</td>
+    </tr>
+    <tr>
+      <td>WSClient 헤더 마이그레이션 누락으로 기존 테스트 깨짐</td>
+      <td><span class="tag warn">중</span></td>
+      <td><span class="tag warn">중</span></td>
+      <td>Day 2 종료 조건에 <code>grep -rn "WSClient("</code> 전수 검사. 4 CLI 모드 + 모든 테스트 호출처 명시적 마이그레이션</td>
+      <td>Day 2 executor</td>
+    </tr>
+    <tr>
+      <td>Pairing UI가 데몬 타입 의존으로 non-app 타겟 빌드 깨짐</td>
+      <td><span class="tag warn">중</span></td>
+      <td><span class="tag warn">중</span></td>
+      <td><code>PushSettingsView</code> 선례대로 5개 non-app 타겟 excludes에 <code>**/PairingView.swift</code> 등 추가. Day 3 종료 조건에 <code>SessionVerifier</code>/<code>WorkspaceTests</code> 빌드 검증</td>
+      <td>Day 3 executor</td>
+    </tr>
+    <tr>
+      <td>실 Keychain이 entitlement/서명 부재로 GUI에서 실패</td>
+      <td><span class="tag warn">중</span></td>
+      <td><span class="tag warn">중</span></td>
+      <td>protocol seam으로 정책은 fake로 검증(빌드 무관). Keychain은 <code>kSecClassGenericPassword</code>(앱 entitlement 불요) 사용. 실패 시 GUI walkthrough에서만 노출되고 단위 테스트는 무영향</td>
+      <td>Day 3 executor</td>
+    </tr>
+    <tr>
+      <td>xcodegen 미실행으로 신규 파일이 "0 tests executed" 거짓 통과</td>
+      <td><span class="tag warn">중</span></td>
+      <td><span class="tag danger">높음</span></td>
+      <td>매 Day 종료 조건이 <code>xcodegen generate &amp;&amp; xcodebuild test</code>를 한 줄로 강제 + executed 함수 수 명시 측정(0 executed 거부)</td>
+      <td>전 Day executor</td>
+    </tr>
+    <tr>
+      <td>토큰 평문이 디버그 로그에 의도치 않게 유출</td>
+      <td><span class="tag warn">중</span></td>
+      <td><span class="tag danger">높음</span></td>
+      <td>pre-mortem 시나리오 3 완화 — 매 Day grep 게이트. tokenId만 로그. CI grep 게이트 P6b 권고</td>
+      <td>전 Day + security-reviewer</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-10">10. Exit Gate to P6b</h2>
+<p>아래 전 항목이 체크되어야 P6b(토큰 lifecycle + Tailscale)로 진입한다.</p>
+<ul class="exit-criteria">
+  <li><input type="checkbox" disabled> A1~A13 수락 기준 전부 통과 (§8)</li>
+  <li><input type="checkbox" disabled> 두 페어링 경로(QR 원샷 + 6자리 코드)가 동일 권한 토큰을 발급한다 (e2e A9)</li>
+  <li><input type="checkbox" disabled> 모든 WS 연결이 Bearer를 요구하고 미인증은 즉시 close된다 (A4)</li>
+  <li><input type="checkbox" disabled> <code>Device</code> 스키마가 P6b lifecycle(<code>expiresAt</code>/<code>revoked</code>)과 S1 push(<code>fcmToken</code>/<code>apnsToken</code>)를 수용한다 (필드 존재, UI 미배선)</li>
+  <li><input type="checkbox" disabled> <code>DeviceStore.revoke(id:)</code> seam이 존재한다 (P6b가 UI만 연결하면 됨)</li>
+  <li><input type="checkbox" disabled> ADR-A가 <code>docs/adr/</code>에 동결됐다 (A10) — P7 freeze 전 동결 요구 충족</li>
+  <li><input type="checkbox" disabled> <code>pairing.claim</code>/<code>pairing.response</code> 2종 신규 EnvelopeKind가 정의됐고 P7 envelope v1.0 freeze 대상으로 기록됐다 (§5.5)</li>
+  <li><input type="checkbox" disabled> 토큰 secret이 코드·로그·UI·운영 envelope에 평문 0건 (A6 + pre-mortem 3) — <code>pairing.response</code>는 명시적 예외</li>
+  <li><input type="checkbox" disabled> 전체 테스트 기준선 비파괴 (A11) — 336 + 신규 green</li>
+  <li><input type="checkbox" disabled> APPROVE 후 <code>.omc/plans/p6a-detailed.html</code> → <code>docs/plans/p6a/</code> 이전 + 합의 이력 <code>p6a-history.md</code> 분리 완료</li>
+</ul>
+
+<!-- =================================================================== -->
+<h2 id="app-a">부록 A. 환경 변수</h2>
+<table>
+  <thead><tr><th>변수</th><th>용도</th><th>기본값</th><th>비고</th></tr></thead>
+  <tbody>
+    <tr><td><code>CLAUDE_ALARM_DEVICE_KEYCHAIN_SERVICE</code></td><td>Keychain service 이름</td><td><code>com.choms0521.ClaudeAlarmTerminal.device</code></td><td>secret 본문 아님 — service 식별자만</td></tr>
+    <tr><td><code>CLAUDE_ALARM_PAIRING_TTL_SECONDS</code></td><td>6자리 코드 만료 초</td><td><code>300</code> (5분)</td><td>master 명세 5분</td></tr>
+    <tr><td><code>CLAUDE_ALARM_PAIRING_MAX_CLAIM_ATTEMPTS</code></td><td>코드당 최대 claim 시도</td><td><code>5</code></td><td>pre-mortem 시나리오 2 rate-limit</td></tr>
+    <tr><td><code>CLAUDE_ALARM_PAIRING_PENDING_WINDOW_SECONDS</code></td><td>carry-over <code>pendingAuth</code> 시간창</td><td><code>10</code></td><td>게이트 ① 등록 후 첫 envelope nonce echo 증명 마감(§5.3). 초과 시 항목 만료</td></tr>
+    <tr><td><code>CLAUDE_ALARM_DEVICE_TOKEN_EXPIRY_DAYS</code></td><td><code>Device.expiresAt</code> 기본 수명</td><td><code>30</code></td><td>P6a는 스키마만 — 강제는 P6b</td></tr>
+    <tr><td><code>CHAT_TERMINAL_RING_CAPACITY</code></td><td>(기존) ring buffer 용량</td><td><code>500</code></td><td>DaemonDevCLI flood 모드 — 기존 유지</td></tr>
+  </tbody>
+</table>
+<div class="callout warn">
+  <div class="label">보안 — env 정책</div>
+  <p>env에는 Keychain item의 <strong>account/service ID만</strong> 둔다. <code>deviceTokenSecret</code> 본문은 env·코드·로그에 절대 두지 않는다(master § 7 보안 원칙). 키 누출 시 rotation 절차는 work-plan-v4 § 4.5.</p>
+</div>
+
+<!-- =================================================================== -->
+<h2 id="app-b">부록 B. 참고 문헌</h2>
+<ul>
+  <li><strong>master 계획</strong>: <code>docs/plans/development-master-plan-v2.md</code> § 3 P6a, § 6 ADR-A, § 7 보안 원칙</li>
+  <li><strong>WS 서버</strong>: <code>Sources/Daemon/WSServer.swift</code> (NWListener + NWProtocolWebSocket, loopback, 인증 게이트 없음)</li>
+  <li><strong>WS 클라이언트</strong>: <code>Sources/Daemon/WSClient.swift</code> (<code>init(host:port:)</code>, ws:// URL 필수)</li>
+  <li><strong>Envelope v0.9</strong>: <code>Sources/Daemon/WSEnvelope.swift</code>, <code>EnvelopeCodec.swift</code> (<code>actor.deviceId</code> source)</li>
+  <li><strong>에러 코드</strong>: <code>Sources/Daemon/DaemonErrorCode.swift</code> (신규 <code>UNAUTHORIZED</code> 추가)</li>
+  <li><strong>Push seam 선례</strong>: <code>Sources/Push/PushTransport.swift</code> + <code>MockPushTransport.swift</code> (DeviceStore seam의 동형 모델)</li>
+  <li><strong>데몬 부트스트랩</strong>: <code>Sources/Daemon/DaemonBootstrap.swift</code>, 호출: <code>Sources/ClaudeAlarmTerminal/AppDelegate.swift:224</code></li>
+  <li><strong>설정 UI 선례</strong>: <code>Sources/UI/Settings/PushSettingsView.swift</code> (SwiftUI Form, 한국어, non-app 타겟 exclude 패턴)</li>
+  <li><strong>시뮬레이션 드라이버</strong>: <code>Sources/DaemonDevCLI/main.swift</code> (<code>--roundtrip/--flood/--serve-probe/--connect</code>)</li>
+  <li><strong>chatRoomId placeholder</strong>: <code>Sources/Workspace/Pane.swift:37</code>, <code>Sources/Push/PushEnvelope.swift:16</code></li>
+  <li><strong>빌드</strong>: <code>project.yml</code> (XcodeGen, non-app 타겟 excludes), 신규 파일 시 <code>xcodegen generate</code> 선행 필수</li>
+  <li><strong>형식 규약</strong>: <code>~/.claude/rules/plan-documents.md</code></li>
+  <li><strong>스파이크 게이트 선례</strong>: P5.5 <code>SurfaceRegistryInvariantTests</code> (<code>docs/plans/p5.5/p5.5-detailed.html</code> Day 2)</li>
+  <li><strong>NWWebSocket 클라이언트 ws:// 메모리</strong>: 클라이언트는 ws:// URL 엔드포인트 필수(host:port면 .preparing 교착, macOS 26 검증)</li>
+</ul>
+
+</main>
+</div>
+</body>
+</html>
