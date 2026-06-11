@@ -22,12 +22,13 @@ final class DaemonBootstrapTests: XCTestCase {
         await handle.daemon.attachInput(sessionId: sessionId, sink: sink)
 
         let actor = EnvelopeActor(deviceId: "bootstrap-test-client")
-        let client = BootstrapWSClient(port: handle.port)
+        let client = BootstrapWSClient(port: handle.port, bearerToken: handle.bearerToken)
         try await client.connect()
         // The server processes a connection's messages in order (receive re-arms
         // after handling), so the bind is complete before the input arrives.
+        // 첫 envelope은 핸드셰이크 nonce를 echo해 게이트 ②를 통과한다.
         client.send(WSEnvelope(seq: 1, actor: actor, kind: .sessionStart,
-                               text: #"{"sessionId":"\#(sessionId.uuidString)"}"#))
+                               text: client.firstSessionStartPayload(sessionId: sessionId)))
         client.send(WSEnvelope(seq: 2, actor: actor, kind: .input, text: "A"))
 
         let deadline = Date().addingTimeInterval(5)
@@ -56,17 +57,31 @@ private final class RecordingSink: InputSink, @unchecked Sendable {
 }
 
 /// Minimal loopback WS client (send-only) for the bootstrap input test.
+/// P6a: Bearer 토큰 + 연결마다 신규 nonce를 핸드셰이크 헤더로 첨부하고, 첫 envelope이
+/// 그 nonce를 echo한다(게이트 ② 통과).
 private final class BootstrapWSClient {
     private let connection: NWConnection
     private let queue = DispatchQueue(label: "bootstrap-ws-test-client")
+    private let nonce: String
 
-    init(port: UInt16) {
+    init(port: UInt16, bearerToken: String) {
+        let nonce = WSAuthGate.makeNonce() ?? UUID().uuidString
+        self.nonce = nonce
         let params = NWParameters.tcp
         let ws = NWProtocolWebSocket.Options()
+        ws.setAdditionalHeaders([
+            (name: "Authorization", value: "Bearer \(bearerToken)"),
+            (name: "X-Pair-Nonce", value: nonce)
+        ])
         params.defaultProtocolStack.applicationProtocols.insert(ws, at: 0)
         // WS clients must use a URL endpoint so the upgrade request is generated.
         let url = URL(string: "ws://127.0.0.1:\(port)/")!
         connection = NWConnection(to: .url(url), using: params)
+    }
+
+    /// 첫 envelope에 쓸 session.start payload(이 연결의 nonce echo 포함).
+    func firstSessionStartPayload(sessionId: UUID) -> String {
+        #"{"sessionId":"\#(sessionId.uuidString)","nonce":"\#(nonce)"}"#
     }
 
     func connect(timeout: TimeInterval = 3) async throws {

@@ -23,8 +23,33 @@ public actor WSServer {
     private var inputHandler: (@Sendable (UUID, InputItem) async -> Void)?
     private var sessionStartHandler: (@Sendable (UUID, UUID) async -> Void)?
 
-    public init(registry: SessionBindRegistry) {
+    // P6a 인증 게이트. 게이트 ①(핸드셰이크)이 carry한 nonce 항목을 게이트 ②(첫 envelope)가
+    // 소비해 constant-time secret 대조로 승격한다. 승격 전 connection은 운영 envelope을
+    // 처리하지 못한다(ingestInbound/bind 미진입).
+    private let authGate: WSAuthGate
+    private let verifier: DeviceTokenVerifier
+    private let pendingWindow: TimeInterval
+    /// 승격된 connection 식별자 집합. nil이면 미인증(게이트 ② 트리거 대상).
+    private var authState: [UUID: DeviceTokenVerifier.VerifiedDevice] = [:]
+
+    public init(
+        registry: SessionBindRegistry,
+        authGate: WSAuthGate,
+        verifier: DeviceTokenVerifier,
+        pendingWindow: TimeInterval = WSServer.defaultPendingWindow()
+    ) {
         self.registry = registry
+        self.authGate = authGate
+        self.verifier = verifier
+        self.pendingWindow = pendingWindow
+    }
+
+    /// carry-over 시간창 기본값. env `CLAUDE_ALARM_PAIRING_PENDING_WINDOW_SECONDS`로
+    /// 재정의하며(부록 A), 미설정/파싱 실패 시 10초다.
+    public static func defaultPendingWindow() -> TimeInterval {
+        let raw = ProcessInfo.processInfo.environment["CLAUDE_ALARM_PAIRING_PENDING_WINDOW_SECONDS"]
+        if let raw, let value = TimeInterval(raw), value > 0 { return value }
+        return 10
     }
 
     /// The OS-assigned loopback port once the server is listening.
@@ -51,10 +76,29 @@ public actor WSServer {
     }
 
     /// Builds loopback-only WS parameters (127.0.0.1, OS-assigned port).
-    private static func makeListenerParameters() -> NWParameters {
+    ///
+    /// 게이트 ①(P6a): 핸드셰이크 클로저를 `authGate.queue`에 부착해 헤더 Bearer + nonce를
+    /// 구조 검증하고 carry한다. 클로저는 actor 외부 @Sendable이라 `authGate`만 캡처한다.
+    /// Keychain 조회·secret 대조는 여기서 하지 않는다(핸드셰이크 큐 블록 방지 — 게이트 ②로 지연).
+    private static func makeListenerParameters(authGate: WSAuthGate) -> NWParameters {
         let params = NWParameters.tcp
         let ws = NWProtocolWebSocket.Options()
         ws.autoReplyPing = true
+        ws.setClientRequestHandler(authGate.queue) { _, headers in
+            // 헤더에서 Bearer(tokenId.secret) + X-Pair-Nonce(연결마다 신규 무작위 nonce) 추출.
+            // 구조 검증만(tokenId/secret base64url 형식 + nonce 형식). 중복 nonce는 reject.
+            guard let split = authGate.structurallySplit(Self.bearer(from: headers)),
+                  let nonce = Self.nonce(from: headers),
+                  WSAuthGate.isValidNonce(nonce) else {
+                return NWProtocolWebSocket.Response(status: .reject, subprotocol: nil)
+            }
+            // nonce 중복·등록·carry를 핸드셰이크 큐(actor 외부)에서 동기적으로 처리한다.
+            // authGate는 actor지만 이 경로는 큐 직렬 격리에 의존하므로 동기 헬퍼로 위임한다.
+            guard authGate.handshakeRegister(nonce: nonce, tokenId: split.tokenId, secret: split.secret) else {
+                return NWProtocolWebSocket.Response(status: .reject, subprotocol: nil)   // 중복 nonce
+            }
+            return NWProtocolWebSocket.Response(status: .accept, subprotocol: nil)
+        }
         params.defaultProtocolStack.applicationProtocols.insert(ws, at: 0)
         params.requiredLocalEndpoint = NWEndpoint.hostPort(host: "127.0.0.1", port: .any)
         return params
@@ -63,7 +107,7 @@ public actor WSServer {
     /// Starts listening on a loopback OS-assigned port and returns it once ready.
     @discardableResult
     public func start() async throws -> UInt16 {
-        let listener = try NWListener(using: Self.makeListenerParameters())
+        let listener = try NWListener(using: Self.makeListenerParameters(authGate: authGate))
         self.listener = listener
 
         let assignedPort: UInt16 = try await withCheckedThrowingContinuation { continuation in
@@ -99,6 +143,7 @@ public actor WSServer {
         for (_, connection) in connections { connection.cancel() }
         connections.removeAll()
         outboundSeq.removeAll()
+        authState.removeAll()
         for clientId in clientIds { await registry.cleanup(clientId: clientId) }
 
         guard let listener = self.listener else { return }
@@ -171,6 +216,7 @@ public actor WSServer {
     private func handleDisconnect(_ clientId: UUID) async {
         connections[clientId] = nil
         outboundSeq[clientId] = nil
+        authState[clientId] = nil
         await registry.cleanup(clientId: clientId)
     }
 
@@ -196,6 +242,26 @@ public actor WSServer {
             send(makeError(code: code.rawValue, message: message),
                  to: connection, clientId: clientId)
             return
+        }
+
+        // 게이트 ② (P6a) — ingestInbound(seq 전진) 이전에 인증한다. 미인증 clientId의 첫
+        // envelope이 echo한 nonce가 트리거다. 토큰·secret은 envelope에 없고(헤더로만 운반)
+        // env.actor.deviceId도 신뢰 입력이 아니다. 미통과 시 UNAUTHORIZED + cancel하고
+        // ingestInbound/bind에 진입하지 않는다 — 미인증 연결이 registry seq나 세션 바인딩을
+        // 오염시키지 못하게 한다(C2 순서 보증).
+        if authState[clientId] == nil {
+            guard let echoedNonce = Self.echoedNonce(env.payload),
+                  let claimed = await authGate.consumePending(nonce: echoedNonce, within: pendingWindow),
+                  let verified = await verifier.verify(tokenId: claimed.tokenId,
+                                                       presentedSecret: claimed.secret) else {
+                // 에러 프레임 전송 완료 후 cancel — 클라이언트가 UNAUTHORIZED를 받을 기회를 준다.
+                sendThenCancel(makeError(code: DaemonErrorCode.unauthorized.rawValue,
+                                         message: "unauthenticated connection"),
+                               to: connection, clientId: clientId)
+                return
+            }
+            // 승격: 이후 같은 clientId의 envelope은 재검증 없이 통과한다(carry-over 1회로 충분).
+            authState[clientId] = verified
         }
 
         do {
@@ -254,6 +320,33 @@ public actor WSServer {
                         completion: .contentProcessed { _ in })
     }
 
+    /// 게이트 ②: 에러 프레임을 보낸 뒤 그 프레임이 실제로 전송된 다음에 연결을 닫는다.
+    /// 즉시 `connection.cancel()`을 호출하면 미완료 send 프레임이 폐기되어 클라이언트가
+    /// UNAUTHORIZED를 받기 전에 close될 수 있다 — completion 콜백에서 cancel을 트리거한다.
+    private func sendThenCancel(_ envelope: WSEnvelope, to connection: NWConnection, clientId: UUID) {
+        let next = (outboundSeq[clientId] ?? 0) + 1
+        outboundSeq[clientId] = next
+        let stamped = WSEnvelope(
+            seq: next,
+            ackSeq: envelope.ackSeq,
+            actor: envelope.actor,
+            kind: envelope.kind,
+            code: envelope.code,
+            payload: envelope.payload
+        )
+        guard let data = try? EnvelopeCodec.encode(stamped) else {
+            connection.cancel()
+            return
+        }
+        let meta = NWProtocolWebSocket.Metadata(opcode: .text)
+        let context = NWConnection.ContentContext(identifier: "send", metadata: [meta])
+        connection.send(content: data, contentContext: context, isComplete: true,
+                        completion: .contentProcessed { _ in
+                            // 전송 완료(또는 실패) 후 닫는다 — 에러 프레임이 클라이언트에 도달할 기회를 준다.
+                            connection.cancel()
+                        })
+    }
+
     private func makeAck(ackSeq: UInt64, text: String) -> WSEnvelope {
         WSEnvelope(seq: 0, ackSeq: ackSeq, actor: EnvelopeActor(deviceId: "daemon-local"),
                    kind: .ack, text: text)
@@ -269,6 +362,37 @@ public actor WSServer {
         guard let object = try? JSONSerialization.jsonObject(with: payload) as? [String: Any],
               let raw = object["sessionId"] as? String else { return nil }
         return UUID(uuidString: raw)
+    }
+
+    // MARK: - P6a 인증 게이트 헬퍼
+
+    /// 게이트 ② 트리거: 첫 envelope payload JSON의 `"nonce"` 필드를 추출한다. session.start
+    /// payload `{"sessionId":"...","nonce":"..."}`에 합류되며, parseSessionId는 여분 키에
+    /// 관대하다(sessionId만 읽음). nonce가 없으면(다른 kind가 먼저 도착 등) nil → UNAUTHORIZED.
+    private static func echoedNonce(_ payload: Data) -> String? {
+        guard let object = try? JSONSerialization.jsonObject(with: payload) as? [String: Any],
+              let nonce = object["nonce"] as? String, !nonce.isEmpty else { return nil }
+        return nonce
+    }
+
+    /// 게이트 ① 헤더 추출: `Authorization: Bearer <tokenId>.<secret>`에서 토큰 문자열만 떼낸다.
+    /// 대소문자 무시 헤더 매칭 + `Bearer ` 접두사 제거. 부재·접두사 누락 시 nil.
+    private static func bearer(from headers: [(name: String, value: String)]) -> String? {
+        guard let value = headers.first(where: {
+            $0.name.caseInsensitiveCompare("Authorization") == .orderedSame
+        })?.value else { return nil }
+        let prefix = "Bearer "
+        guard value.hasPrefix(prefix) else { return nil }
+        let token = String(value.dropFirst(prefix.count))
+        return token.isEmpty ? nil : token
+    }
+
+    /// 게이트 ① 헤더 추출: `X-Pair-Nonce` 헤더값(클라이언트가 연결마다 생성한 일회성 nonce).
+    private static func nonce(from headers: [(name: String, value: String)]) -> String? {
+        guard let value = headers.first(where: {
+            $0.name.caseInsensitiveCompare("X-Pair-Nonce") == .orderedSame
+        })?.value, !value.isEmpty else { return nil }
+        return value
     }
 }
 

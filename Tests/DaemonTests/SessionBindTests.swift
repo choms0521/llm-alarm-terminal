@@ -15,6 +15,19 @@ final class SessionBindTests: XCTestCase {
         WSEnvelope(seq: seq, actor: clientActor, kind: kind, text: text)
     }
 
+    /// P6a: 인증 게이트가 항상 활성이므로 통합 테스트는 인증된 서버 + 발급 토큰을 함께 만든다.
+    /// InMemoryDeviceStore에 디바이스 1개를 등록하고, 그 Bearer를 클라이언트에 넘긴다.
+    func makeAuthedServer(registry: SessionBindRegistry) async throws -> (server: WSServer, bearer: String) {
+        let store = InMemoryDeviceStore()
+        let issued = try DeviceTokenIssuer.issue()
+        let device = Device(id: UUID(), name: "session-bind-test", tokenId: issued.tokenId,
+                            expiresAt: Date().addingTimeInterval(3600))
+        try await store.upsert(device, secret: issued.secret)
+        let server = WSServer(registry: registry, authGate: WSAuthGate(),
+                              verifier: DeviceTokenVerifier(store: store))
+        return (server, issued.bearer)
+    }
+
     // MARK: - Pure registry logic (no sockets)
 
     func testRegistryBindAndBoundSession() async {
@@ -79,15 +92,15 @@ final class SessionBindTests: XCTestCase {
 
     func testServerBindsOnSessionStart() async throws {
         let registry = SessionBindRegistry()
-        let server = WSServer(registry: registry)
+        let (server, bearer) = try await makeAuthedServer(registry: registry)
         let port = try await server.start()
         defer { Task { await server.stop() } }
 
-        let client = WSTestClient(port: port)
+        let client = WSTestClient(port: port, bearerToken: bearer)
         try await client.connect()
         let sessionId = UUID()
         client.send(WSEnvelope(seq: 1, actor: clientActor, kind: .sessionStart,
-                               text: #"{"sessionId":"\#(sessionId.uuidString)"}"#))
+                               text: client.firstSessionStartPayload(sessionId: sessionId)))
 
         let received = await client.collectEnvelopes(for: 1.5)
         let ack = received.first(where: { $0.kind == .ack })
@@ -102,12 +115,14 @@ final class SessionBindTests: XCTestCase {
 
     func testWireMonotonicRejection() async throws {
         let registry = SessionBindRegistry()
-        let server = WSServer(registry: registry)
+        let (server, bearer) = try await makeAuthedServer(registry: registry)
         let port = try await server.start()
 
-        let client = WSTestClient(port: port)
+        let client = WSTestClient(port: port, bearerToken: bearer)
         try await client.connect()
-        client.send(envelope(5))   // accepted (5 > 0), no reply
+        // 첫 envelope(seq=5)은 nonce를 echo해 게이트 ②를 통과시킨 뒤 seq 검증을 받는다.
+        client.send(WSEnvelope(seq: 5, actor: clientActor, kind: .input,
+                               text: client.firstPayloadEchoingNonce()))   // accepted (5 > 0), no reply
         client.send(envelope(3))   // rejected (3 < 5) -> exactly one error
 
         let received = await client.collectEnvelopes(for: 2.0)
@@ -134,13 +149,13 @@ final class SessionBindTests: XCTestCase {
         defer { Task { try? await manager.terminate(id: session.id) } }
 
         let registry = SessionBindRegistry()
-        let server = WSServer(registry: registry)
+        let (server, bearer) = try await makeAuthedServer(registry: registry)
         let port = try await server.start()
 
-        let client = WSTestClient(port: port)
+        let client = WSTestClient(port: port, bearerToken: bearer)
         try await client.connect()
         client.send(WSEnvelope(seq: 1, actor: clientActor, kind: .sessionStart,
-                               text: #"{"sessionId":"\#(session.id.uuidString)"}"#))
+                               text: client.firstSessionStartPayload(sessionId: session.id)))
         let received = await client.collectEnvelopes(for: 1.5)
         let clientId = try XCTUnwrap(received.first(where: { $0.kind == .ack })
             .flatMap { Self.parseClientId($0.payload) })
@@ -166,7 +181,7 @@ final class SessionBindTests: XCTestCase {
     func testTenStartStopNoEADDRINUSE() async throws {
         let registry = SessionBindRegistry()
         for _ in 0..<10 {
-            let server = WSServer(registry: registry)
+            let (server, _) = try await makeAuthedServer(registry: registry)
             let port = try await server.start()
             XCTAssertGreaterThan(port, 0)
             await server.stop()
@@ -177,14 +192,14 @@ final class SessionBindTests: XCTestCase {
     // the time it returns, not rely on async disconnect callbacks (Copilot PR #1).
     func testStopClearsRegistryStateDeterministically() async throws {
         let registry = SessionBindRegistry()
-        let server = WSServer(registry: registry)
+        let (server, bearer) = try await makeAuthedServer(registry: registry)
         let port = try await server.start()
 
-        let client = WSTestClient(port: port)
+        let client = WSTestClient(port: port, bearerToken: bearer)
         try await client.connect()
         let sessionId = UUID()
         client.send(WSEnvelope(seq: 1, actor: clientActor, kind: .sessionStart,
-                               text: #"{"sessionId":"\#(sessionId.uuidString)"}"#))
+                               text: client.firstSessionStartPayload(sessionId: sessionId)))
         let received = await client.collectEnvelopes(for: 1.5)
         let clientId = try XCTUnwrap(received.first(where: { $0.kind == .ack })
             .flatMap { Self.parseClientId($0.payload) })
@@ -205,11 +220,12 @@ final class SessionBindTests: XCTestCase {
     // so a client never waits indefinitely (Copilot PR #1 review).
     func testMalformedFrameSurfacesError() async throws {
         let registry = SessionBindRegistry()
-        let server = WSServer(registry: registry)
+        let (server, bearer) = try await makeAuthedServer(registry: registry)
         let port = try await server.start()
 
-        let client = WSTestClient(port: port)
+        let client = WSTestClient(port: port, bearerToken: bearer)
         try await client.connect()
+        // decode 실패는 게이트 ②(인증) 이전 단계라 미인증 연결에서도 그대로 surfacing된다.
         client.sendRaw(Data(#"{"garbage":true}"#.utf8))   // no seq key -> MALFORMED_PAYLOAD
         client.sendRaw(Data(#"{"seq":"abc"}"#.utf8))       // non-numeric seq -> MALFORMED_SEQ
 
@@ -235,17 +251,37 @@ final class SessionBindTests: XCTestCase {
 // MARK: - WS test client
 
 /// Minimal loopback WebSocket client for the Day 3 integration tests.
-private final class WSTestClient {
+/// P6a: Bearer 토큰 + 연결마다 신규 nonce를 핸드셰이크 헤더로 첨부하고, 첫 envelope이
+/// 그 nonce를 echo한다(게이트 ② 통과). nonce는 첫 운영 envelope payload에 합류해야 한다.
+final class WSTestClient {
     private let connection: NWConnection
     private let queue = DispatchQueue(label: "ws-test-client")
+    let nonce: String
 
-    init(port: UInt16) {
+    init(port: UInt16, bearerToken: String) {
+        let nonce = WSAuthGate.makeNonce() ?? UUID().uuidString
+        self.nonce = nonce
         let params = NWParameters.tcp
         let ws = NWProtocolWebSocket.Options()
+        ws.setAdditionalHeaders([
+            (name: "Authorization", value: "Bearer \(bearerToken)"),
+            (name: "X-Pair-Nonce", value: nonce)
+        ])
         params.defaultProtocolStack.applicationProtocols.insert(ws, at: 0)
         // WS clients must use a URL endpoint so the upgrade request is generated.
         let url = URL(string: "ws://127.0.0.1:\(port)/")!
         connection = NWConnection(to: .url(url), using: params)
+    }
+
+    /// 첫 envelope에 쓸 session.start payload(이 연결의 nonce echo 포함).
+    func firstSessionStartPayload(sessionId: UUID) -> String {
+        #"{"sessionId":"\#(sessionId.uuidString)","nonce":"\#(nonce)"}"#
+    }
+
+    /// nonce를 합류한 임의 payload(JSON 키 1개 추가). 첫 envelope이 session.start가
+    /// 아닌 테스트(예: 단순 input)에서 게이트 ② 통과용 nonce echo를 만든다.
+    func firstPayloadEchoingNonce() -> String {
+        #"{"nonce":"\#(nonce)"}"#
     }
 
     func connect(timeout: TimeInterval = 3) async throws {

@@ -17,13 +17,13 @@ final class AcceptanceTests: XCTestCase {
         let sessionId = UUID()
         let registry = SessionBindRegistry()
         let daemon = SessionDaemon()
-        let server = WSServer(registry: registry)
+        let (server, bearer) = try await Self.makeAuthedServer(registry: registry)
         let readerClosed = expectation(description: "output reader saw EOF")
         await attachExternalSession(server: server, daemon: daemon, masterFD: handle.masterFD,
                                     onOutputClosed: { readerClosed.fulfill() })
 
         let port = try await server.start()
-        let client = WSClient(port: port)
+        let client = WSClient(port: port, bearerToken: bearer)
         let received = StringBox()
         let acked = FlagBox()
         try await client.connect()
@@ -33,7 +33,7 @@ final class AcceptanceTests: XCTestCase {
         }
 
         client.send(WSEnvelope(seq: 1, actor: clientActor, kind: .sessionStart,
-                               text: #"{"sessionId":"\#(sessionId.uuidString)"}"#))
+                               text: client.firstSessionStartPayload(sessionId: sessionId)))
         let didAck = await pollUntil(timeout: 5) { acked.isSet() }
         XCTAssertTrue(didAck, "session.start should be acked")
         client.send(WSEnvelope(seq: 2, actor: clientActor, kind: .input, text: "가나다\n"))
@@ -53,7 +53,7 @@ final class AcceptanceTests: XCTestCase {
     // A2: a forced overflow surfaces exactly one BUFFER_OVERFLOW_DROPPED to the client.
     func testFloodEmitsExactlyOneDropMark() async throws {
         let registry = SessionBindRegistry()
-        let server = WSServer(registry: registry)
+        let (server, bearer) = try await Self.makeAuthedServer(registry: registry)
         let actor = daemonActor
         await server.setSessionStartHandler { _, sessionId in
             let ring = SessionRingBuffer(sessionId: sessionId, capacity: 10)
@@ -66,14 +66,14 @@ final class AcceptanceTests: XCTestCase {
         }
 
         let port = try await server.start()
-        let client = WSClient(port: port)
+        let client = WSClient(port: port, bearerToken: bearer)
         let drops = CountBox()
         try await client.connect()
         client.receiveLoop { env in
             if env.kind == .error, env.code == "BUFFER_OVERFLOW_DROPPED" { drops.increment() }
         }
         client.send(WSEnvelope(seq: 1, actor: clientActor, kind: .sessionStart,
-                               text: #"{"sessionId":"\#(UUID().uuidString)"}"#))
+                               text: client.firstSessionStartPayload(sessionId: UUID())))
 
         let sawDrop = await pollUntil(timeout: 5) { drops.value() >= 1 }
         XCTAssertTrue(sawDrop, "drop mark should reach the client")
@@ -84,6 +84,18 @@ final class AcceptanceTests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    /// P6a: 인증 게이트가 항상 활성이므로 통합 테스트는 인증된 서버 + 발급 토큰을 함께 만든다.
+    static func makeAuthedServer(registry: SessionBindRegistry) async throws -> (server: WSServer, bearer: String) {
+        let store = InMemoryDeviceStore()
+        let issued = try DeviceTokenIssuer.issue()
+        let device = Device(id: UUID(), name: "acceptance-test", tokenId: issued.tokenId,
+                            expiresAt: Date().addingTimeInterval(3600))
+        try await store.upsert(device, secret: issued.secret)
+        let server = WSServer(registry: registry, authGate: WSAuthGate(),
+                              verifier: DeviceTokenVerifier(store: store))
+        return (server, issued.bearer)
+    }
 
     private func pollUntil(timeout: TimeInterval, _ condition: @escaping () -> Bool) async -> Bool {
         let deadline = Date().addingTimeInterval(timeout)

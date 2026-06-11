@@ -11,4 +11,7 @@ public enum DaemonErrorCode: String, Sendable, Equatable {
     case malformedSeq = "MALFORMED_SEQ"
     case malformedPayload = "MALFORMED_PAYLOAD"
     case nonMonotonicSeq = "NON_MONOTONIC_SEQ"
+    /// 미인증 연결의 첫 envelope이 인증 게이트 ②를 통과하지 못했다(P6a). nonce 미echo/
+    /// 미등록/만료, secret 불일치, revoked/expired 디바이스 모두 이 코드로 close된다.
+    case unauthorized = "UNAUTHORIZED"
 }
