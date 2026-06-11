@@ -4,8 +4,8 @@ import Foundation
 /// 3단 트리(`AgentTreeNode`)로 join 하는 순수 함수.
 ///
 /// SwiftUI 비의존. 정방향 순회(workspaces → panes → tabs)에 snapshot lookup 만
-/// 더한다(AgentDashboardViewModel 의 역인덱스 순회와 다름). 정렬은 workspace
-/// 추가순(P3.5 Q-β) — `workspaces` 배열 순서를 그대로 보존한다.
+/// 더한다. 정렬은 workspace 추가순(P3.5 Q-β) — `workspaces` 배열 순서를 그대로
+/// 보존한다.
 ///
 /// agent-view workspace 자신(`kind == .agentView`, panes 빈 배열)은 트리에서
 /// 제외하고 `kind == .normal` 만 순회한다.

@@ -39,4 +39,28 @@ public final class AgentTreeSelection: ObservableObject {
     public func syncFromSidebar(workspaceId: UUID) {
         expandedNodeIds.insert(workspaceId)
     }
+
+    /// workspaces 변경 시 dangling 선택을 수렴시킨다.
+    ///
+    /// 현재 `selectedTabId` 가 더 이상 트리(`kind == .normal` workspaces)에 존재하지
+    /// 않으면(또는 애초에 nil 이면) `selectFirstAvailable` 로 유효 tab 또는 nil 로
+    /// 수렴한다. 여전히 존재하면 무변경. sessionId 무관(lazy 탭 포함)하게 tabId 로
+    /// 직접 탐색한다. SwiftUI 비의존 순수 로직이라 단위 테스트가 측정한다.
+    public func reconcile(workspaces: [Workspace]) {
+        if let tabId = selectedTabId,
+           Self.containsTab(tabId, in: workspaces) {
+            return
+        }
+        selectFirstAvailable(workspaces: workspaces)
+    }
+
+    /// `kind == .normal` workspaces 의 panes/tabs 에 tabId 가 존재하는지.
+    static func containsTab(_ tabId: UUID, in workspaces: [Workspace]) -> Bool {
+        for ws in workspaces where ws.kind == .normal {
+            for pane in ws.panes where pane.tabs.contains(where: { $0.id == tabId }) {
+                return true
+            }
+        }
+        return false
+    }
 }

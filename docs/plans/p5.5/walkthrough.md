@@ -89,3 +89,67 @@ Day 3 조립 완료 후 다음을 사람이 육안으로 확인해야 한다.
 > 보조 검증(자동화 가능): `CHAT_TERMINAL_DEBUG_SURFACE_STATS=1` 로 앱 실행 시
 > `~/Library/Logs/ClaudeAlarmTerminal/surface-stats.log` 의 `surf=N` 이 agent-view 진입/이탈
 > 전후로 동일함을 확인(재부모화는 surface count 를 증가시키지 않음). Day 3 에서 수행.
+
+---
+
+## Day 3 — 조립 완료 + GUI walkthrough
+
+Day 3 에서 `AgentSplitView`(좌측 `AgentTreeView` + 우측 `AgentTerminalHostView`)를
+조립하고 `WorkspaceContentView` 의 agent-view 케이스를 closure 주입으로 교체했다.
+카드 그리드 UI 자산(`AgentDashboardView`/`AgentCardView`/`AgentSortFilterControls`/
+`AgentViewSettings`/`AgentJumpAction`/`AgentDashboardViewModel`)은 옵션 C 대로 폐기했다.
+
+### 자동 검증 결과 (executor 직접 수행)
+
+| 항목 | 절차 | 결과 |
+|---|---|---|
+| 빌드 무결성(A10) | `xcodegen generate` → `xcodebuild build -scheme ClaudeAlarmTerminal` | exit 0, `** BUILD SUCCEEDED **` |
+| 전체 테스트(A7) | SessionTests 181 / WorkspaceTests 83 / DaemonTests 70 | 전부 `** TEST SUCCEEDED **`, 실패 0건 |
+| dangling 수렴(A11) | `xcodebuild test -only-testing:SessionTests/AgentSplitSelectionTests` | Executed 6 tests, 0 failures |
+| legacy 키 흡수 | `xcodebuild test -only-testing:WorkspaceTests/SchemaCodecTests` (`agentView.settings` 포함 JSON 디코드) | Executed 14 tests, 0 failures (디코드 에러 0건) |
+| 폐기 완료(A6) | `grep -rlE "AgentDashboardView\|AgentCardView\|AgentSortFilterControls\|AgentJumpAction" Sources/ Tests/` | 0건 |
+| 앱 실행 + surface telemetry | `CHAT_TERMINAL_DEBUG_SURFACE_STATS=1 open -n ClaudeAlarmTerminal.app` 후 surface-stats.log 확인 | 정상 부팅(크래시 없음), `mem=95MB surf=1` 1Hz 기록 확인(ADR-I telemetry live) |
+
+### 사람 육안 확인 필요 항목 (사용자 친람 후 체크)
+
+아래는 라이브 GUI 에서 사람이 직접 클릭하며 확인해야 하는 항목이다. 각 단계는
+"무엇을 클릭해 무엇을 확인하는지"를 명시한다. 자동화 불가(libghostty 렌더 + PTY
+입출력의 육안 관찰)이므로 체크박스는 비워 두고 친람 후 채운다.
+
+#### 사전 준비
+
+1. 터미널에서 `CHAT_TERMINAL_DEBUG_SURFACE_STATS=1` 환경 변수로 앱을 실행한다.
+   (또는 빌드 산출물을 `open -n` 으로 직접 실행)
+2. 좌측 사이드바에서 normal workspace 를 하나 이상 만들고, 각 workspace 의 탭에서
+   Claude/셸 세션을 한두 개 띄워 둔다(우측에서 공유 확인할 라이브 세션 확보).
+3. 사이드바에서 "에이전트 뷰"(person.crop.rectangle 심볼)를 클릭해 agent-view 에 진입한다.
+
+- [ ] **(1) 세션 공유 — 라이브 입력:** agent-view 좌측 트리에서 한 tab 을 클릭한다.
+  → 우측 호스트에 그 세션의 라이브 터미널이 뜬다(빈 화면/새 셸이 아님). 우측에서
+  `echo hello` 를 입력한 뒤, 사이드바에서 같은 세션의 normal workspace 로 이동한다.
+  → 그 workspace 탭에 `echo hello` 입력/출력이 그대로 보인다(같은 PTY 공유 확인).
+
+- [ ] **(2) scrollback 보존:** normal workspace 탭에서 `seq 1 100` 등으로 스크롤백을
+  충분히 쌓는다. → 사이드바에서 agent-view 로 전환하고 트리에서 그 tab 을 클릭한다.
+  → 우측에 같은 scrollback(1~100)이 보인다(빈 화면/리셋 아님).
+
+- [ ] **(3) 재부모화 — 동시 표시 불가:** agent-view 에서 한 tab 이 우측에 mount 된
+  상태에서, 사이드바로 같은 세션의 normal workspace 로 전환한다. → 그 workspace 탭에
+  세션이 나타난다(우측 호스트는 agent-view 를 떠났으므로 화면에서 사라짐). 다시
+  agent-view 로 복귀해 같은 tab 클릭 → 우측으로 돌아오며 scrollback 이 유지된다.
+  보조: `surface-stats.log` 의 `surf=N` 값이 agent-view 진입/이탈 전후로 동일하다
+  (재부모화는 surface 개수를 늘리지 않음).
+
+- [ ] **(4) lazy spawn:** 한 번도 연 적 없는 tab(예: 새로 추가했지만 아직 안 연 셸)을
+  agent-view 트리에서 처음 클릭한다. → 우측에 신규 셸이 spawn 된다(프롬프트가 새로
+  뜸). 이후 사이드바에서 그 tab 의 normal workspace 로 이동하면 같은 셸이 공유된다.
+
+- [ ] **(5) graceful EmptyState:** 우측에 mount 중인 tab 의 세션을 종료한다(`exit`
+  입력으로 `.exited`, 또는 사이드바에서 해당 workspace close). → 우측이 EmptyState
+  ("좌측 트리에서 세션을 선택하세요")로 전환된다(크래시/빈 surface 잔존/검은 화면
+  없음). 트리에서 다른 유효 tab 을 클릭하면 우측이 그 세션으로 정상 복귀한다.
+
+- [ ] **(6) navigation 분기(A8, R8):** 사이드바에서 다른 normal workspace 를 클릭한다.
+  → agent-view 좌측 트리에서 그 workspace 노드가 expand 되지만, 우측 호스트의 선택
+  세션(selectedTabId)은 바뀌지 않는다(사이드바 클릭 = expand 만). 트리에서 tab 을
+  직접 클릭해야 우측이 교체된다.

@@ -12,7 +12,7 @@
 |------|------|
 | P1 단일 PTY + libghostty | 완료 |
 | P2 다중 세션 + 워크스페이스 탭 + 분할 | 완료 |
-| P3 / P3.5 agent-view 대시보드 + 탭 시스템 | 완료 (부채 2건 잔존, §5) |
+| P3 / P3.5 agent-view 대시보드 + 탭 시스템 | 완료 (REQ-5 P5.5에서 CLOSED, W-3-1 1건 잔존, §5) |
 | P4 WS 서버 + 인프로세스 데몬 골격 | **완료 — PR #1 main 병합** (Copilot 리뷰 6건 수정 포함) |
 | P5 Push Sender + FCM/APNs 골격 (mock-first) | **완료 — PR #2 main 병합** (Copilot 리뷰 10건 수정 포함) |
 
@@ -184,8 +184,8 @@ P5는 mock-first로 닫혔고, 아래 7건이 측정 가능한 종료 기준과 
 |------|------|------|
 | C2 sign-off | internal-input 수동 sign-off (`docs/p4/c2-internal-input-signoff.md`) — GUI 실행 후 수동 절차 | P5 Exit Gate 9번 미체크 상태 |
 | C4 | internal 세션 output tap 미지원 — D7의 전제조건 | 해소 시 push trigger 배선 가능 |
-| P3.5 REQ-5 | agent-view 재설계 보류분 | **P5.5가 흡수 예정** (인터랙티브 스플릿이 곧 재설계) |
-| P3.5 W-3-1 | 수동 sign-off 보류분 | 독립 보류 |
+| P3.5 REQ-5 | agent-view 재설계 보류분 | **CLOSED (2026-06-11)** — P5.5 Day 3 완료로 인터랙티브 스플릿(트리 + 라이브 터미널) 흡수. 카드 그리드 폐기(옵션 C) |
+| P3.5 W-3-1 | 수동 sign-off 보류분 | 독립 보류 (잔존) |
 | master 수락기준 #1/#2 | 실 디바이스/시뮬레이터 push 수신 — P5 닫힘에 문서화된 gap | S1/P10a에서 해소 |
 
 ---
