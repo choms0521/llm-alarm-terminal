@@ -124,32 +124,44 @@ Day 3 에서 `AgentSplitView`(좌측 `AgentTreeView` + 우측 `AgentTerminalHost
    Claude/셸 세션을 한두 개 띄워 둔다(우측에서 공유 확인할 라이브 세션 확보).
 3. 사이드바에서 "에이전트 뷰"(person.crop.rectangle 심볼)를 클릭해 agent-view 에 진입한다.
 
-- [ ] **(1) 세션 공유 — 라이브 입력:** agent-view 좌측 트리에서 한 tab 을 클릭한다.
+- [x] **(1) 세션 공유 — 라이브 입력:** agent-view 좌측 트리에서 한 tab 을 클릭한다.
   → 우측 호스트에 그 세션의 라이브 터미널이 뜬다(빈 화면/새 셸이 아님). 우측에서
   `echo hello` 를 입력한 뒤, 사이드바에서 같은 세션의 normal workspace 로 이동한다.
   → 그 workspace 탭에 `echo hello` 입력/출력이 그대로 보인다(같은 PTY 공유 확인).
 
-- [ ] **(2) scrollback 보존:** normal workspace 탭에서 `seq 1 100` 등으로 스크롤백을
+- [x] **(2) scrollback 보존:** normal workspace 탭에서 `seq 1 100` 등으로 스크롤백을
   충분히 쌓는다. → 사이드바에서 agent-view 로 전환하고 트리에서 그 tab 을 클릭한다.
   → 우측에 같은 scrollback(1~100)이 보인다(빈 화면/리셋 아님).
 
-- [ ] **(3) 재부모화 — 동시 표시 불가:** agent-view 에서 한 tab 이 우측에 mount 된
+- [x] **(3) 재부모화 — 동시 표시 불가:** agent-view 에서 한 tab 이 우측에 mount 된
   상태에서, 사이드바로 같은 세션의 normal workspace 로 전환한다. → 그 workspace 탭에
   세션이 나타난다(우측 호스트는 agent-view 를 떠났으므로 화면에서 사라짐). 다시
   agent-view 로 복귀해 같은 tab 클릭 → 우측으로 돌아오며 scrollback 이 유지된다.
   보조: `surface-stats.log` 의 `surf=N` 값이 agent-view 진입/이탈 전후로 동일하다
   (재부모화는 surface 개수를 늘리지 않음).
 
-- [ ] **(4) lazy spawn:** 한 번도 연 적 없는 tab(예: 새로 추가했지만 아직 안 연 셸)을
+- [x] **(4) lazy spawn:** 한 번도 연 적 없는 tab(예: 새로 추가했지만 아직 안 연 셸)을
   agent-view 트리에서 처음 클릭한다. → 우측에 신규 셸이 spawn 된다(프롬프트가 새로
   뜸). 이후 사이드바에서 그 tab 의 normal workspace 로 이동하면 같은 셸이 공유된다.
 
-- [ ] **(5) graceful EmptyState:** 우측에 mount 중인 tab 의 세션을 종료한다(`exit`
+- [x] **(5) graceful EmptyState:** 우측에 mount 중인 tab 의 세션을 종료한다(`exit`
   입력으로 `.exited`, 또는 사이드바에서 해당 workspace close). → 우측이 EmptyState
   ("좌측 트리에서 세션을 선택하세요")로 전환된다(크래시/빈 surface 잔존/검은 화면
   없음). 트리에서 다른 유효 tab 을 클릭하면 우측이 그 세션으로 정상 복귀한다.
 
-- [ ] **(6) navigation 분기(A8, R8):** 사이드바에서 다른 normal workspace 를 클릭한다.
+- [x] **(6) navigation 분기(A8, R8):** 사이드바에서 다른 normal workspace 를 클릭한다.
   → agent-view 좌측 트리에서 그 workspace 노드가 expand 되지만, 우측 호스트의 선택
   세션(selectedTabId)은 바뀌지 않는다(사이드바 클릭 = expand 만). 트리에서 tab 을
   직접 클릭해야 우측이 교체된다.
+
+### 친람 결과 (2026-06-11)
+
+6항목 전부 사용자 육안 확인 완료. 검증 도중 결함 1건이 발견되어 즉시 수정 후 재검증했다.
+
+- **발견 결함**: 다른 워크스페이스에 다녀온 뒤 agent-view 로 복귀하면 트리가 모두 접히고
+  선택이 초기화됨. 원인은 (a) 펼침 상태가 `AgentTreeSelection.expandedNodeIds` 가 아닌
+  SwiftUI `OutlineGroup` 내부 상태에 있었고, (b) selection 객체를 `AgentSplitView` 가
+  `@StateObject` 로 소유해 뷰 계층 제거 시 상태가 파괴된 것.
+- **수정**: `DisclosureGroup` 재귀 + `expandedNodeIds` 바인딩으로 전환, selection 을
+  AppDelegate 단일 인스턴스 주입으로 변경 (commit e428e38). 수정 후 복귀 시 펼침/선택
+  보존을 육안 재확인.
