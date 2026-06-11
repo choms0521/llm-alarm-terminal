@@ -137,6 +137,7 @@ targets:
           - "Pane/**"
           - "**/GhosttyViewportProvider.swift"
           - "**/AgentTerminalHostView.swift"
+          - "**/PushSettingsView.swift"
       - path: Sources/SessionVerifier
     dependencies:
       - package: AnyCodable
@@ -266,6 +267,7 @@ targets:
           - "Pane/**"
           - "**/GhosttyViewportProvider.swift"
           - "**/AgentTerminalHostView.swift"
+          - "**/PushSettingsView.swift"
       - path: Sources/Daemon
       - path: Sources/DaemonDevCLI
     dependencies:
