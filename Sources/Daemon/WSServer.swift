@@ -32,15 +32,22 @@ public actor WSServer {
     /// 승격된 connection 식별자 집합. nil이면 미인증(게이트 ② 트리거 대상).
     private var authState: [UUID: DeviceTokenVerifier.VerifiedDevice] = [:]
 
+    /// 6자리 코드 페어링 세션(§5.5). pre-auth pairing.claim 경로가 코드를 제출해 secret을
+    /// 교환한다. nil이면 claim을 처리할 수 없어 pairing.claim은 PAIRING_CODE_INVALID로 거부된다
+    /// (페어링이 활성화되지 않은 서버 구성).
+    private let pairingSession: PairingSession?
+
     public init(
         registry: SessionBindRegistry,
         authGate: WSAuthGate,
         verifier: DeviceTokenVerifier,
+        pairingSession: PairingSession? = nil,
         pendingWindow: TimeInterval = WSServer.defaultPendingWindow()
     ) {
         self.registry = registry
         self.authGate = authGate
         self.verifier = verifier
+        self.pairingSession = pairingSession
         self.pendingWindow = pendingWindow
     }
 
@@ -85,6 +92,14 @@ public actor WSServer {
         let ws = NWProtocolWebSocket.Options()
         ws.autoReplyPing = true
         ws.setClientRequestHandler(authGate.queue) { _, headers in
+            // claim 전용 pre-auth 경로(§5.5): 토큰 없는 디바이스가 6자리 코드를 제출하기 위해
+            // 여는 연결이다. Bearer/nonce가 없고 X-Pair-Claim 식별 헤더만 있으면 accept하되
+            // carry하지 않는다. 게이트 ②가 이 연결의 첫 envelope을 pairing.claim으로만 허용하고
+            // 그 외 운영 envelope은 UNAUTHORIZED로 막는다(연결 미승격). claim 식별 헤더로
+            // "claim 의도 연결"과 "잘못 구성된 무토큰 연결"을 구분해 후자는 여전히 reject한다.
+            if Self.isClaimHandshake(headers) {
+                return NWProtocolWebSocket.Response(status: .accept, subprotocol: nil)
+            }
             // 헤더에서 Bearer(tokenId.secret) + X-Pair-Nonce(연결마다 신규 무작위 nonce) 추출.
             // 구조 검증만(tokenId/secret base64url 형식 + nonce 형식). 중복 nonce는 reject.
             guard let split = authGate.structurallySplit(Self.bearer(from: headers)),
@@ -244,6 +259,17 @@ public actor WSServer {
             return
         }
 
+        // pairing.claim pre-auth 분기(§5.5) — 게이트 ② '이전'에 처리한다. 미승격 연결의
+        // 첫 envelope이 pairing.claim이면 6자리 코드를 PairingSession에 제출해 secret을
+        // 교환하고 return한다. claim은 연결을 승격하지 않으므로 authState는 nil로 남고
+        // ingestInbound/게이트 ②/bind에 진입하지 않는다(claim 채널과 운영 채널 분리).
+        // claim payload에는 nonce echo가 없어 게이트 ②를 트리거하지 못하므로, 이 분기가
+        // 없으면 claim은 UNAUTHORIZED로 막혀 영원히 처리 불가다.
+        if authState[clientId] == nil, env.kind == .pairingClaim {
+            await handlePairingClaim(env, clientId: clientId, connection: connection)
+            return
+        }
+
         // 게이트 ② (P6a) — ingestInbound(seq 전진) 이전에 인증한다. 미인증 clientId의 첫
         // envelope이 echo한 nonce가 트리거다. 토큰·secret은 envelope에 없고(헤더로만 운반)
         // env.actor.deviceId도 신뢰 입력이 아니다. 미통과 시 UNAUTHORIZED + cancel하고
@@ -364,7 +390,66 @@ public actor WSServer {
         return UUID(uuidString: raw)
     }
 
+    // MARK: - P6a pairing.claim (pre-auth)
+
+    /// pairing.claim 처리(§5.5). payload `{"code":"123456"}`의 6자리 코드를 PairingSession에
+    /// 제출한다. 성공 시 pairing.response(PairingPayload JSON, secret 포함 — loopback 한정·
+    /// 일회성 예외) / 실패 시 PAIRING_CODE_* 에러를 보낸다. 연결을 승격하지 않으며
+    /// (authState 미변경) registry/bind에 진입하지 않는다. secret은 응답 본문에만 담기고
+    /// 로그·다른 envelope에는 남기지 않는다.
+    private func handlePairingClaim(_ env: WSEnvelope, clientId: UUID, connection: NWConnection) async {
+        guard let pairingSession else {
+            send(makeError(code: DaemonErrorCode.pairingCodeInvalid.rawValue,
+                           message: "pairing not available"),
+                 to: connection, clientId: clientId)
+            return
+        }
+        guard let code = Self.claimCode(env.payload) else {
+            send(makeError(code: DaemonErrorCode.pairingCodeInvalid.rawValue,
+                           message: "pairing claim payload missing a valid code"),
+                 to: connection, clientId: clientId)
+            return
+        }
+        guard let payload = await pairingSession.claim(code: code) else {
+            // PairingSession.claim 실패. lastRejectCode가 사유(INVALID/EXPIRED/RATE_LIMITED).
+            let rejectCode = await pairingSession.lastRejectCode
+                ?? DaemonErrorCode.pairingCodeInvalid.rawValue
+            send(makeError(code: rejectCode, message: "pairing claim rejected"),
+                 to: connection, clientId: clientId)
+            return
+        }
+        guard let json = try? PairingCodec.encodeJSON(payload),
+              let text = String(data: json, encoding: .utf8) else {
+            send(makeError(code: DaemonErrorCode.malformedPayload.rawValue,
+                           message: "pairing response could not be encoded"),
+                 to: connection, clientId: clientId)
+            return
+        }
+        send(WSEnvelope(seq: 0, actor: EnvelopeActor(deviceId: "daemon-local"),
+                        kind: .pairingResponse, text: text),
+             to: connection, clientId: clientId)
+    }
+
+    /// pairing.claim payload `{"code":"123456"}`에서 6자리 코드를 추출한다. 형식 위반은 nil.
+    private static func claimCode(_ payload: Data) -> String? {
+        guard let object = try? JSONSerialization.jsonObject(with: payload) as? [String: Any],
+              let code = object["code"] as? String, !code.isEmpty else { return nil }
+        return code
+    }
+
     // MARK: - P6a 인증 게이트 헬퍼
+
+    /// 게이트 ①: claim 전용 pre-auth 핸드셰이크인지 판정한다(§5.5). Bearer/nonce가 없고
+    /// `X-Pair-Claim` 식별 헤더만 있는 연결을 claim 의도로 본다. Bearer나 nonce가 하나라도
+    /// 있으면 claim 경로가 아니다(인증 경로로 처리). 식별 헤더로 "잘못 구성된 무토큰 연결"과
+    /// 구분해 후자는 reject를 유지한다.
+    private static func isClaimHandshake(_ headers: [(name: String, value: String)]) -> Bool {
+        guard bearer(from: headers) == nil, nonce(from: headers) == nil else { return false }
+        guard let value = headers.first(where: {
+            $0.name.caseInsensitiveCompare("X-Pair-Claim") == .orderedSame
+        })?.value else { return false }
+        return value == "1"
+    }
 
     /// 게이트 ② 트리거: 첫 envelope payload JSON의 `"nonce"` 필드를 추출한다. session.start
     /// payload `{"sessionId":"...","nonce":"..."}`에 합류되며, parseSessionId는 여분 키에

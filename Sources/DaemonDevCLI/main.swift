@@ -13,9 +13,14 @@ import Network
 //   --connect <p>  : connectivity probe against a running --serve-probe (needs a token).
 //   --connect-auth : issue a valid token, connect authenticated, session.start ->
 //                    receive ack -> exit 0 (P6a auth round-trip proof).
+//   --pair         : start an in-process daemon (WSServer + PairingSession + store),
+//                    issue a 6-digit code (printed to stdout), have a simulated device
+//                    claim it over loopback WS, register the device, then run the
+//                    authenticated round-trip with the received secret. Prints
+//                    "PAIRED <deviceId>" and exits 0. No secret is printed.
 //
-// P6a: 모든 WS 연결은 Bearer 토큰을 첨부해야 한다. 각 모드는 시작 시 InMemoryDeviceStore에
-// 디바이스 1개를 등록하고 토큰을 발급해 그 Bearer로 연결한다.
+// P6a: 모든 운영 WS 연결은 Bearer 토큰을 첨부해야 한다. 각 모드는 시작 시 InMemoryDeviceStore에
+// 디바이스 1개를 등록하고 토큰을 발급해 그 Bearer로 연결한다. pairing.claim 연결만 pre-auth다.
 
 let arguments = CommandLine.arguments
 
@@ -199,7 +204,107 @@ func runConnectAuth() async -> Int32 {
     return ok ? 0 : 5
 }
 
-if arguments.contains("--roundtrip") {
+/// P6a: in-process 데몬 기동 → 6자리 코드 발급(stdout) → 시뮬레이션 디바이스가 pairing.claim으로
+/// 코드 제출 → PairingPayload(secret) 수신 → DeviceStore 등록 확인 → 받은 secret으로 인증
+/// 라운드트립(session.start + "가나다" echo) → "PAIRED <deviceId>" 출력 + exit 0.
+/// secret 평문은 어디에도 출력하지 않는다(코드·deviceId만).
+func runPair() async -> Int32 {
+    let registry = SessionBindRegistry()
+    let store = InMemoryDeviceStore()
+    let authGate = WSAuthGate()
+    let verifier = DeviceTokenVerifier(store: store)
+    let pairingSession = PairingSession()
+
+    // 디바이스 1개를 미리 발급·등록하고, 그 secret을 담은 payload를 코드에 묶는다. claim이
+    // 성공하면 디바이스가 이 secret으로 인증 connect를 맺는다(store에는 이미 등록돼 있다).
+    let deviceId = UUID()
+    let issued: DeviceTokenIssuer.IssuedToken
+    do { issued = try DeviceTokenIssuer.issue() } catch {
+        FileHandle.standardError.write(Data("token issue failed: \(error)\n".utf8)); return 7
+    }
+
+    let server = WSServer(registry: registry, authGate: authGate, verifier: verifier,
+                          pairingSession: pairingSession)
+    let port: UInt16
+    do { port = try await server.start() } catch {
+        FileHandle.standardError.write(Data("server start failed: \(error)\n".utf8)); return 3
+    }
+
+    let device = Device(id: deviceId, name: "paired-device", tokenId: issued.tokenId,
+                        expiresAt: Date().addingTimeInterval(3600))
+    do { try await store.upsert(device, secret: issued.secret) } catch {
+        FileHandle.standardError.write(Data("device upsert failed: \(error)\n".utf8)); return 8
+    }
+
+    let payload = PairingPayload(
+        pairingId: UUID().uuidString,
+        deviceTokenSecret: issued.secretBase64url,
+        wsEndpoint: "ws://127.0.0.1:\(port)/",
+        pushChannelHint: "mock-\(deviceId.uuidString.prefix(8))",
+        expiresAt: Date().addingTimeInterval(300)
+    )
+    let code: String
+    do { code = try await pairingSession.issue(payload: payload) } catch {
+        FileHandle.standardError.write(Data("code issue failed: \(error)\n".utf8)); return 9
+    }
+    emit("CODE \(code)")
+
+    // 시뮬레이션 디바이스: pre-auth claim 연결로 코드 제출 → payload 수신.
+    let claimClient = PairingClaimClient(port: port)
+    let outcome = await claimClient.claim(code: code)
+    guard case let .success(received) = outcome else {
+        FileHandle.standardError.write(Data("claim failed: \(outcome)\n".utf8)); return 10
+    }
+
+    // DeviceStore 등록 확인(claim 전 upsert가 살아 있는지).
+    guard let registered = try? await store.find(byTokenId: issued.tokenId), !registered.revoked else {
+        FileHandle.standardError.write(Data("device not registered\n".utf8)); return 11
+    }
+
+    // 받은 secret으로 인증 connect → session.start → "가나다" echo 라운드트립.
+    let bearer = "\(issued.tokenId).\(received.deviceTokenSecret)"
+    let handle: PTYHandle
+    do {
+        handle = try PTYSpawner.spawn(command: "/bin/cat", args: [], cwd: "/tmp",
+                                      env: ProcessInfo.processInfo.environment, rows: 24, cols: 80)
+    } catch {
+        FileHandle.standardError.write(Data("spawn cat failed: \(error)\n".utf8)); return 2
+    }
+    let sessionId = UUID()
+    let daemon = SessionDaemon()
+    await attachExternalSession(server: server, daemon: daemon, masterFD: handle.masterFD)
+
+    let received2 = Collector()
+    let acked = Collector()
+    let client = WSClient(port: port, bearerToken: bearer)
+    do { try await client.connect() } catch {
+        FileHandle.standardError.write(Data("auth connect failed: \(error)\n".utf8)); return 4
+    }
+    client.receiveLoop { env in
+        if env.kind == .output, let text = env.payloadText { received2.append(text) }
+        if env.kind == .ack { acked.append("ack") }
+    }
+    client.send(WSEnvelope(seq: 1, actor: cliActor, kind: .sessionStart,
+                           text: client.firstSessionStartPayload(sessionId: sessionId)))
+    guard await poll(timeout: 5, { acked.contains("ack") }) else {
+        FileHandle.standardError.write(Data("no ack after pairing\n".utf8)); return 5
+    }
+    client.send(WSEnvelope(seq: 2, actor: cliActor, kind: .input, text: "가나다\n"))
+    let echoed = await poll(timeout: 5, { received2.contains("가나다") })
+
+    await server.stop()
+    guard echoed else {
+        FileHandle.standardError.write(Data("no echo after pairing\n".utf8)); return 6
+    }
+    // deviceId만 출력한다(secret 평문 금지).
+    emit("PAIRED \(deviceId.uuidString)")
+    return 0
+}
+
+if arguments.contains("--pair") {
+    Task { exit(await runPair()) }
+    RunLoop.main.run()
+} else if arguments.contains("--roundtrip") {
     Task { exit(await runRoundtrip()) }
     RunLoop.main.run()
 } else if arguments.contains("--flood") {
@@ -245,7 +350,7 @@ if arguments.contains("--roundtrip") {
     RunLoop.main.run()
 } else {
     FileHandle.standardError.write(
-        Data("usage: daemon-dev-cli [--roundtrip|--flood|--serve-probe|--connect <port>|--connect-auth]\n".utf8)
+        Data("usage: daemon-dev-cli [--pair|--roundtrip|--flood|--serve-probe|--connect <port>|--connect-auth]\n".utf8)
     )
     exit(0)
 }

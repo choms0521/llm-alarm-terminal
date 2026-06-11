@@ -14,6 +14,11 @@ public enum EnvelopeKind: String, Codable, Sendable, CaseIterable {
     case error
     case pause
     case resume
+    /// 6자리 코드 제출(pre-auth). 토큰 없는 디바이스가 secret 교환을 위해 보낸다.
+    /// 인증 게이트 ② 이전에 분기 처리되며 연결을 승격하지 않는다(§5.5).
+    case pairingClaim = "pairing.claim"
+    /// claim 응답(PairingPayload, secret 포함). loopback 한정·일회성 예외(Principle 3).
+    case pairingResponse = "pairing.response"
 }
 
 /// Sender identity carried on every envelope.
