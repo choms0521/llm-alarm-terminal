@@ -1,8 +1,10 @@
 import Foundation
 
-/// Push envelope v0.9 (frozen at P7). Deliberately separate from the WS wire
-/// model: push carries a 4KB-bounded preview and a `chatRoomId` that the WS
-/// protocol has no notion of, so the two stay distinct wire models.
+/// Push envelope v0.9 — shape stabilized at P5 for P6 mobile interop; the
+/// formal v1.0 freeze happens at the P7 protocol freeze gate. Deliberately
+/// separate from the WS wire model: push carries a 4KB-bounded preview and a
+/// `chatRoomId` that the WS protocol has no notion of, so the two stay
+/// distinct wire models.
 public struct PushEnvelope: Codable, Equatable, Sendable {
     public let sessionId: UUID
     public let messageId: UUID

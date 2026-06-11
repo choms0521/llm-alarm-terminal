@@ -1279,7 +1279,7 @@
   <tbody>
     <tr><td><code>CHAT_TERMINAL_FCM_KEY_ID</code></td><td>예(실 transport 시)</td><td>FCM 서비스 계정 key의 Keychain item ID</td><td>P5(mock)에서는 미사용. 코드/로그 노출 금지(§6.1).</td></tr>
     <tr><td><code>CHAT_TERMINAL_APNS_KEY_ID</code></td><td>예(실 transport 시)</td><td>APNs .p8 key의 Keychain item ID</td><td>P5(mock)에서는 미사용. ADR-D 확정 후 P6/S1에서 활성.</td></tr>
-    <tr><td><code>CHAT_TERMINAL_PUSH_SKIP_WHEN_ATTACHED</code></td><td>아니오</td><td>skip 토글 기본값 override(기본 true)</td><td><code>PushPolicyConfig.skipWhenAttached</code> 초기값. UI 토글과 연동.</td></tr>
+    <tr><td><code>CHAT_TERMINAL_PUSH_SKIP_WHEN_ATTACHED</code></td><td>아니오</td><td>skip 토글 기본값 override(기본 true)</td><td>(계획됨 · P5 미구현) 현재 코드는 이 env를 읽지 않는다 — <code>PushPolicyConfig</code> 기본값(true)과 UI 토글만 구현. env override 배선은 후속 과제.</td></tr>
   </tbody>
 </table>
 

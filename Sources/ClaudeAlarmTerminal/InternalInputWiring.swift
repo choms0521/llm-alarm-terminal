@@ -1,5 +1,13 @@
 import Foundation
 import GhosttyKit
+import os
+
+/// Internal-input wiring diagnostics get their own category so they never mix
+/// into the push path's no-secret choke point (`PushLog`).
+private let internalInputLog = Logger(
+    subsystem: "com.choms0521.ClaudeAlarmTerminal",
+    category: "InternalInput"
+)
 
 /// (h) internal input wiring — app glue (layer b).
 ///
@@ -34,7 +42,7 @@ func wireInternalInput(
     daemon: SessionDaemon
 ) async -> Bool {
     guard let surface = provider.surface(forTab: tabId) else {
-        PushLog.debug("wireInternalInput: surface not ready tab=\(tabId) — retry next poll")
+        internalInputLog.debug("wireInternalInput: surface not ready tab=\(tabId.uuidString, privacy: .public) — retry next poll")
         return false
     }
     let injector = GhosttySurfaceInjector(surface: surface)

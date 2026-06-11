@@ -10,8 +10,9 @@ public enum PushEnvelopeCodec {
     /// 4KB push payload ceiling (FCM/APNs hard limit).
     public static let maxPayloadBytes = 4096
 
-    /// Frozen at P5 so the P6 mobile parser reads the same shape without a
-    /// swap-in: epoch-millis timestamps and a stable key order. Fresh instances
+    /// v0.9 shape stabilized at P5 so the P6 mobile parser reads the same shape
+    /// without a swap-in (the formal v1.0 freeze is the P7 gate): epoch-millis
+    /// timestamps and a stable key order. Fresh instances
     /// per call (matching `EnvelopeCodec`) because `JSONEncoder`/`JSONDecoder`
     /// are not documented as thread-safe and this codec is called from
     /// multiple actors.

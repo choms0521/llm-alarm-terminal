@@ -22,6 +22,12 @@ public struct DaemonBootstrap {
         let registry = SessionBindRegistry()
         let daemon = SessionDaemon()
         let server = WSServer(registry: registry)
+        // Inbound WS input must reach the daemon's serial queue in the app-boot
+        // path too; without this handler, .input envelopes after a successful
+        // session.start are silently ignored.
+        await server.setInputHandler { sessionId, item in
+            await daemon.sendInput(item, to: sessionId)
+        }
         let port = try await server.start()
         return DaemonHandle(server: server, daemon: daemon, registry: registry, port: port)
     }
