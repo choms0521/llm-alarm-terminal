@@ -104,4 +104,35 @@ final class AgentTreeSelectionTests: XCTestCase {
         XCTAssertEqual(after, preselected)
         XCTAssertTrue(selection.expandedNodeIds.contains(workspaceId), "해당 workspace 만 expand")
     }
+
+    // MARK: - setExpanded/isExpanded: 펼침 상태 보유 (뷰 생명주기 비의존)
+
+    func test_setExpanded_insertsAndRemovesNodeId() {
+        let nodeId = UUID()
+        let selection = AgentTreeSelection()
+
+        XCTAssertFalse(selection.isExpanded(nodeId), "초기 상태는 접힘")
+
+        selection.setExpanded(nodeId, expanded: true)
+        XCTAssertTrue(selection.isExpanded(nodeId))
+
+        selection.setExpanded(nodeId, expanded: false)
+        XCTAssertFalse(selection.isExpanded(nodeId))
+    }
+
+    func test_expandedState_survivesIndependentOfViewLifecycle() {
+        // 같은 selection 인스턴스를 두 "뷰 세대"가 공유하는 시나리오 모사:
+        // 첫 세대가 expand 한 상태가 인스턴스에 남아 두 번째 세대에서도 보인다.
+        let wsId = UUID()
+        let paneId = UUID()
+        let selection = AgentTreeSelection()
+
+        selection.setExpanded(wsId, expanded: true)
+        selection.setExpanded(paneId, expanded: true)
+        selection.setExpanded(paneId, expanded: false)
+
+        XCTAssertEqual(selection.expandedNodeIds, [wsId], "인스턴스가 펼침 상태의 단일 소유자")
+        XCTAssertTrue(selection.isExpanded(wsId))
+        XCTAssertFalse(selection.isExpanded(paneId))
+    }
 }

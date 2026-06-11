@@ -25,7 +25,10 @@ struct AgentSplitView: View {
     @ObservedObject var coordinator: SessionStatusCoordinator
     @ObservedObject var registry: SurfaceRegistry
     let ghosttyApp: GhosttyApp
-    @StateObject private var selection = AgentTreeSelection()
+    // 선택/펼침 상태는 호출측(AppDelegate)이 단일 인스턴스로 소유하여 주입한다.
+    // @StateObject 로 뷰가 소유하면 agent-view 이탈(뷰 계층 제거) 시 상태가
+    // 파괴되어 복귀할 때 트리가 모두 접히고 선택이 초기화된다.
+    @ObservedObject var selection: AgentTreeSelection
 
     var body: some View {
         HSplitView {

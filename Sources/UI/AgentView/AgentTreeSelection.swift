@@ -54,6 +54,22 @@ public final class AgentTreeSelection: ObservableObject {
         selectFirstAvailable(workspaces: workspaces)
     }
 
+    /// 노드(workspace/pane)의 펼침 여부. 트리 뷰가 DisclosureGroup 바인딩의
+    /// get 경로로 사용한다. 상태가 뷰 밖(본 객체)에 있으므로 agent-view 를
+    /// 떠났다 돌아와도 펼침 상태가 보존된다.
+    public func isExpanded(_ id: UUID) -> Bool {
+        expandedNodeIds.contains(id)
+    }
+
+    /// 노드 펼침 상태 변경. DisclosureGroup 바인딩의 set 경로.
+    public func setExpanded(_ id: UUID, expanded: Bool) {
+        if expanded {
+            expandedNodeIds.insert(id)
+        } else {
+            expandedNodeIds.remove(id)
+        }
+    }
+
     /// `kind == .normal` workspaces 의 panes/tabs 에 tabId 가 존재하는지.
     static func containsTab(_ tabId: UUID, in workspaces: [Workspace]) -> Bool {
         for ws in workspaces where ws.kind == .normal {

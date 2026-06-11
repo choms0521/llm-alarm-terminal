@@ -165,6 +165,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // agentContent closure 가 캡처할 수 있도록 인스턴스 프로퍼티를 지역 상수화
         // (normalContent 가 coordinator/app 을 지역 캡처하는 패턴과 동일).
         let statusCoordinator = self.statusCoordinator
+        // P5.5: 트리 선택/펼침 상태를 뷰 밖에서 단일 소유 — agent-view 를
+        // 떠났다 돌아와도(뷰 재생성) 선택과 펼침이 보존된다.
+        let agentTreeSelection = AgentTreeSelection()
         let rootView = RootView(
             manager: manager,
             coordinator: statusCoordinator,
@@ -197,7 +200,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                         manager: manager,
                         coordinator: statusCoordinator,
                         registry: registry,
-                        ghosttyApp: app
+                        ghosttyApp: app,
+                        selection: agentTreeSelection
                     )
                 } else {
                     Text("libghostty 가 초기화되지 않았습니다.")
