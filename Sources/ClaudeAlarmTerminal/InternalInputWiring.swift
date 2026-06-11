@@ -86,7 +86,13 @@ final class InternalInputCoordinator {
     }
 
     private func tick() async {
-        for session in internalSessions() where !attached.contains(session.tabId) {
+        let sessions = internalSessions()
+        // Prune IDs whose tab no longer exists: the set cannot grow without
+        // bound across close/recreate cycles, and a recreated tab re-attaches.
+        // (daemon.attachInternalSession replaces the sink, so a re-attach after
+        // a transient empty snapshot is harmless.)
+        attached.formIntersection(Set(sessions.map(\.tabId)))
+        for session in sessions where !attached.contains(session.tabId) {
             let fired = await wireInternalInput(
                 tabId: session.tabId,
                 sessionId: session.sessionId,

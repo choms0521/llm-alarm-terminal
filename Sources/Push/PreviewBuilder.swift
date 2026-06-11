@@ -8,7 +8,10 @@ public enum PreviewBuilder {
     public static let maxChars = 200
 
     public static func build(from message: String) -> String {
-        if message.count <= maxChars { return message }
-        return String(message.prefix(maxChars))
+        // `count` walks every grapheme (O(n)); peeking at maxChars+1 graphemes
+        // caps the work for very large messages while deciding truncation.
+        let peek = message.prefix(maxChars + 1)
+        if peek.count <= maxChars { return message }
+        return String(peek.prefix(maxChars))
     }
 }

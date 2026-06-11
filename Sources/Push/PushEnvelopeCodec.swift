@@ -1,11 +1,14 @@
 import Foundation
 
 /// Encodes a `PushEnvelope` to the shared wire JSON and enforces the 4KB push
-/// limit inside the codec (right after encoding). Every field except `fetchHint`
-/// is bounded (UUIDs, an epoch-millis timestamp, `chatRoomId == sessionId`, a
-/// ≤200-character preview), so an unbounded `fetchHint` is the only field that
-/// can push the payload over the ceiling — and the validator rejects it
-/// explicitly rather than dropping it silently.
+/// limit inside the codec (right after encoding). The enforced guarantee is the
+/// byte-length check itself: whichever field grows past the ceiling, encode
+/// rejects explicitly rather than dropping silently. In the expected
+/// construction path the other fields stay small (UUIDs, an epoch-millis
+/// timestamp, a preview built ≤200 characters by `PreviewBuilder`, and a
+/// `chatRoomId` that P5 fills with the sessionId placeholder), which leaves an
+/// unbounded `fetchHint` as the likeliest trigger — but the codec validates
+/// the final byte length, not per-field invariants.
 public enum PushEnvelopeCodec {
     /// 4KB push payload ceiling (FCM/APNs hard limit).
     public static let maxPayloadBytes = 4096
