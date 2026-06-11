@@ -49,8 +49,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     /// DaemonBootstrap 완료 후 생성한다.
     private var pairingModel: PairingModel?
 
-    /// P6a Day 3: 페어링 창. 메뉴에서 처음 열 때 lazy 생성한다.
-    private var pairingWindow: NSWindow?
+    /// 푸시 알림 설정 모델. 설정 창의 "푸시 알림" 탭에 임베드한다.
+    private let pushSettingsModel = PushSettingsModel()
+
+    /// 설정 페이지 전환 상태. RootView 가 ObservedObject 로 관찰하며, isShowingSettings 가
+    /// true 이면 본 창 내에서 SettingsPageView 로 전환된다. NSWindow 팝업 방식을 대체한다.
+    private let appSettingsState = AppSettingsState()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // P2 Day 3: replace P1 single-surface window with a SwiftUI sidebar +
@@ -182,6 +186,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // P5.5: 트리 선택/펼침 상태를 뷰 밖에서 단일 소유 — agent-view 를
         // 떠났다 돌아와도(뷰 재생성) 선택과 펼침이 보존된다.
         let agentTreeSelection = AgentTreeSelection()
+        let settingsState = appSettingsState
         let rootView = RootView(
             manager: manager,
             coordinator: statusCoordinator,
@@ -194,6 +199,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 Task { @MainActor in
                     await coordinator.addWorkspace(cwd: cwd, name: name)
                 }
+            },
+            isShowingSettings: Binding(
+                get: { settingsState.isShowingSettings },
+                set: { settingsState.isShowingSettings = $0 }
+            ),
+            onOpenSettings: { settingsState.open() },
+            settingsContent: {
+                SettingsPageView(
+                    settingsState: settingsState,
+                    pushSettingsModel: self.pushSettingsModel
+                )
             },
             normalContent: { workspace in
                 if let app = app {
@@ -242,11 +258,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
                 // P6a Day 3: 데몬 port가 정해졌으니 페어링 화면 모델을 구성한다. wsEndpoint는
                 // loopback ws://127.0.0.1:<port>/ (D-5).
-                self.pairingModel = PairingModel(
+                let model = PairingModel(
                     session: self.pairingSession,
                     store: self.deviceStore,
                     wsEndpoint: "ws://127.0.0.1:\(handle.port)/"
                 )
+                self.pairingModel = model
+                // AppSettingsState도 동기화해 SettingsPageView가 자동 갱신되도록 한다.
+                self.appSettingsState.pairingModel = model
                 // P5 Day 5: lid-close → invalidate all WS attachments so push
                 // fallback fires during sleep. Reconstruct powerObserver (let→var)
                 // with the willSleep handler now that the registry exists.
@@ -320,14 +339,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         )
         appMenu.addItem(NSMenuItem.separator())
 
-        // P6a Day 3: 페어링 창 진입점. PushSettings와 나란히 앱 메뉴에 둔다.
-        let pairingItem = NSMenuItem(
-            title: "디바이스 페어링…",
-            action: #selector(openPairingWindow(_:)),
-            keyEquivalent: ""
+        // 설정 창 진입점. 표준 macOS 설정 단축키 Cmd+,. 주 진입점은 사이드바 톱니바퀴이며
+        // 메뉴 항목은 보조 경로다.
+        let settingsItem = NSMenuItem(
+            title: "설정…",
+            action: #selector(openSettingsWindow(_:)),
+            keyEquivalent: ","
         )
-        pairingItem.target = self
-        appMenu.addItem(pairingItem)
+        settingsItem.keyEquivalentModifierMask = [.command]
+        settingsItem.target = self
+        appMenu.addItem(settingsItem)
         appMenu.addItem(NSMenuItem.separator())
 
         appMenu.addItem(
@@ -516,9 +537,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         MainActor.assumeIsolated {
-            // 페어링 항목은 workspace와 무관하다. 데몬 부트스트랩으로 모델이 준비됐을 때만 활성.
-            if menuItem.action == #selector(openPairingWindow(_:)) {
-                return pairingModel != nil
+            // 설정 항목은 workspace와 무관하며 데몬 준비 전에도 연다(창에 "데몬 준비 중"
+            // 안내가 있으므로 항상 활성).
+            if menuItem.action == #selector(openSettingsWindow(_:)) {
+                return true
             }
             guard let manager = workspaceManager else { return false }
             switch menuItem.action {
@@ -550,38 +572,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         }
     }
 
-    // MARK: - Pairing window (P6a Day 3)
+    // MARK: - Settings page
 
-    /// 페어링 창을 연다. 처음 열 때 NSHostingView로 PairingView를 lazy 생성한다. 데몬
-    /// 부트스트랩이 끝나야 pairingModel이 존재하므로, 미준비 시 안내 다이얼로그를 띄운다.
-    @objc private func openPairingWindow(_ sender: Any?) {
-        guard let model = pairingModel else {
-            let alert = NSAlert()
-            alert.messageText = "페어링을 아직 준비하지 못했습니다."
-            alert.informativeText = "데몬이 기동된 뒤 다시 시도해 주세요."
-            alert.addButton(withTitle: "확인")
-            alert.runModal()
-            return
-        }
-
-        if let window = pairingWindow {
-            window.makeKeyAndOrderFront(nil)
-            return
-        }
-
-        let hosting = NSHostingView(rootView: PairingView(model: model))
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 640),
-            styleMask: [.titled, .closable, .miniaturizable],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = "디바이스 페어링"
-        window.contentView = hosting
-        window.isReleasedWhenClosed = false
-        window.center()
-        window.makeKeyAndOrderFront(nil)
-        self.pairingWindow = window
+    /// 설정 페이지를 본 창 내에서 연다. 사이드바 설정 버튼과 메뉴 항목(Cmd+,)의 공통 진입점이다.
+    /// NSWindow 팝업 방식 대신 appSettingsState.isShowingSettings 를 true 로 설정해
+    /// RootView 가 SettingsPageView 로 전환하도록 한다.
+    ///
+    /// pairingModel 은 데몬 부트스트랩 후 채워지며, nil 이어도 설정 페이지는 열리고
+    /// PairingSettingsContent 가 "데몬 준비 중" 안내를 표시한다. RootView 가 pairingModel
+    /// @Published 변화를 관찰하므로 부트스트랩 완료 후 자동으로 갱신된다.
+    @objc private func openSettingsWindow(_ sender: Any?) {
+        appSettingsState.open(section: .pairing)
+        mainWindow?.makeKeyAndOrderFront(nil)
     }
 
     // MARK: - Workspace shortcut handlers

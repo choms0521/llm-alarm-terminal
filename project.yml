@@ -143,6 +143,10 @@ targets:
           - "**/PairingView.swift"
           - "**/QRImageView.swift"
           - "**/PairingModel.swift"
+          - "**/AppSettingsState.swift"
+          - "**/SettingsPageView.swift"
+          - "**/PairingSettingsContent.swift"
+          - "**/PushSettingsContent.swift"
       - path: Sources/SessionVerifier
     dependencies:
       - package: AnyCodable
@@ -211,6 +215,10 @@ targets:
           - "**/PairingView.swift"
           - "**/QRImageView.swift"
           - "**/PairingModel.swift"
+          - "**/AppSettingsState.swift"
+          - "**/SettingsPageView.swift"
+          - "**/PairingSettingsContent.swift"
+          - "**/PushSettingsContent.swift"
       - path: Tests/WorkspaceTests
     dependencies:
       - package: AnyCodable
@@ -248,6 +256,10 @@ targets:
           - "**/PairingView.swift"
           - "**/QRImageView.swift"
           - "**/PairingModel.swift"
+          - "**/AppSettingsState.swift"
+          - "**/SettingsPageView.swift"
+          - "**/PairingSettingsContent.swift"
+          - "**/PushSettingsContent.swift"
       - path: Tests/SessionTests
     dependencies:
       - package: AnyCodable
@@ -285,6 +297,10 @@ targets:
           - "**/PairingView.swift"
           - "**/QRImageView.swift"
           - "**/PairingModel.swift"
+          - "**/AppSettingsState.swift"
+          - "**/SettingsPageView.swift"
+          - "**/PairingSettingsContent.swift"
+          - "**/PushSettingsContent.swift"
       - path: Sources/Daemon
       - path: Sources/Pairing
       - path: Sources/DaemonDevCLI
@@ -322,6 +338,10 @@ targets:
           - "**/PairingView.swift"
           - "**/QRImageView.swift"
           - "**/PairingModel.swift"
+          - "**/AppSettingsState.swift"
+          - "**/SettingsPageView.swift"
+          - "**/PairingSettingsContent.swift"
+          - "**/PushSettingsContent.swift"
       - path: Sources/Daemon
       - path: Sources/Push
       - path: Sources/Pairing
