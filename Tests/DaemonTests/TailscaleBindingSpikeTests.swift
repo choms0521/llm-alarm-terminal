@@ -160,24 +160,12 @@ final class TailscaleBindingSpikeTests: XCTestCase {
         return (t.split(separator: ".").count == 4) ? t : nil
     }
 
-    /// 외부 프로세스를 실행하고 stdout 문자열을 반환한다. launch 실패·비정상 종료 시 nil.
+    /// 외부 프로세스를 실행하고 stdout 문자열을 반환한다. launch 실패·timeout·비정상 종료 시 nil.
+    /// ProcessTailscaleProbe.run(5초 timeout + 강제 종료)을 재사용해 tailscaled 무응답
+    /// 환경에서도 테스트가 무기한 블록되지 않는다.
     static func runProcess(_ args: [String]) -> String? {
         guard let first = args.first else { return nil }
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: first)
-        p.arguments = Array(args.dropFirst())
-        let pipe = Pipe()
-        p.standardOutput = pipe
-        p.standardError = Pipe()
-        do {
-            try p.run()
-        } catch {
-            return nil
-        }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        p.waitUntilExit()
-        guard p.terminationStatus == 0 else { return nil }
-        return String(data: data, encoding: .utf8)
+        return (try? ProcessTailscaleProbe.run(executable: first, args: Array(args.dropFirst()))) ?? nil
     }
 }
 

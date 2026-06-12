@@ -185,11 +185,13 @@ public actor WSServer {
                     }
                 case .failed(let error):
                     if resumed.fire() { continuation.resume(throwing: error) }
-                case .waiting(let error):
+                case .waiting:
                     // 바인딩 주소가 가용하지 않으면 `.failed` 없이 `.waiting`에 갇힌다(Day 0 함정).
-                    // 영구 hang 대신 즉시 실패로 표면화한다. 실 IP/secret은 reason에 담지 않는다.
+                    // 영구 hang 대신 즉시 실패로 표면화한다. raw error 문자열에는 바인딩
+                    // host(실 IP)가 포함될 수 있어 reason에는 일반화된 메시지만 담는다.
                     if resumed.fire() {
-                        continuation.resume(throwing: ListenerWaitingError(reason: "\(error)"))
+                        continuation.resume(throwing: ListenerWaitingError(
+                            reason: "바인딩 주소가 가용하지 않아 listener가 waiting 상태에 머묾"))
                     }
                 default:
                     break
