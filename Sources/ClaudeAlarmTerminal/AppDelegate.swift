@@ -255,7 +255,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             do {
                 // P6a Day 3: 실 Keychain store를 주입해 데몬 토큰 인증이 디스크의 신뢰 목록을
                 // 보게 한다. 페어링 UI도 같은 store를 공유한다.
-                let handle = try await DaemonBootstrap(store: self.deviceStore).start()
+                // P6b Day 1: 데몬/UI가 공유하는 단일 PairingSession을 주입해 claim 성공 시
+                // pending → active 승격(DevicePromotionCoordinator)이 데몬 레이어에 배선되게 한다(D-3).
+                let handle = try await DaemonBootstrap(
+                    store: self.deviceStore,
+                    pairingSession: self.pairingSession
+                ).start()
                 self.daemonHandle = handle
 
                 // P6a Day 3: 데몬 port가 정해졌으니 페어링 화면 모델을 구성한다. wsEndpoint는

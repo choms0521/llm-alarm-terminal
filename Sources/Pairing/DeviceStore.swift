@@ -17,6 +17,11 @@ public protocol DeviceStore: Sendable {
     func secret(forTokenId tokenId: String) async throws -> Data?
     /// 디바이스를 폐기 표시한다(미배선 seam — P6b가 UI를 연결).
     func revoke(id: UUID) async throws
+    /// pending 디바이스를 active로 승격한다(claim 성공 시). expiresAt만 갱신하고 secret/메타는
+    /// 보존한다(재발급 아님). revoke(id:)와 대칭인 동작 메서드로, read-check-write가 한 호출 안에
+    /// 묶여 revoke와 직렬화된다 — revoked 디바이스는 no-op(승격 거부)이라 revoke와 경쟁해도
+    /// 폐기 디바이스가 30일 active로 부활하지 않는다(D-3 Principle 2/3). 미존재 id도 no-op.
+    func promote(id: UUID, to expiresAt: Date) async throws
     /// 디바이스를 저장소에서 완전히 삭제한다. revoke와 달리 메타·secret을 모두 제거해
     /// 해당 tokenId로는 더 이상 secret/Device 조회가 되지 않으므로 Bearer가 즉시 무효화된다.
     /// 존재하지 않는 id는 no-op로 처리한다(이미 삭제된 상태와 멱등).
@@ -74,6 +79,26 @@ public actor InMemoryDeviceStore: DeviceStore {
             apnsToken: device.apnsToken,
             expiresAt: device.expiresAt,
             revoked: true
+        )
+    }
+
+    public func promote(id: UUID, to expiresAt: Date) async throws {
+        // actor 메서드 내 read-check-write가 자연 원자다. guard !revoked로 폐기 디바이스를
+        // 거부(no-op)한 뒤 expiresAt만 갱신한 새 Device로 교체한다(secret 맵 무변경 — 재발급
+        // 아니므로 secretsByTokenId/tokenIdByDeviceId는 그대로 보존된다).
+        guard let tokenId = tokenIdByDeviceId[id],
+              let device = devicesByTokenId[tokenId],
+              !device.revoked else {
+            return
+        }
+        devicesByTokenId[tokenId] = Device(
+            id: device.id,
+            name: device.name,
+            tokenId: device.tokenId,
+            fcmToken: device.fcmToken,
+            apnsToken: device.apnsToken,
+            expiresAt: expiresAt,
+            revoked: false
         )
     }
 

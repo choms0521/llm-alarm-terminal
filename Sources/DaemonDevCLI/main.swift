@@ -213,7 +213,16 @@ func runPair() async -> Int32 {
     let store = InMemoryDeviceStore()
     let authGate = WSAuthGate()
     let verifier = DeviceTokenVerifier(store: store)
+    let lifecycle = DeviceLifecyclePolicy()
     let pairingSession = PairingSession()
+
+    // P6b Day 1: claim 성공 → pending → active 승격(DevicePromotionCoordinator)을 배선한다.
+    // PairingModel을 경유하지 않는 드라이버이므로 onClaimed 바인딩을 issueNewCode와 동형으로
+    // 인라인 재현한다(데몬 레이어 단일 경로 — §5.2).
+    let promotionCoordinator = DevicePromotionCoordinator(store: store, lifecycle: lifecycle)
+    await pairingSession.setOnClaimed { deviceId in
+        await promotionCoordinator.promote(deviceId: deviceId)
+    }
 
     // 디바이스 1개를 미리 발급·등록하고, 그 secret을 담은 payload를 코드에 묶는다. claim이
     // 성공하면 디바이스가 이 secret으로 인증 connect를 맺는다(store에는 이미 등록돼 있다).
@@ -230,8 +239,13 @@ func runPair() async -> Int32 {
         FileHandle.standardError.write(Data("server start failed: \(error)\n".utf8)); return 3
     }
 
+    // 부채 해소(D-3): pending(코드 ttl=5분 수명)로 upsert한다. 30일 active 수명은 claim 성공 시
+    // onClaimed → promote만이 부여한다. pending upsert가 빠지면 promote가 미존재 no-op이 되어
+    // 30일 갱신이 일어나지 않으므로(위양성 함정), issueNewCode와 동형으로 pending upsert를 둔다.
+    let now = Date()
+    let pendingExpiry = lifecycle.pendingExpiry(codeTTL: pairingSession.ttl, now: now)
     let device = Device(id: deviceId, name: "paired-device", tokenId: issued.tokenId,
-                        expiresAt: Date().addingTimeInterval(3600))
+                        expiresAt: pendingExpiry)
     do { try await store.upsert(device, secret: issued.secret) } catch {
         FileHandle.standardError.write(Data("device upsert failed: \(error)\n".utf8)); return 8
     }
@@ -241,10 +255,10 @@ func runPair() async -> Int32 {
         deviceTokenSecret: issued.secretBase64url,
         wsEndpoint: "ws://127.0.0.1:\(port)/",
         pushChannelHint: "mock-\(deviceId.uuidString.prefix(8))",
-        expiresAt: Date().addingTimeInterval(300)
+        expiresAt: pendingExpiry
     )
     let code: String
-    do { code = try await pairingSession.issue(payload: payload) } catch {
+    do { code = try await pairingSession.issue(payload: payload, deviceId: deviceId) } catch {
         FileHandle.standardError.write(Data("code issue failed: \(error)\n".utf8)); return 9
     }
     emit("CODE \(code)")

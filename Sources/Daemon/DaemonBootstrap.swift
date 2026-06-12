@@ -29,15 +29,27 @@ public struct DaemonBootstrap {
     private static let bootstrapDeviceId = UUID(uuidString: "B0075D0E-0000-4000-8000-DAE0B00757A9")!
 
     private let store: any DeviceStore
+    /// 데몬/UI가 공유하는 단일 페어링 세션. nil이면 페어링 claim 경로가 비활성이다(P6a 부트스트랩
+    /// 호환 — 테스트는 페어링 없이 인증 라운드트립만 검증한다). 주입되면 claim 성공 시
+    /// DevicePromotionCoordinator를 통한 pending → active 승격이 배선된다(D-3).
+    private let pairingSession: PairingSession?
 
-    /// 기본 InMemoryDeviceStore로 부트스트랩한다.
+    /// 기본 InMemoryDeviceStore로 부트스트랩한다(페어링 미배선).
     public init() {
         self.store = InMemoryDeviceStore()
+        self.pairingSession = nil
     }
 
-    /// store를 주입해 부트스트랩한다(Day 3 Keychain store 배선 지점).
+    /// store를 주입해 부트스트랩한다(Day 3 Keychain store 배선 지점). 페어링 세션은 미배선.
     public init(store: any DeviceStore) {
         self.store = store
+        self.pairingSession = nil
+    }
+
+    /// store + 공유 페어링 세션을 주입해 부트스트랩한다(앱 부팅 경로). claim 승격이 배선된다(D-3).
+    public init(store: any DeviceStore, pairingSession: PairingSession) {
+        self.store = store
+        self.pairingSession = pairingSession
     }
 
     public func start() async throws -> DaemonHandle {
@@ -57,7 +69,16 @@ public struct DaemonBootstrap {
 
         let authGate = WSAuthGate()
         let verifier = DeviceTokenVerifier(store: store)
-        let server = WSServer(registry: registry, authGate: authGate, verifier: verifier)
+        // 페어링 세션이 주입되면 claim 성공 → DevicePromotionCoordinator.promote 경로를 배선한다.
+        // Coordinator는 actor라 onClaimed @Sendable 콜백이 캡처해 await 발화할 수 있다(D-3 §5.2).
+        if let pairingSession {
+            let coordinator = DevicePromotionCoordinator(store: store)
+            await pairingSession.setOnClaimed { deviceId in
+                await coordinator.promote(deviceId: deviceId)
+            }
+        }
+        let server = WSServer(registry: registry, authGate: authGate, verifier: verifier,
+                              pairingSession: pairingSession)
         // Inbound WS input must reach the daemon's serial queue in the app-boot
         // path too; without this handler, .input envelopes after a successful
         // session.start are silently ignored.

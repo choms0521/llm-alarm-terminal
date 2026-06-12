@@ -23,6 +23,7 @@ public final class PairingModel: ObservableObject {
 
     private let session: PairingSession
     private let store: any DeviceStore
+    private let lifecycle: DeviceLifecyclePolicy
     private let wsEndpoint: String
     private let pushChannelHint: String
     /// 만료 카운트다운 기준 시각. 발급 시 갱신.
@@ -35,10 +36,12 @@ public final class PairingModel: ObservableObject {
         session: PairingSession,
         store: any DeviceStore,
         wsEndpoint: String,
-        pushChannelHint: String = "mock-channel"
+        pushChannelHint: String = "mock-channel",
+        lifecycle: DeviceLifecyclePolicy = DeviceLifecyclePolicy()
     ) {
         self.session = session
         self.store = store
+        self.lifecycle = lifecycle
         self.wsEndpoint = wsEndpoint
         self.pushChannelHint = pushChannelHint
     }
@@ -48,19 +51,21 @@ public final class PairingModel: ObservableObject {
     public func issueNewCode() async {
         do {
             let issued = try DeviceTokenIssuer.issue()
-            let expiry = Date().addingTimeInterval(deviceTokenLifetime())
+            let now = Date()
+            // 부채 해소(D-3): 발급 즉시 30일 부여하던 부채를 pending(코드 ttl=5분 수명)로 교체한다.
+            // 30일 active 수명은 claim 성공 시 데몬 레이어(DevicePromotionCoordinator)의 승격만이
+            // 부여한다 — claim 안 된 코드는 5분 후 verifier가 자연 거부해 누적되지 않는다.
+            let codeExpiry = lifecycle.pendingExpiry(codeTTL: session.ttl, now: now)
             let pairingId = UUID().uuidString
+            let deviceId = UUID()
             let device = Device(
-                id: UUID(),
-                name: "페어링 디바이스",
+                id: deviceId,
+                name: "페어링 대기 디바이스",
                 tokenId: issued.tokenId,
-                expiresAt: expiry
+                expiresAt: codeExpiry
             )
             try await store.upsert(device, secret: issued.secret)
 
-            // 세션에 주입된 실제 ttl로 계산해 UI 카운트다운/payload expiresAt이
-            // PairingSession.issue의 만료 판정과 항상 일치하게 한다.
-            let codeExpiry = Date().addingTimeInterval(session.ttl)
             let payload = PairingPayload(
                 pairingId: pairingId,
                 deviceTokenSecret: issued.secretBase64url,
@@ -68,7 +73,9 @@ public final class PairingModel: ObservableObject {
                 pushChannelHint: pushChannelHint,
                 expiresAt: codeExpiry
             )
-            let code = try await session.issue(payload: payload)
+            // deviceId를 함께 전달해 PairingSession이 (code → deviceId)를 보유하게 한다. claim
+            // 성공 시 데몬 레이어가 onClaimed로 이 deviceId를 받아 active로 승격한다(§5.2).
+            let code = try await session.issue(payload: payload, deviceId: deviceId)
             let url = try PairingCodec.encodeURL(payload)
 
             self.sixDigitCode = code
@@ -135,12 +142,5 @@ public final class PairingModel: ObservableObject {
         } else {
             self.secondsRemaining = remaining
         }
-    }
-
-    /// CLAUDE_ALARM_DEVICE_TOKEN_EXPIRY_DAYS(기본 30일). P6a는 스키마만 — 강제는 P6b.
-    private func deviceTokenLifetime() -> TimeInterval {
-        let days = ProcessInfo.processInfo.environment["CLAUDE_ALARM_DEVICE_TOKEN_EXPIRY_DAYS"]
-            .flatMap(Double.init) ?? 30
-        return days * 24 * 60 * 60
     }
 }
