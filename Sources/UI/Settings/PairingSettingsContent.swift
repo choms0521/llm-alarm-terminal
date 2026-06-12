@@ -379,11 +379,17 @@ private struct ReadyContent: View {
         String(tokenId.prefix(8))
     }
 
-    private func formattedDate(_ date: Date) -> String {
+    /// DateFormatter 생성은 비싸고 이 뷰는 1초 카운트다운으로 자주 re-render되므로
+    /// static으로 캐시해 재사용한다. UI는 main thread 전용이라 공유가 안전하다.
+    private static let expiryDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .short
         formatter.timeStyle = .none
         formatter.locale = Locale(identifier: "ko_KR")
-        return formatter.string(from: date)
+        return formatter
+    }()
+
+    private func formattedDate(_ date: Date) -> String {
+        Self.expiryDateFormatter.string(from: date)
     }
 }

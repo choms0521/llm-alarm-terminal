@@ -117,12 +117,19 @@ private final class PendingStore: @unchecked Sendable {
         let registeredAt: Date
     }
 
+    /// 등록 시점 stale 청소의 보수적 상한. 정밀 만료는 consume의 `within`이 판정하므로,
+    /// 이 값은 "첫 envelope 없이 버려진 연결"의 엔트리가 idle 기간에 무한 누적되는 것만
+    /// 막는 안전망이다. 어떤 합리적 pending 시간창(기본 10초)보다 충분히 크게 둔다.
+    private static let registrationCleanupHorizon: TimeInterval = 60
+
     private let lock = NSLock()
     private var pendingAuth: [String: PendingEntry] = [:]
 
     /// 중복 검사+등록을 원자적으로 수행한다. 이미 있으면 등록하지 않고 false.
+    /// 등록 시점에도 horizon을 넘긴 버려진 엔트리를 청소해 consume 미호출 누적을 막는다.
     func registerIfAbsent(nonce: String, tokenId: String, secret: Data, at: Date) -> Bool {
         lock.lock(); defer { lock.unlock() }
+        removeStaleEntries(olderThan: Self.registrationCleanupHorizon, now: at)
         if pendingAuth[nonce] != nil { return false }
         pendingAuth[nonce] = PendingEntry(tokenId: tokenId, secret: secret, registeredAt: at)
         return true
@@ -131,6 +138,7 @@ private final class PendingStore: @unchecked Sendable {
     /// 중복 검사 없이 등록한다(handshakeRegister가 표준 경로, 이건 보조).
     func register(nonce: String, tokenId: String, secret: Data, at: Date) {
         lock.lock(); defer { lock.unlock() }
+        removeStaleEntries(olderThan: Self.registrationCleanupHorizon, now: at)
         pendingAuth[nonce] = PendingEntry(tokenId: tokenId, secret: secret, registeredAt: at)
     }
 
@@ -142,17 +150,22 @@ private final class PendingStore: @unchecked Sendable {
     /// nonce 일치 항목을 1회 소비한다. 시간창 초과 항목은 삭제·미소비. 매 호출 stale 청소.
     func consume(nonce: String, within: TimeInterval, now: Date) -> (tokenId: String, secret: Data)? {
         lock.lock(); defer { lock.unlock() }
-        // stale 항목 일괄 제거(만료 secret 참조 폐기). 제거 대상 키를 먼저 모은 뒤
-        // 별도 루프에서 삭제해 순회 중 변형(CoW 복사 유발)을 피한다.
-        let staleKeys = pendingAuth.compactMap { key, entry in
-            now.timeIntervalSince(entry.registeredAt) > within ? key : nil
-        }
-        for key in staleKeys {
-            pendingAuth.removeValue(forKey: key)
-        }
+        removeStaleEntries(olderThan: within, now: now)
         // 1회 소비: 꺼내면서 제거. 같은 nonce 재사용 시 항목 없음 → nil(replay 방지).
         guard let entry = pendingAuth.removeValue(forKey: nonce) else { return nil }
         guard now.timeIntervalSince(entry.registeredAt) <= within else { return nil }
         return (tokenId: entry.tokenId, secret: entry.secret)
+    }
+
+    /// maxAge를 넘긴 항목을 일괄 제거한다(만료 secret 참조 폐기). 제거 대상 키를 먼저
+    /// 모은 뒤 별도 루프에서 삭제해 순회 중 변형(CoW 복사 유발)을 피한다. 호출자가 락을
+    /// 잡은 상태에서만 부른다.
+    private func removeStaleEntries(olderThan maxAge: TimeInterval, now: Date) {
+        let staleKeys = pendingAuth.compactMap { key, entry in
+            now.timeIntervalSince(entry.registeredAt) > maxAge ? key : nil
+        }
+        for key in staleKeys {
+            pendingAuth.removeValue(forKey: key)
+        }
     }
 }
