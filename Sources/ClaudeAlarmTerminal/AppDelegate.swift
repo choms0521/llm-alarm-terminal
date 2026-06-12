@@ -187,7 +187,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // 떠났다 돌아와도(뷰 재생성) 선택과 펼침이 보존된다.
         let agentTreeSelection = AgentTreeSelection()
         let settingsState = appSettingsState
-        let rootView = RootView(
+        let rootView = SettingsObservingHost(settingsState: settingsState) {
+            RootView(
             manager: manager,
             coordinator: statusCoordinator,
             onCloseWorkspace: { id in
@@ -237,7 +238,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                     Text("libghostty 가 초기화되지 않았습니다.")
                 }
             }
-        )
+            )
+        }
         let hosting = NSHostingView(rootView: rootView)
         window.contentView = hosting
 
@@ -724,5 +726,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let count = pane.tabs.count
         let next = (idx + delta + count) % count
         manager.selectTab(workspaceId: id, paneId: pane.id, tabId: pane.tabs[next].id)
+    }
+}
+
+/// AppSettingsState를 관찰해 isShowingSettings 변경 시 루트 뷰 전체를 다시 그리는 호스트.
+///
+/// RootView 자체는 비앱 타겟 컴파일 호환을 위해 Binding만 받는다. 그러나 NSHostingView에
+/// Binding만 넘기면 관찰 주체가 없어 값이 바뀌어도 재렌더가 일어나지 않는다(설정 화면이
+/// 열리지 않고, 돌아가기도 동작하지 않는 원인). 관찰 책임을 이 래퍼가 진다.
+private struct SettingsObservingHost<Content: View>: View {
+    @ObservedObject var settingsState: AppSettingsState
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        content()
     }
 }
