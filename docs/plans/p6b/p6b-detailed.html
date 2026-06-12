@@ -1,0 +1,1621 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P6b 상세 계획서 — 토큰 lifecycle + Tailscale 통합 (2026-06-11)</title>
+<style>
+  :root {
+    --bg: #fbfaf7;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d8dee4;
+    --accent: #0550ae;
+    --accent-soft: #ddf4ff;
+    --warn: #9a6700;
+    --warn-soft: #fff8c5;
+    --danger: #cf222e;
+    --danger-soft: #ffebe9;
+    --ok: #1a7f37;
+    --ok-soft: #dafbe1;
+    --code-bg: #f3f0ea;
+    --code-fg: #24292f;
+    --table-stripe: #f6f3ec;
+    --table-head: #eceae3;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Helvetica, Arial, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 32px;
+    padding: 32px 24px;
+  }
+
+  aside.toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    border-right: 1px solid var(--border);
+    padding-right: 16px;
+    font-size: 13.5px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+  }
+
+  aside.toc h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin: 0 0 12px 0;
+  }
+
+  aside.toc ol {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+  }
+
+  aside.toc ol li {
+    margin: 4px 0;
+  }
+
+  aside.toc ol ol {
+    padding-left: 14px;
+    margin-top: 4px;
+  }
+
+  aside.toc a {
+    color: var(--fg);
+    text-decoration: none;
+  }
+
+  aside.toc a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+
+  main {
+    max-width: 900px;
+    min-width: 0;
+  }
+
+  h1 {
+    font-size: 28px;
+    margin: 0 0 8px 0;
+    line-height: 1.3;
+  }
+
+  h2 {
+    font-size: 22px;
+    margin-top: 40px;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h3 {
+    font-size: 18px;
+    margin-top: 28px;
+    margin-bottom: 8px;
+  }
+
+  h4 {
+    font-size: 15px;
+    margin-top: 20px;
+    margin-bottom: 6px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  p { margin: 8px 0; }
+
+  .meta {
+    color: var(--muted);
+    font-size: 13.5px;
+    margin-bottom: 24px;
+  }
+
+  .meta strong { color: var(--fg); }
+
+  code {
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+
+  pre {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 14px 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    border: 1px solid var(--border);
+  }
+
+  pre code {
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+  }
+
+  .kw { color: #cf222e; font-weight: 600; }
+  .str { color: #0a3069; }
+  .com { color: #6e7781; font-style: italic; }
+  .num { color: #0550ae; }
+  .typ { color: #953800; }
+  .fn { color: #8250df; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13.5px;
+  }
+
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    background: var(--table-head);
+    font-weight: 600;
+  }
+
+  tbody tr:nth-child(even) {
+    background: var(--table-stripe);
+  }
+
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin: 16px 0;
+  }
+
+  .callout.warn {
+    border-left-color: var(--warn);
+    background: var(--warn-soft);
+  }
+
+  .callout.danger {
+    border-left-color: var(--danger);
+    background: var(--danger-soft);
+  }
+
+  .callout.ok {
+    border-left-color: var(--ok);
+    background: var(--ok-soft);
+  }
+
+  .callout .label {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    margin-bottom: 4px;
+  }
+
+  .day-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin: 18px 0;
+    background: #fff;
+  }
+
+  .day-card h3 {
+    margin-top: 0;
+  }
+
+  .day-card dl {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 6px 16px;
+    margin: 8px 0 12px 0;
+    font-size: 14px;
+  }
+
+  .day-card dt {
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .day-card dd {
+    margin: 0;
+  }
+
+  ul.exit-criteria {
+    list-style: none;
+    padding-left: 0;
+    margin: 8px 0 0 0;
+  }
+
+  ul.exit-criteria li {
+    margin: 4px 0;
+    font-size: 14px;
+  }
+
+  ul.exit-criteria input[type="checkbox"] {
+    margin-right: 8px;
+  }
+
+  .ascii {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.45;
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    background: var(--accent-soft);
+    color: var(--accent);
+    margin-right: 4px;
+  }
+
+  .tag.warn { background: var(--warn-soft); color: var(--warn); }
+  .tag.danger { background: var(--danger-soft); color: var(--danger); }
+  .tag.ok { background: var(--ok-soft); color: var(--ok); }
+
+  .pending {
+    color: var(--warn);
+    font-style: italic;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 28px 0;
+  }
+
+  @media print {
+    aside.toc { display: none; }
+    .layout { display: block; max-width: 100%; padding: 0; }
+    main { max-width: 100%; }
+    .day-card { page-break-inside: avoid; }
+    pre, .ascii { page-break-inside: avoid; }
+    body { font-size: 11pt; }
+    h2 { page-break-after: avoid; }
+  }
+
+  @media (max-width: 900px) {
+    .layout {
+      grid-template-columns: 1fr;
+    }
+    aside.toc {
+      position: static;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      padding-right: 0;
+      padding-bottom: 16px;
+      max-height: none;
+    }
+    .day-card dl {
+      grid-template-columns: 1fr;
+    }
+    .day-card dt {
+      margin-top: 4px;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="toc">
+  <h2>목차</h2>
+  <ol>
+    <li><a href="#sec-1">1. 개요</a></li>
+    <li><a href="#sec-2">2. RALPLAN-DR Summary</a>
+      <ol>
+        <li><a href="#sec-2-1">2.1 Principles</a></li>
+        <li><a href="#sec-2-2">2.2 Decision Drivers</a></li>
+        <li><a href="#sec-2-3">2.3 Option D-1 — tailnet 노출 전략</a></li>
+        <li><a href="#sec-2-4">2.4 Option D-2 — revoke 후 기존 연결 처리</a></li>
+        <li><a href="#sec-2-5">2.5 Option D-3 — pending 토큰 처리</a></li>
+        <li><a href="#sec-2-6">2.6 잔여 결정 D-4/D-5</a></li>
+      </ol>
+    </li>
+    <li><a href="#sec-3">3. Day-by-Day Work Package</a>
+      <ol>
+        <li><a href="#day-0">Day 0 — tailscale CLI 진단 + 바인딩 스파이크</a></li>
+        <li><a href="#day-1">Day 1 — 토큰 lifecycle 코어 + pending 승격</a></li>
+        <li><a href="#day-2">Day 2 — revoke 즉시 끊기 + Tailscale 바인딩</a></li>
+        <li><a href="#day-3">Day 3 — lifecycle UI + 사전 진단 UX</a></li>
+        <li><a href="#day-4">Day 4 — e2e 무효화 검증 + Exit</a></li>
+      </ol>
+    </li>
+    <li><a href="#sec-4">4. Architecture Diagram</a></li>
+    <li><a href="#sec-5">5. Critical Code Specs</a></li>
+    <li><a href="#sec-6">6. ADR 운영화 — ADR-F</a></li>
+    <li><a href="#sec-7">7. Pre-mortem + 확장 테스트 계획</a>
+      <ol>
+        <li><a href="#sec-7-1">7.1 Pre-mortem (4 시나리오)</a></li>
+        <li><a href="#sec-7-2">7.2 확장 테스트 계획</a></li>
+      </ol>
+    </li>
+    <li><a href="#sec-8">8. Tailscale 진단 + fetchHint 명세</a></li>
+    <li><a href="#sec-9">9. Acceptance Criteria</a></li>
+    <li><a href="#sec-10">10. Risks &amp; Mitigations</a></li>
+    <li><a href="#sec-11">11. Exit Gate to S1</a></li>
+    <li><a href="#app-a">부록 A. 환경 변수</a></li>
+    <li><a href="#app-b">부록 B. 참고 문헌</a></li>
+  </ol>
+</aside>
+
+<main>
+
+<h1>P6b 상세 계획서 — 토큰 lifecycle + Tailscale 통합</h1>
+<p class="meta">
+  <strong>대상 단계</strong>: development-master-plan-v2 § 3 P6b<br>
+  <strong>대상 레포</strong>: macOS Swift 앱 (libghostty 기반 터미널, in-process 데몬)<br>
+  <strong>문서 작성일</strong>: 2026-06-11<br>
+  <strong>예상 작업 일수</strong>: 5일 (Day 0~4, master 범위 3~4일 + tailnet 노출 보안 영역으로 Day 0 spike 포함)<br>
+  <strong>합의 모드</strong>: <span class="tag danger">DELIBERATE</span> (인증 경계를 tailnet으로 확장 — pre-mortem + 확장 테스트 필수)<br>
+  <strong>승인 경로</strong>: ralplan 합의 (Planner v1 → Architect SOUND → Critic APPROVE). 합의 이력은 APPROVE 후 <code>docs/plans/p6b/p6b-history.md</code><br>
+  <strong>선행 기준선</strong>: P6a 병합 완료, main 383 tests green
+</p>
+
+<!-- =================================================================== -->
+<h2 id="sec-1">1. 개요</h2>
+
+<h4>Goal</h4>
+<p>P6a가 발급한 디바이스 토큰에 <strong>수명과 폐기 경로</strong>를 부여하고, loopback에 갇혀 있던 WS endpoint를 <strong>Tailscale tailnet</strong>에 노출한다. 구체적으로 (1) 30일 만료 강제 + 만료 7일 전 데스크톱 UI 경고, (2) 설정 화면 디바이스 목록에 수동 revoke 배선 + "Device lost" 즉시 무효화, (3) revoke 시 이미 살아 있는 WS 연결을 즉시 끊기, (4) <code>tailscale status</code> 사전 진단 + 한국어 안내 후 WS endpoint를 Tailscale IP에 바인딩, (5) P6a에서 누적 부채로 남은 "미사용 페어링 토큰"을 claim 시 승격 모델로 정리한다. 모바일 클라이언트 없이 <code>DaemonDevCLI</code> 확장과 단위/통합 테스트로 만료·revoked 토큰의 WS 연결·push가 모두 즉시 거부됨을 측정 가능하게 검증한다.</p>
+
+<h4>단계 진행 요약 (Day 0~4)</h4>
+<table>
+  <thead><tr><th>Day</th><th>초점</th><th>핵심 산출</th><th>1차 분기/게이트</th></tr></thead>
+  <tbody>
+    <tr><td>Day 0</td><td>tailscale 진단 + 바인딩 실증</td><td><code>TailscaleBindingSpikeTests</code> + seam 골격</td><td>D-1 옵션 A 확정 vs C 폴백</td></tr>
+    <tr><td>Day 1</td><td>lifecycle 코어 + 부채 해소</td><td><code>DeviceLifecyclePolicy</code> + pending 승격</td><td>383 green 비파괴 기준선</td></tr>
+    <tr><td>Day 2</td><td>revoke 즉시 끊기 + 바인딩</td><td><code>disconnectDevice</code> + <code>Coordinator</code> + <code>BindStrategy</code></td><td>누출 창 0 실증</td></tr>
+    <tr><td>Day 3</td><td>lifecycle UI + 진단 UX</td><td>만료 경고 + 폐기 버튼 + Tailscale 카드</td><td>non-app 타겟 빌드 비파괴</td></tr>
+    <tr><td>Day 4</td><td>e2e 무효화 + ADR-F</td><td><code>--lifecycle</code> + ADR-F + fetchHint 명세</td><td>Exit Gate (verifier lane)</td></tr>
+  </tbody>
+</table>
+
+<h4>Side</h4>
+<p>desktop (macOS, Apple Silicon). 모바일 트랙은 P8 이후이며, 본 단계는 데스크톱 단독으로 완결된 vertical slice를 가진다. Tailscale은 <strong>system service 의존</strong>(tsnet 라이브러리 미사용) — 데몬은 외부 <code>tailscale</code> CLI/데몬의 상태를 진단·소비하기만 한다.</p>
+
+<h4>Scope (in) — 이번 단계에서 반드시 끝낸다</h4>
+<ul>
+  <li>토큰 만료 강제: <code>Device.expiresAt</code>(P6a 스키마)를 30일 기본으로 발급·강제. <code>DeviceTokenVerifier</code>가 이미 <code>expiresAt > Date()</code>를 거부하므로(P6a) 발급 측 강제 + lifecycle 정책을 더한다</li>
+  <li>만료 7일 전 알림: 데스크톱 설정 UI 디바이스 목록에 "N일 후 만료" 경고 callout/뱃지 <strong>실배선</strong>. push 알림은 <strong>seam만 예약(미배선)</strong> — 모바일 수신부가 P10a라 현재 dead (D-4)</li>
+  <li>수동 revoke UI: <code>PairingSettingsContent</code> 디바이스 행에 "폐기" 버튼 배선 → <code>DeviceStore.revoke(id:)</code>(P6a seam) 호출. "Device lost" = 동일 revoke 즉시 무효화 경로</li>
+  <li><strong>revoke 시 기존 연결 즉시 끊기</strong>(D-2): revoke된 deviceId에 바인딩된 살아 있는 WS connection을 즉시 <code>cancel()</code>. <code>WSServer</code>에 deviceId → clientId 역참조 + 끊기 메커니즘 신규</li>
+  <li>Tailscale 통합: <code>tailscale status</code> 사전 진단(미설치/미로그인/오프라인 분기) + 한국어 안내 + <code>tailscale ip -4</code>로 얻은 100.x 주소에 WS endpoint 바인딩(D-1). loopback 폴백 유지</li>
+  <li><strong>pending 토큰 정리</strong>(D-3, PR #4 부채): 코드 발급 즉시 30일 upsert하던 부채를 claim 시 승격으로 교체 — 발급 시엔 pending(코드 ttl 수명), claim 성공 시에만 30일로 승격</li>
+  <li><code>fetchHint</code> endpoint 설계 기록: WS <code>kind=fetch, messageId</code>. push 수신 후 모바일이 본문을 보강하는 채널. <strong>EnvelopeKind 추가는 P7 v1.0 freeze 대상으로 기록</strong>(코드 미배선 — 명세만)</li>
+  <li><strong>ADR-F 본문</strong>: Tailscale prerequisite UX (모바일 설치/로그인 안내). P6b에서 데스크톱 측 확정, P8 모바일 측 적용 (§6)</li>
+  <li>검증: 만료/revoked 토큰의 WS 연결·push가 모두 즉시 거부됨을 측정 가능하게 확인 (단위/통합/e2e)</li>
+</ul>
+
+<h4>Scope (out) — 이번 단계에서 다루지 않는다 (후속 이연)</h4>
+<ul>
+  <li>실 push 전송으로 만료 알림 발신 — P10a. 본 단계는 push seam 예약만(<code>PushSender</code> 호출자 미배선, D-7과 정합)</li>
+  <li>모바일 페어링 UX(QR 스캔/코드 입력 화면) + Tailscale 모바일 설치 안내 화면 — P8/P9. ADR-F는 데스크톱 측 정책만 동결</li>
+  <li><code>fetchHint</code> 실 구현(<code>kind=fetch</code> 핸들러 + ring buffer 재조회) — P7 freeze + P10b. 본 단계는 명세·freeze 대상 기록만</li>
+  <li>tsnet 임베디드 Tailscale — 본 단계는 system service 의존 확정. tsnet은 reserved(재평가 없음)</li>
+  <li>실 FCM/APNs wire — S1. <code>fcmToken</code>/<code>apnsToken</code>은 P6a 스키마 그대로 nilable 예약</li>
+</ul>
+
+<h4>Key Deliverables</h4>
+<table>
+  <thead><tr><th>#</th><th>산출물</th><th>설명</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td><code>DeviceLifecyclePolicy</code> (신규, <code>Sources/Pairing/</code>)</td><td>30일 만료 발급 + 만료 임박(7일) 판정 + pending/active 상태 전이. 순수 로직, 단위 테스트 대상</td></tr>
+    <tr><td>2</td><td><code>PairingModel.issueNewCode</code> 부채 해소 (수정)</td><td>발급 시 pending 디바이스(코드 ttl 수명) upsert. 30일 승격은 데몬 레이어가 담당(승격 hook을 UI에 두지 않음). 누적 차단 (D-3)</td></tr>
+    <tr><td>2b</td><td><code>DevicePromotionCoordinator</code> (신규 actor, <code>Sources/Pairing/</code>)</td><td>데몬 레이어 전용 승격기: claim 성공 <code>onClaimed(deviceId:)</code> → <code>store.promote(id:to:)</code> 위임(원자, revoked no-op). revoke Coordinator와 대칭 actor. <code>PairingSession.issue(payload:deviceId:)</code> 시그니처 보강 + <strong><code>DeviceStore.promote(id:to:)</code> 동작 메서드 추가</strong>(revoke와 대칭) (D-3)</td></tr>
+    <tr><td>3</td><td><code>WSServer</code> revoke 즉시 끊기 (수정)</td><td>deviceId → clientId<strong>s</strong> 역참조 맵(<code>Set&lt;UUID&gt;</code>) + <code>disconnectDevice(deviceId:)</code>. revoke 시 같은 deviceId의 살아 있는 연결 전부 <code>cancel()</code> (D-2)</td></tr>
+    <tr><td>4</td><td><code>DeviceRevocationCoordinator</code> (신규, <code>Sources/Pairing/</code>)</td><td>revoke 1점 진입: store.revoke + 기존 연결 끊기 + push seam 통지(예약)를 순서가 보장된 다단계로 조율(원자 아님 — store.revoke 선행이 사이 구간 재연결을 verifier가 거부). <code>disconnectedCount</code> testable 카운터. UI/CLI 공용</td></tr>
+    <tr><td>5</td><td><code>TailscaleDiagnostics</code> (신규, <code>Sources/Daemon/</code>)</td><td><code>tailscale status --json</code>/<code>tailscale ip -4</code> 실행·파싱 + 미설치/미로그인/오프라인 분기 + 한국어 사유. <code>TailscaleProbing</code> protocol seam(fake 주입)</td></tr>
+    <tr><td>6</td><td><code>WSServer</code> 바인딩 전략 (수정)</td><td><code>requiredLocalEndpoint</code>를 loopback 고정에서 <code>BindStrategy</code>(loopback / tailscaleIP)로 추상화 (D-1)</td></tr>
+    <tr><td>7</td><td>lifecycle UI 배선 (<code>PairingSettingsContent</code> 수정)</td><td>만료 임박 경고 callout + "폐기" 버튼 → <code>DeviceRevocationCoordinator</code>. Tailscale 진단 상태 표시</td></tr>
+    <tr><td>8</td><td><code>fetchHint</code> 명세 문서 (§8)</td><td>WS <code>kind=fetch, messageId</code> 스키마 + P7 freeze 대상 기록. 코드 미배선</td></tr>
+    <tr><td>9</td><td>ADR-F 문서</td><td><code>docs/adr/F-tailscale-prerequisite-ux.md</code> — Tailscale 설치/로그인 안내 정책</td></tr>
+    <tr><td>10</td><td><code>DaemonDevCLI</code> <code>--lifecycle</code> + 테스트</td><td>만료/revoked 토큰 거부 e2e + 신규 단위/통합 테스트. 기준선 383 green 비파괴 (산식 <code>383 + 신규 M = K</code>)</td></tr>
+  </tbody>
+</table>
+
+<h4>Dependencies</h4>
+<table>
+  <thead><tr><th>의존</th><th>현재 상태 (P6a 병합 후)</th><th>본 단계 사용처</th></tr></thead>
+  <tbody>
+    <tr><td><code>DeviceStore</code> protocol</td><td><code>Sources/Pairing/DeviceStore.swift</code> — <code>list/upsert/find(byTokenId:)/secret/revoke/remove</code>. <code>revoke(id:)</code>/<code>remove(id:)</code> seam 존재, UI 미배선</td><td>revoke seam UI 배선 + pending upsert. <strong>승격용 <code>promote(id:to:)</code> 동작 메서드 1개 추가</strong>(revoke와 대칭, revoked no-op — InMemory/Keychain 양 conformer. 기존 메서드 무변경)</td></tr>
+    <tr><td><code>DeviceTokenVerifier</code></td><td><code>Sources/Pairing/DeviceTokenVerifier.swift</code> — <code>verify</code>가 이미 <code>!revoked &amp;&amp; expiresAt > Date()</code> 거부</td><td>변경 없음 — 만료/revoked 거부는 이미 동작. P6b는 발급·끊기·UI를 더할 뿐</td></tr>
+    <tr><td><code>WSServer</code> (actor)</td><td><code>Sources/Daemon/WSServer.swift</code> — <code>requiredLocalEndpoint = 127.0.0.1:any</code> 고정, <code>connections[clientId]</code> 보유, <code>authState[clientId] → VerifiedDevice</code> 추적(역참조 없음)</td><td>바인딩 전략 추상화(D-1) + deviceId→clientId 역참조 + <code>disconnectDevice</code>(D-2)</td></tr>
+    <tr><td><code>PairingModel</code></td><td><code>Sources/UI/Pairing/PairingModel.swift</code> — <code>issueNewCode</code>가 발급 즉시 30일 upsert(부채 지점), <code>removeDevice</code>만 배선(revoke 미배선)</td><td>pending 승격(D-3) + revoke 배선 + 만료 임박 노출</td></tr>
+    <tr><td><code>PairingSession</code> (actor)</td><td><code>Sources/Pairing/PairingSession.swift</code> — <code>issue(payload:)</code>/<code>claim(code:)</code>이 1회 소비, payload 반환. (code→deviceId) 매핑 없음</td><td><code>issue(payload:deviceId:)</code> 시그니처 보강(actor 내부 code→deviceId 매핑 보유) + claim 성공 시 <code>onClaimed: @Sendable (UUID) async -&gt; Void</code> 콜백 await 발화 (D-3 데몬 레이어 actor 승격)</td></tr>
+    <tr><td><code>PairingSettingsContent</code></td><td><code>Sources/UI/Settings/PairingSettingsContent.swift</code> — 디바이스 목록 + "삭제"(remove) 버튼 존재, revoked 뱃지 표시 로직 이미 있음</td><td>"폐기"(revoke) 버튼 추가 + 만료 임박 callout. revoked 뱃지 표시는 재사용</td></tr>
+    <tr><td><code>PushSender</code> (actor)</td><td><code>Sources/Push/PushSender.swift</code> — mock transport, <code>send</code>이 revoked 토큰 거부 검증 없음(WS만 verifier 경유)</td><td>revoked 디바이스 push 거부 검증 대상 + 만료 알림 seam(예약, 호출자 미배선)</td></tr>
+    <tr><td>외부 <code>tailscale</code> CLI</td><td>코드베이스 미사용 — 신규 도입. system service(<code>/Applications/Tailscale.app</code> 또는 brew)</td><td><code>tailscale status --json</code> / <code>tailscale ip -4</code> 진단·바인딩 주소 획득</td></tr>
+    <tr><td><code>DaemonBootstrap</code></td><td><code>Sources/Daemon/DaemonBootstrap.swift</code> — registry→daemon→server→start(). bootstrap 디바이스 1개 발급(1시간 수명)</td><td><code>BindStrategy</code> + <code>TailscaleProbing</code> 주입 지점 확장</td></tr>
+    <tr><td><code>DaemonDevCLI</code></td><td><code>Sources/DaemonDevCLI/main.swift</code> — <code>--pair</code>/<code>--connect-auth</code>/<code>--roundtrip</code> 등</td><td><code>--lifecycle</code> 추가(만료/revoke 거부 e2e)</td></tr>
+    <tr><td><code>EnvelopeKind</code></td><td><code>Sources/Daemon/WSEnvelope.swift</code> — input/output/.../pairing.claim/pairing.response. v0.9</td><td>P6b는 <code>fetch</code> kind를 <strong>추가하지 않는다</strong> — 명세만(§8), P7 freeze 대상 기록</td></tr>
+  </tbody>
+</table>
+
+<div class="callout danger">
+  <div class="label">보안 영역 — deliberate 모드 근거</div>
+  <p>본 단계는 P6a가 loopback에 가둬 둔 신뢰 경계를 <strong>tailnet으로 확장</strong>한다 — 공격 표면이 단일 호스트에서 tailnet 전체로 넓어진다. 동시에 "토큰 폐기"라는 보안 결정의 실효성(revoke가 살아 있는 연결까지 끊는가)이 처음 검증된다. 한 곳의 결함(tailnet 노출 후 인증 우회, revoke 후 잔존 연결, revoke와 경쟁한 승격의 디바이스 부활, Tailscale 미설치 환경의 silent 실패)이 전체 보안 모델을 무력화하므로, master § 7 "보안" 횡단 원칙(키/토큰 Keychain 전용, 코드·로그 노출 금지)을 매 Day 종료 조건으로 강제한다. pre-mortem 4 시나리오(§7.1)와 확장 테스트 계획(§7.2)이 필수다. secret 평문은 로그·UI·문서에 절대 노출하지 않는다.</p>
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-2">2. RALPLAN-DR Summary</h2>
+
+<h3 id="sec-2-1">2.1 Principles (설계 원칙)</h3>
+<ol>
+  <li><strong>tailnet은 1차 경계, Bearer는 2차 방어</strong> — WS endpoint를 Tailscale IP에 바인딩해 tailnet 밖에서는 포트 자체가 보이지 않게 하고(1차), 그 위에서 P6a의 Bearer 2단 게이트가 디바이스를 인증한다(2차). 두 방어는 독립이라 어느 한 층이 뚫려도 다른 층이 남는다. <code>0.0.0.0</code> 노출 후 인증에만 의존하는 단층 방어는 거부한다(D-1).</li>
+  <li><strong>폐기는 즉시·완전해야 한다</strong> — revoke는 (a) store에서 토큰 무효화, (b) 살아 있는 WS 연결 즉시 끊기(같은 deviceId 동시 N연결 전부), (c) push 거부(seam)를 모두 포함한다. "다음 메시지에서 거부"는 누출 창을 남기므로 즉시 끊기를 채택한다(D-2). revoke 경로는 <code>DeviceRevocationCoordinator</code> 한 곳으로 수렴해 UI·CLI·"Device lost"가 같은 순서 보장 다단계 절차를 거친다(원자 트랜잭션은 아니나 store.revoke 선행이 사이 구간 재연결을 verifier가 거부하므로 안전 — §5.4).</li>
+  <li><strong>토큰은 claim된 것만 수명을 갖는다</strong> — 코드 발급만 하고 claim 안 된 토큰이 30일 누적되는 P6a 부채를 구조적으로 제거한다. 발급 시엔 pending(코드 ttl=5분 수명)으로 두고, claim 성공 시에만 30일 active로 승격한다(D-3). 미claim 토큰은 코드 만료와 함께 자연 소멸한다.</li>
+  <li><strong>Tailscale 미충족은 silent하지 않게</strong> — Tailscale 미설치/미로그인/오프라인은 데몬을 조용히 loopback으로 떨어뜨리는 대신 진단 결과를 한국어로 명시 노출하고, 사용자가 상태를 알 수 있게 한다. 진단은 <code>TailscaleProbing</code> seam으로 격리해 fake로 전 분기를 테스트한다.</li>
+  <li><strong>모바일 부재를 존중하는 미배선 정책</strong> — 만료 7일 전 "알림"은 데스크톱 UI callout으로 실배선하고, push 알림과 <code>fetchHint</code>는 seam·명세만 두고 코드를 배선하지 않는다(모바일 수신부가 P10a/P10b). EnvelopeKind <code>fetch</code> 추가는 P7 freeze 대상으로 기록만 한다(v0.9에 손대지 않음).</li>
+</ol>
+
+<h3 id="sec-2-2">2.2 Decision Drivers (Top 3)</h3>
+<ol>
+  <li><strong>tailnet 노출의 바인딩 불확실성</strong> — <code>NWListener</code>의 <code>requiredLocalEndpoint</code>를 Tailscale 100.x 주소로 바꿨을 때 실제로 그 인터페이스에만 바인딩되는지, IP 변동(로그인/로그아웃) 시 재바인딩 경로가 무엇인지, <code>tailscale</code> CLI 출력 파싱이 환경마다 안정적인지가 SDK·외부 도구 의존이라 불확실하다. Day 0 스파이크(실측 바인딩 + CLI 진단)가 D-1 확정의 1차 분기다.</li>
+  <li><strong>폐기 실효성 0 누출 (deliberate)</strong> — revoke가 store만 바꾸고 살아 있는 연결을 끊지 못하면 "분실 디바이스"가 다음 침묵 동안 계속 통신한다. WS는 long-lived 연결이라 "다음 envelope에서 거부"의 누출 창이 무한정일 수 있다(클라이언트가 envelope을 안 보내면 영원히 생존). 즉시 끊기 메커니즘의 정확성을 1급 종료 조건으로 둔다.</li>
+  <li><strong>기존 383 green 비파괴 + P6a seam 정합</strong> — P6a가 <code>revoke(id:)</code> seam, <code>expiresAt</code>/<code>revoked</code> 스키마, verifier 거부 로직을 이미 두었다. P6b는 이들을 깨지 않고 배선만 더해야 한다. <code>requiredLocalEndpoint</code> 변경은 <code>DaemonTests</code>의 loopback 가정(A8 lsof, 라운드트립)을 건드릴 수 있으므로 바인딩 전략을 기본 loopback으로 두고 tailnet은 opt-in으로 한다.</li>
+</ol>
+
+<h3 id="sec-2-3">2.3 Option D-1 — tailnet 노출 전략 <span class="tag danger">핵심</span></h3>
+<table>
+  <thead><tr><th>옵션</th><th>구조</th><th>Pros</th><th>Cons</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>A (채택)</strong> Tailscale IP 바인딩</td>
+      <td><code>tailscale ip -4</code>로 얻은 100.x.y.z 주소를 <code>WSServer.requiredLocalEndpoint</code>에 바인딩. tailnet 내부 디바이스만 도달 가능하고, 그 위에서 P6a Bearer 2단 게이트가 인증. IP 미획득(미설치/오프라인) 시 loopback 폴백 + 진단 노출</td>
+      <td>tailnet 밖(공용 LAN/인터넷)에서는 포트 자체가 안 보임(1차 경계) + Bearer 인증(2차). 명료한 2층 방어. 데몬이 어떤 주소에 떴는지 명시적. <code>tailscale serve</code> 설정 없이 즉시 동작</td>
+      <td>Tailscale IP 변동(로그인/로그아웃/재배정) 시 재바인딩 필요 — 진단 + 재시작 경로로 흡수. CLI 출력 파싱 의존(Day 0 스파이크로 실측)</td>
+    </tr>
+    <tr>
+      <td>B <code>0.0.0.0</code> 바인딩 + 인증 의존</td>
+      <td>모든 인터페이스(<code>0.0.0.0</code>)에 바인딩 후 Bearer 인증에만 의존. tailnet 여부와 무관하게 포트 노출</td>
+      <td>구현 단순(주소 획득 불필요). IP 변동 무관(모든 인터페이스)</td>
+      <td><strong>공용 LAN/인터넷에도 포트가 열려</strong> 공격 표면이 tailnet 밖으로 확대. 단층 방어(인증 뚫리면 끝) — deliberate 모드 Principle 1 위반. master "tailnet 노출"의 의도(tailnet 한정)와 불일치. <strong>기각</strong></td>
+    </tr>
+    <tr>
+      <td>C <code>tailscale serve</code> 프록시</td>
+      <td>외부 <code>tailscale serve</code>가 TLS 종단 + tailnet 프록시를 맡고, 데몬은 loopback(127.0.0.1) 유지. Tailscale이 tailnet → loopback 포워딩</td>
+      <td>데몬 바인딩 무변경(loopback 유지 — 383 green 비파괴 최대). Tailscale이 TLS 제공(wss). 가장 안전한 경계(데몬은 외부 미노출)</td>
+      <td>system service 설정 의존이 큼(<code>tailscale serve</code> config 관리 — 앱이 외부 데몬 설정을 강제·검증해야). 진단/오류 경로가 프록시 계층만큼 복잡. 사용자가 <code>serve</code> 설정을 직접 만져야 하는 UX 부담. 데몬 단독 vertical slice가 외부 프록시 가용성에 종속. <strong>비교 대안으로 수록</strong> — P6b 데스크톱 단독 검증 범위에 비해 운영 복잡도 과다</td>
+    </tr>
+  </tbody>
+</table>
+<div class="callout ok">
+  <div class="label">선택 근거 — Option A (Tailscale IP 바인딩)</div>
+  <p>옵션 B는 <code>0.0.0.0</code> 노출로 tailnet 밖 LAN/인터넷에까지 포트를 여는 단층 방어라 Principle 1(2층 경계)과 deliberate 모드 보안 요구에 정면 위배되어 기각한다. 옵션 C(<code>tailscale serve</code> 프록시)는 보안 경계로는 가장 안전하나, 앱이 외부 <code>tailscale serve</code> config를 강제·검증·복구해야 하는 운영 복잡도가 P6b 데스크톱 단독 검증 범위 대비 과도하고, 데몬의 vertical slice가 외부 프록시 가용성에 종속되어 e2e 검증이 흔들린다 — 비교 대안으로 보존하되 채택하지 않는다(P6b는 직접 바인딩으로 경계를 데몬이 소유). 옵션 A는 <code>tailscale ip -4</code>로 얻은 100.x 주소에 직접 바인딩해 tailnet 한정 노출(1차 경계)을 데몬이 명시적으로 소유하고, 그 위에서 P6a Bearer 2단 게이트(2차 방어)를 그대로 재사용한다. IP 변동이라는 약점은 <code>TailscaleDiagnostics</code>가 진단·노출하고 재시작 경로로 흡수한다. IP 미획득(미설치/오프라인) 시 loopback으로 폴백하되 그 사유를 진단으로 명시 노출해(Principle 4) silent 실패를 막는다. 단, Day 0 스파이크로 (1) Tailscale IP 바인딩이 실제로 그 인터페이스에만 도달 가능한지, (2) <code>tailscale status --json</code>/<code>tailscale ip -4</code> 출력 파싱이 안정적인지를 실측한 뒤에만 A를 확정한다 — 스파이크 실패 시 C(<code>serve</code> 프록시)로 폴백 결정을 Day 0에 내린다.</p>
+</div>
+
+<h3 id="sec-2-4">2.4 Option D-2 — revoke 후 기존 연결 처리</h3>
+<table>
+  <thead><tr><th>옵션</th><th>구조</th><th>Pros</th><th>Cons</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>A (채택)</strong> 즉시 끊기</td>
+      <td>revoke 시점에 그 deviceId에 바인딩된 살아 있는 WS connection을 즉시 <code>cancel()</code>. <code>WSServer</code>가 deviceId → clientId 역참조(<code>authState</code> 역방향)를 유지하고 <code>disconnectDevice(deviceId:)</code>로 끊는다</td>
+      <td>분실 디바이스가 revoke 즉시 통신 중단 — 누출 창 0. master "Device lost 즉시 무효화" 요구를 글자 그대로 충족. WS long-lived 연결이 envelope을 안 보내도 즉시 차단</td>
+      <td><code>WSServer</code>에 역참조 맵(<code>[deviceId: Set&lt;clientId&gt;]</code> — 다중 연결) + 끊기 메서드 신규 — actor isolation 하에서 정확히 관리해야. revoke와 disconnect의 순서 보장(<code>DeviceRevocationCoordinator</code>로 store.revoke 선행 조율) 필요</td>
+    </tr>
+    <tr>
+      <td>B 다음 envelope에서 거부</td>
+      <td>revoke는 store만 바꾸고, 살아 있는 연결은 다음 inbound envelope 처리 시 <code>verifier.verify</code> 재호출로 revoked 감지해 close. 매 envelope 재검증</td>
+      <td>구현 단순(역참조 불필요). 게이트 ② 로직 재사용</td>
+      <td><strong>누출 창 무한정</strong> — WS는 long-lived라 클라이언트가 envelope을 안 보내면(예: output만 수신) revoked 연결이 영원히 살아 통신 지속. 매 envelope 재검증은 hot path 비용. master "즉시 무효화" 위반. <strong>기각</strong></td>
+    </tr>
+  </tbody>
+</table>
+<div class="callout ok">
+  <div class="label">선택 근거 — Option A (즉시 끊기)</div>
+  <p>옵션 B의 치명적 결함은 누출 창이 "다음 inbound envelope까지"가 아니라 사실상 <strong>무한정</strong>이라는 점이다. WS 연결은 long-lived이고, 데스크톱 → 모바일 방향 트래픽(output/ack)만 흐르는 동안 모바일이 아무 envelope도 안 보내면 revoked 연결이 데스크톱의 출력을 계속 수신한다 — "분실 디바이스"가 화면 내용을 계속 훔쳐보는 정확한 시나리오다(pre-mortem 시나리오 2). 옵션 A는 revoke 시점에 그 deviceId의 connection을 능동적으로 <code>cancel()</code>해 누출 창을 0으로 만든다. 신규 비용은 <code>WSServer</code>의 deviceId→clientIds(<code>Set&lt;UUID&gt;</code> — 동시 N연결) 역참조 맵과 <code>disconnectDevice</code> 메서드인데, P6a가 이미 <code>authState[clientId] → VerifiedDevice</code>(여기에 <code>deviceId</code> 포함)를 보유하므로 역방향 인덱스만 추가하면 된다. revoke(store 변경) + disconnect(연결 끊기) + push 거부(seam)는 <code>DeviceRevocationCoordinator</code> 한 곳에서 순서 보장 다단계로 조율되어(원자 아님 — store.revoke 선행이 사이 구간 재연결을 거부) UI·CLI·"Device lost"가 같은 절차를 밟는다. master § 3 P6b "Device lost 즉시 무효화"가 옵션 A를 명시적으로 요구한다.</p>
+</div>
+
+<h3 id="sec-2-5">2.5 Option D-3 — pending 토큰 처리 (PR #4 부채)</h3>
+<table>
+  <thead><tr><th>옵션</th><th>구조</th><th>Pros</th><th>Cons</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>A (채택)</strong> claim 시 승격</td>
+      <td>발급 시 디바이스를 <strong>pending</strong> 상태(<code>expiresAt</code> = 코드 ttl = 5분)로 upsert. claim 성공 시에만 <strong>active</strong>(<code>expiresAt</code> = 30일)로 승격(재upsert). 미claim 토큰은 코드 만료(5분)와 함께 verifier가 자연 거부</td>
+      <td>누적 원천 차단 — claim 안 된 토큰은 5분 후 검증 불가(만료). 발급=권한 부여가 아니라 claim=권한 부여라는 의미론이 정확. 별도 sweep 불필요(verifier <code>expiresAt</code> 거부가 이미 처리). PairingModel 부채를 정면 해소</td>
+      <td>승격 시점 식별 — claim 성공 콜백/반환값 소비처에서 active upsert 필요. pending 디바이스가 5분간 store에 존재(단 만료라 무해). 같은 deviceId가 pending→active 재upsert(P6a upsert가 동일 deviceId 옛 tokenId 폐기 — 정합)</td>
+    </tr>
+    <tr>
+      <td>B 코드 만료 시 폐기</td>
+      <td>발급 시 30일로 upsert(현행). 코드 5분 만료 시 claim 안 됐으면 별도 sweep이 그 디바이스를 <code>remove</code>. 주기적/이벤트성 청소</td>
+      <td>발급 의미론 무변경(현행 유지). 승격 hook 불필요</td>
+      <td>30일 토큰이 5분간 active로 존재 — sweep 전까지 유효(검증 통과). sweep 누락/지연 시 누적 잔존(원천 차단 아님). sweep 트리거(타이머? 다음 발급 시?) 설계 부담 + 경쟁 조건. "발급=30일 권한"이라는 부정확한 의미론 유지. <strong>기각</strong></td>
+    </tr>
+    <tr>
+      <td colspan="4" style="background: var(--table-head); font-weight: 600;">승격 책임 위치 (옵션 A 채택 후 sub-결정)</td>
+    </tr>
+    <tr>
+      <td><strong>A1 (채택)</strong> 데몬 레이어 승격</td>
+      <td>claim 소비처(<code>WSServer.handlePairingClaim → PairingSession.claim</code>)에 <code>onClaimed</code> 콜백을 두고 <code>DevicePromotionCoordinator.promote(deviceId:)</code>가 승격. UI는 <code>refreshDevices()</code> polling으로 따라옴</td>
+      <td>claim이 실제로 소비되는 자리에 승격이 붙어 호출 경로가 살아 있음(dead path 0). revoke Coordinator와 대칭. P6a claim/운영 채널 분리 보존(역방향 통지 채널 불요)</td>
+      <td><strong>tradeoff</strong>: UI 디바이스 목록이 polling 주기만큼 stale(다음 refresh까지 pending으로 표시) — refreshDevices가 이미 화면 진입/발급 시 호출되므로 실사용 영향 미미</td>
+    </tr>
+    <tr>
+      <td>A2 UI 레이어 승격</td>
+      <td><code>@MainActor PairingModel</code>에 승격 hook을 두고 claim 결과를 UI가 받아 승격(예: 발급 시 보유한 pendingDeviceId를 UI가 승격)</td>
+      <td>UI 목록이 승격 즉시 최신(stale 0)</td>
+      <td><strong>치명</strong>: claim은 데몬측에서만 소비되고 UI는 경유하지 않아(<code>--pair</code>도 <code>PairingClaimClient</code>) hook이 <strong>dead path</strong> — 정상 claim 디바이스가 5분 후 만료. UI→데몬 역방향 통지 채널을 신설하면 P6a 채널 분리 위반. <strong>기각</strong></td>
+    </tr>
+    <tr>
+      <td colspan="4" style="background: var(--table-head); font-weight: 600;">승격 구현 방식 (A1 데몬 레이어 채택 후 sub-결정)</td>
+    </tr>
+    <tr>
+      <td><strong>M1 (채택)</strong> store 레이어 원자 메서드</td>
+      <td><code>DeviceStore.promote(id:to:)</code>를 <code>revoke(id:)</code>와 대칭인 동작 메서드로 두고, read-check-write(<code>guard !revoked</code> → expiresAt 갱신)를 store actor 메서드 안에 묶음. Coordinator는 1줄 위임</td>
+      <td>revoke와 같은 원자성 수준 — promote와 revoke가 store actor에서 직렬화. <strong>revoked 디바이스는 no-op</strong>이라 revoke 직후 도착한 claim이 폐기 디바이스를 부활시키지 못함(Principle 2/3 보존). revoke ↔ promote 진짜 대칭</td>
+      <td>store protocol에 메서드 1개 추가 — 양 conformer(InMemory/Keychain) 구현 필요(revoke 선례와 동형이라 부담 작음)</td>
+    </tr>
+    <tr>
+      <td>M2 Coordinator read-modify-write</td>
+      <td>Coordinator가 <code>find(byDeviceId:)</code> → <code>upsert</code>로 expiresAt 갱신(<code>revoked: false</code> 포함 재구성). store는 단순 CRUD만</td>
+      <td>store protocol 무변경(find lookup만 추가)</td>
+      <td><strong>치명</strong>: find와 upsert 사이에 revoke가 끼어들면 <code>revoked: false</code> upsert가 폐기를 덮어써 <strong>디바이스 부활</strong>(쓰기-쓰기 경쟁). revoke는 원자 메서드인데 promote만 비원자라 비대칭. Principle 2/3 위반. <strong>기각</strong></td>
+    </tr>
+  </tbody>
+</table>
+<div class="callout ok">
+  <div class="label">선택 근거 — Option A (claim 시 승격)</div>
+  <p>옵션 B는 "발급 즉시 30일 active"라는 부정확한 의미론을 유지한 채 사후 청소(sweep)로 메우려 하는데, sweep 트리거(타이머 vs 다음 발급 vs 앱 종료)마다 누락·지연·경쟁 조건이 생기고, 그 사이 미claim 토큰이 30일 유효로 검증을 통과하는 창이 열린다 — 원천 차단이 아니라 사후 보정이라 기각한다. 옵션 A는 의미론을 바로잡는다: <strong>발급은 "코드가 5분간 유효"일 뿐 권한 부여가 아니고, claim 성공이 권한 부여(30일 승격)다.</strong> 미claim 토큰은 코드 ttl(5분)을 <code>expiresAt</code>로 가지므로 P6a <code>DeviceTokenVerifier</code>의 <code>expiresAt > Date()</code> 거부가 5분 후 자동으로 막는다 — 별도 sweep도, 누적도 없다. <strong>승격 책임은 데몬 레이어 전용</strong>(sub-결정 A1): claim은 <code>WSServer.handlePairingClaim → PairingSession.claim</code>에서만 소비되므로(UI 미경유 — <code>--pair</code>도 <code>PairingClaimClient</code> 경유), <code>onClaimed(deviceId:)</code> 콜백 → <code>DevicePromotionCoordinator</code>(actor)가 <code>store.promote(id:to: 30일)</code> <strong>원자 동작 메서드</strong>에 위임한다 — revoke Coordinator(actor)와 대칭이며, revoked 디바이스는 store.promote가 no-op이라 revoke와 경쟁해도 부활하지 않는다(sub-결정 A1의 승격 방식: read-modify-write를 Coordinator가 아닌 store actor 메서드에 둔다 — 아래 표 참조). UI측 승격(A2)은 claim을 경유하지 않아 dead path가 되거나 역방향 통지 채널 신설로 P6a 채널 분리를 위반하므로 기각했다(데몬 승격의 UI stale tradeoff는 <code>refreshDevices()</code> polling이 흡수). PairingModel의 부채(발급 즉시 30일 upsert)를 정면으로 해소한다.</p>
+</div>
+
+<h3 id="sec-2-6">2.6 잔여 결정 D-4 / D-5</h3>
+<table>
+  <thead><tr><th>결정</th><th>채택</th><th>근거</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>D-4</strong> 만료 7일 전 알림 매체</td>
+      <td><strong>데스크톱 UI callout 실배선 + push seam 예약(미배선)</strong></td>
+      <td>모바일 수신부가 P10a라 push는 현재 dead(D-7과 정합 — <code>PushSender</code>는 dead-until-C4 seam). 데스크톱 설정 UI 디바이스 목록에 "N일 후 만료" 경고를 실배선하면 모바일 없이 즉시 사용자에게 노출 가능. push 알림 경로는 <code>DeviceLifecyclePolicy.expiringWithin(days:)</code> seam만 두고 호출자(PushSender 발신)는 P10a로 이연. 양쪽(UI now + push 예약)이 모바일 부재 현실에 정합</td>
+    </tr>
+    <tr>
+      <td><strong>D-5</strong> <code>fetchHint</code> EnvelopeKind 처리</td>
+      <td><strong>명세만 기록, 코드 미배선, P7 freeze 대상</strong></td>
+      <td><code>kind=fetch</code>를 v0.9 EnvelopeKind에 지금 추가하면 P7 freeze 전 스키마를 흔든다. master § P7 "동결 후 add-only"와 freeze gate 원칙상, 신규 kind는 P7에서 v1.0으로 한 번에 동결해야 codec 라운드트립 검증(TS↔Swift)이 일관된다. P6b는 <code>fetch</code> 스키마(payload <code>{messageId}</code> + 응답 의미)를 §8에 명세하고 Exit Gate에 "P7 freeze 대상 기록"으로만 남긴다. 모바일 수신(P10b)이 의존할 contract를 미리 못박되 코드는 P7/P10b가 배선</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-3">3. Day-by-Day Work Package</h2>
+
+<div class="day-card" id="day-0">
+  <h3>Day 0 — tailscale CLI 진단 + 바인딩 스파이크 (1차 분기 게이트)</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd><code>tailscale status --json</code>/<code>tailscale ip -4</code> 출력 파싱이 안정적인지, 그리고 <code>WSServer.requiredLocalEndpoint</code>를 Tailscale 100.x 주소로 바꿨을 때 실제로 그 인터페이스에만 바인딩되어 loopback 클라이언트가 도달 불가능한지를 실증한다. D-1 옵션 A 확정 여부의 1차 분기.</dd>
+    <dt>산출물</dt>
+    <dd><code>Tests/DaemonTests/TailscaleBindingSpikeTests.swift</code> (스파이크) + <code>TailscaleProbing</code> protocol 골격(시그니처만) + <code>BindStrategy</code> enum 골격</dd>
+    <dt>OMC 위임</dt>
+    <dd>executor(model=opus) — 외부 도구 의존 + 미검증 가정 실증이라 깊은 추론 필요</dd>
+    <dt>예상 소요</dt>
+    <dd>1일</dd>
+    <dt>기술 노트</dt>
+    <dd>P6a Day 0 <code>WSHandshakeRejectSpikeTests</code> 스파이크 게이트 선례를 따른다. (1) <code>Process</code>로 <code>tailscale status --json</code> 실행 → JSON 파싱(<code>BackendState</code>/<code>Self.TailscaleIPs</code>) + <code>tailscale ip -4</code> 100.x 추출, 미설치 시 실행 파일 부재 분기 관측. (2) <code>NWListener</code>를 <code>requiredLocalEndpoint = 100.x:any</code>(또는 환경에 Tailscale 없으면 임의 비-loopback 인터페이스 IP)로 띄워 <code>ws://127.0.0.1:&lt;port&gt;/</code> 클라이언트가 도달 <strong>불가능</strong>(<code>.failed</code>/타임아웃)함을 측정. Tailscale 부재 CI에서는 진단 분기(미설치 사유 반환)만 테스트하고 바인딩 실측은 <code>XCTSkip</code> + walkthrough 기록으로 분리. 관측 불가(바인딩이 의도대로 안 됨)면 옵션 C(<code>serve</code> 프록시)로 폴백 결정을 본 Day에 내린다.</dd>
+    <dt>종료 조건</dt>
+    <dd>
+      <ul class="exit-criteria">
+        <li><input type="checkbox" disabled checked> <code>xcodegen generate</code> 후 <code>xcodebuild test -scheme DaemonTests -only-testing:DaemonTests/TailscaleBindingSpikeTests</code> exit code 0</li>
+        <li><input type="checkbox" disabled checked> <code>tailscale status --json</code> 파싱 테스트: 고정 fixture JSON(설치/미로그인/오프라인 3종) → <code>TailscaleProbing</code> fake가 각각 구별되는 진단 상태 반환 <code>XCTAssertEqual</code> 3건</li>
+        <li><input type="checkbox" disabled checked> 비-loopback 바인딩 실측(Tailscale 가용 시): 100.x 바인딩 서버에 <code>ws://127.0.0.1:&lt;port&gt;/</code> 클라이언트 connect가 5초 내 <code>.failed</code>/타임아웃 <code>XCTAssertEqual</code>. CI(Tailscale 부재)에서는 <code>XCTSkip</code> + 사유 로그</li>
+        <li><input type="checkbox" disabled checked> 스파이크 결과를 <code>.omc/research/p6b-tailscale-spike.md</code>에 기록 — "옵션 A 확정" 또는 "옵션 C 폴백" 1개 명시 + CLI 출력 샘플(IP는 <code>100.x.x.x</code>로 마스킹)</li>
+        <li><input type="checkbox" disabled checked> <code>grep -rnE "deviceTokenSecret|Bearer [A-Za-z0-9]" .omc/research/p6b-tailscale-spike.md</code> 결과 0건 (토큰·실 IP 마스킹 확인)</li>
+      </ul>
+    </dd>
+  </dl>
+</div>
+
+<div class="day-card" id="day-1">
+  <h3>Day 1 — 토큰 lifecycle 코어 + pending 승격 (부채 해소)</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd><code>DeviceLifecyclePolicy</code>(30일 발급 / 만료 임박 7일 판정 / pending↔active 전이)를 순수 로직으로 완성하고, <code>PairingModel.issueNewCode</code>의 "발급 즉시 30일 upsert" 부채를 "발급=pending, claim 시 승격" 모델로 교체한다(D-3). 단위 테스트로 측정.</dd>
+    <dt>산출물</dt>
+    <dd><code>Sources/Pairing/DeviceLifecyclePolicy.swift</code> + <code>Sources/Pairing/DevicePromotionCoordinator.swift</code>(데몬 레이어 승격기 <strong>actor</strong>) + <code>PairingModel.swift</code>(pending 발급) + <code>PairingSession.swift</code>(<code>issue(payload:deviceId:)</code> 시그니처 보강 + <code>onClaimed</code> @Sendable async 콜백) + <code>DeviceStore</code>에 <strong><code>promote(id:to:)</code> 동작 메서드 추가</strong>(revoke와 대칭, revoked no-op — InMemory actor 자연 원자 + Keychain은 tokenId 조회→revoked 확인→SecItemUpdate 묶음) + <strong>시그니처 전파 호출부</strong>(<code>PairingModel.issueNewCode</code>·<code>DaemonDevCLI --pair</code> — 드라이버는 PairingModel 미경유이므로 발급 시퀀스 <code>deviceId 생성 → pending store.upsert → issue(payload:deviceId:)</code>를 <code>issueNewCode</code>와 동형으로 인라인 재현. pending upsert가 빠지면 promote가 미존재 no-op이 되어 e2e의 30일 갱신 어서션이 실패한다) + <code>DaemonBootstrap</code> onClaimed→Coordinator 바인딩 + 단위 테스트(<code>DeviceLifecycleTests</code>)</dd>
+    <dt>OMC 위임</dt>
+    <dd>executor(model=opus) — 만료 경계·상태 전이는 정확도 필수(보안 lifecycle)</dd>
+    <dt>예상 소요</dt>
+    <dd>1일</dd>
+    <dt>기술 노트</dt>
+    <dd><code>DeviceLifecyclePolicy</code>는 <code>now</code> 주입 clock으로 만료 경계를 결정론적으로 테스트한다(P6a <code>PairingSession</code> 선례). pending 발급: <code>PairingModel.issueNewCode</code>가 <code>expiresAt = now + session.ttl</code>(5분)로 upsert(현행 30일 제거). <strong>claim 승격은 데몬 레이어 전용</strong>(§5.2): claim 소비는 <code>WSServer.handlePairingClaim → PairingSession.claim</code>에서만 일어나므로(UI 미경유 — <code>--pair</code>도 <code>PairingClaimClient</code> 경유), <code>DevicePromotionCoordinator</code>(actor)의 <code>promote(deviceId:)</code>가 <code>store.promote(id:to: now+30일)</code> <strong>원자 동작 메서드</strong>에 위임한다 — revoke의 <code>DeviceRevocationCoordinator</code>(actor)와 대칭. <strong>revoked 디바이스는 store.promote가 no-op</strong>이라 revoke와 경쟁해도 폐기 디바이스가 부활하지 않는다(read-modify-write가 store actor 메서드 안에 묶여 revoke와 직렬화). deviceId는 <code>PairingSession.issue(payload:deviceId:)</code>가 actor 내부 (code→deviceId) 매핑으로 보유하고 claim 성공 시 <code>onClaimed(deviceId:)</code> @Sendable async 콜백으로 넘긴다(payload에서 도출 불가). UI <code>PairingModel</code>은 <code>refreshDevices()</code> polling으로 승격 결과를 따라온다(역방향 통지 채널 신설 금지 — P6a 채널 분리 보존). 만료 임박: <code>expiringWithin(days: 7, now:)</code>가 <code>0 &lt; (expiresAt - now) &lt;= 7일</code>인 디바이스 반환. 신규 파일은 이미 <code>Sources/Pairing</code> path에 포함(추가 path 불요), <code>xcodegen generate</code> 선행.</dd>
+    <dt>종료 조건</dt>
+    <dd>
+      <ul class="exit-criteria">
+        <li><input type="checkbox" disabled checked> <code>xcodegen generate &amp;&amp; xcodebuild test -scheme DaemonTests</code> exit code 0, 신규 <code>DeviceLifecycleTests</code> 함수 ≥ 8건 executed (0 executed 아님)</li>
+        <li><input type="checkbox" disabled checked> pending 발급 테스트: <code>issueNewCode</code> 후 store의 디바이스 <code>expiresAt</code>이 <code>now + ttl(5분)</code> 경계 ±2초 <code>XCTAssertEqual</code>(30일 아님)</li>
+        <li><input type="checkbox" disabled checked> claim 승격 <strong>데몬 경로 e2e</strong> 테스트: pending 디바이스를 <code>PairingClaimClient</code>(또는 <code>WSServer.handlePairingClaim</code> in-process)로 claim 성공시킨 뒤, <code>onClaimed</code>→<code>DevicePromotionCoordinator.promote</code> 경로를 거쳐 store의 해당 deviceId <code>expiresAt</code>이 <code>now + 30일</code>로 갱신됨을 <code>XCTAssertEqual</code> (승격기 <code>promote</code> 수동 직접 호출로 green 위장 금지 — claim 채널을 실제로 통과해야 함) + 미claim 디바이스는 5분 후 <code>verifier.verify == nil</code> <code>XCTAssertNil</code></li>
+        <li><input type="checkbox" disabled checked> 만료 임박 판정 테스트: <code>expiresAt</code> = now+6일/now+8일/now+0.5일 입력에서 <code>expiringWithin(days:7)</code>이 6일·0.5일만 포함 <code>XCTAssertEqual</code>(8일 제외, 이미 만료 제외)</li>
+        <li><input type="checkbox" disabled checked> 만료 거부 회귀: <code>expiresAt</code> 과거 디바이스가 <code>DeviceTokenVerifier.verify == nil</code> (P6a 거부 로직 비파괴) <code>XCTAssertNil</code></li>
+        <li><input type="checkbox" disabled checked> <strong>revoked 부활 차단 경쟁 테스트</strong>: pending 디바이스를 <code>store.revoke(id:)</code>로 폐기한 뒤 그 deviceId로 <code>store.promote(id:to: 30일)</code>(또는 Coordinator.promote) 호출 → <code>store.find(byTokenId:)?.revoked == true</code> 유지 + <code>expiresAt</code> 미갱신(여전히 pending 만료) <code>XCTAssertEqual</code> (revoke 직후 도착한 claim의 promote가 폐기 디바이스를 30일 active로 되살리지 않음 — store.promote의 revoked no-op 실증, Principle 2/3)</li>
+        <li><input type="checkbox" disabled checked> 승격 경쟁 경계: 만료 1초 전 claim → 승격 성공(30일), 만료 1초 후 claim → <code>PairingSession.claim == nil</code>이라 승격 트리거 미발생(pending 디바이스 5분 후 자연 거부) <code>XCTAssertEqual</code> (만료가 승격을 덮는 경쟁 부재 실증)</li>
+        <li><input type="checkbox" disabled checked> 승격기 actor 카운터 테스트: <code>onClaimed</code> 콜백이 <code>await coordinator.promote</code>를 호출한 뒤 <code>await coordinator.promotedCount &gt;= 1</code> <code>XCTAssertEqual</code> (struct mutating이면 복사본에 갇혀 측정 불가 — actor 격리 실증)</li>
+        <li><input type="checkbox" disabled checked> 기준선 비파괴: <code>SessionTests</code>+<code>WorkspaceTests</code>+<code>DaemonTests</code> = 383 + 신규 green, 기존 함수 실패 0건 (산식 <code>383 + 신규 M = K</code> 명시)</li>
+      </ul>
+    </dd>
+  </dl>
+</div>
+
+<div class="day-card" id="day-2">
+  <h3>Day 2 — revoke 즉시 끊기 + Tailscale 바인딩</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>(1) <code>WSServer</code>에 deviceId → clientId<strong>s</strong>(<code>Set&lt;UUID&gt;</code>) 역참조 + <code>disconnectDevice(deviceId:)</code>를 추가해 revoke 시 같은 deviceId의 살아 있는 연결을 전부 즉시 끊는다(D-2). (2) <code>DeviceRevocationCoordinator</code>로 revoke(store)+disconnect(연결)+push 거부(seam)를 순서 보장 다단계로 조율한다(store.revoke 선행). (3) Day 0 결과(옵션 A/C)대로 <code>BindStrategy</code> + <code>TailscaleDiagnostics</code>를 <code>WSServer</code>/<code>DaemonBootstrap</code>에 배선한다.</dd>
+    <dt>산출물</dt>
+    <dd><code>WSServer</code>(역참조 맵 + <code>disconnectDevice</code> + <code>BindStrategy</code> 수용) + <code>Sources/Pairing/DeviceRevocationCoordinator.swift</code> + <code>Sources/Daemon/TailscaleDiagnostics.swift</code>(+<code>TailscaleProbing</code> + fake) + <code>DaemonBootstrap</code> 주입 + 통합 테스트</dd>
+    <dt>OMC 위임</dt>
+    <dd>executor(model=opus) — actor isolation + 연결 끊기 정확성 + 바인딩 회귀 범위 넓음</dd>
+    <dt>예상 소요</dt>
+    <dd>1일</dd>
+    <dt>기술 노트</dt>
+    <dd><strong>역참조</strong>: <code>WSServer.authState[clientId] → VerifiedDevice</code>에 이미 <code>deviceId</code>가 있으므로, 승격 시점에 <code>deviceToClients[verified.deviceId, default: []].insert(clientId)</code> 역인덱스(<code>[UUID: Set&lt;UUID&gt;]</code> — 같은 deviceId 동시 N연결 수용, 덮어쓰기 아님)를 채우고 <code>handleDisconnect</code>에서 해당 clientId만 remove(빈 집합이면 키 삭제)한다. <code>disconnectDevice(deviceId:)</code>는 그 집합 전체를 순회 <code>cancel()</code> + <code>authState</code>/역인덱스/registry cleanup + <code>disconnectedCount</code> 증가. <strong>Coordinator</strong>: <code>revoke(deviceId:)</code> = <code>store.revoke(id:)</code>(throw 가능) → <code>server.disconnectDevice(deviceId:)</code>(non-throwing) → push seam 통지(non-throwing, no-op). 순서 보장 다단계(원자 아님 — §5.4). <strong>BindStrategy</strong>: <code>enum BindStrategy { case loopback; case tailscaleIP(String) }</code> → <code>makeListenerParameters</code>가 <code>requiredLocalEndpoint</code> host를 분기. <code>WSServer.init</code>은 <code>strategy: BindStrategy = .loopback</code> <strong>기본값 인자</strong>로 추가해 기존 호출부 무변경(아래 종료 조건). <strong>기본은 loopback</strong>(383 green·A8 lsof 비파괴), tailnet은 부트스트랩 opt-in. <code>TailscaleDiagnostics</code>는 <code>Process</code>로 CLI 실행하되 <code>TailscaleProbing</code> seam 뒤에 격리(테스트는 fake). secret/IP는 로그 마스킹.</dd>
+    <dt>종료 조건</dt>
+    <dd>
+      <ul class="exit-criteria">
+        <li><input type="checkbox" disabled checked> <code>xcodegen generate &amp;&amp; xcodebuild test -scheme DaemonTests</code> exit code 0, 기존 <code>RoundTripTests</code>+<code>SessionBindTests</code>+<code>DaemonBootstrapTests</code> 함수 전부 green (loopback 기본 비파괴)</li>
+        <li><input type="checkbox" disabled checked> <strong>revoke 즉시 끊기 테스트</strong>: 인증 연결 수립 후 <code>coordinator.revoke(deviceId:)</code> 호출 시 그 connection이 5초 내 <code>.cancelled</code> + <code>await registry.boundSession(clientId:) == nil</code> <code>XCTAssertEqual</code> (누출 창 0 실증)</li>
+        <li><input type="checkbox" disabled checked> revoke 후 재연결 거부: 같은 Bearer로 재connect → 게이트 ②에서 <code>UNAUTHORIZED</code>(verifier가 revoked 거부) + <code>.cancelled</code> 5초 내 <code>XCTAssertEqual</code></li>
+        <li><input type="checkbox" disabled checked> 역참조 정합 테스트: 2개 <strong>서로 다른</strong> 디바이스 동시 연결 후 1개만 revoke → 그 connection만 끊기고 다른 connection은 살아 session.start ack 수신 <code>XCTAssertEqual</code> (오끊김 0건)</li>
+        <li><input type="checkbox" disabled checked> <strong>다중 연결 revoke 테스트</strong>: 같은 Bearer(같은 deviceId)로 2연결 동시 수립 후 그 deviceId revoke → <strong>두 connection 모두</strong> 5초 내 <code>.cancelled</code> + <code>disconnectedCount == 2</code> <code>XCTAssertEqual</code> (단일 매핑 덮어쓰기로 한 연결이 살아남는 회귀 차단 — Principle 2 누출 창 0)</li>
+        <li><input type="checkbox" disabled checked> Coordinator 순서 보장 테스트: <code>revoke(deviceId:)</code> 후 (a) <code>store.find(byTokenId:)?.revoked == true</code>, (b) connection <code>.cancelled</code> 또는 미연결 시 no-op, (c) push seam 통지 카운터 +1 — 3건 + 연결이 있었으면 <code>disconnectedCount &gt;= 1</code> <code>XCTAssertEqual</code> (disconnectDevice no-op 침묵을 카운터로 가시화)</li>
+        <li><input type="checkbox" disabled checked> Coordinator 부분 실패 테스트: <code>store.revoke</code>가 throw하는 fake store로 <code>revoke</code> 호출 시 ②③ 미진입(<code>disconnectedCount</code> 불변, push 카운터 불변) — throw 전파 <code>XCTAssertThrowsError</code></li>
+        <li><input type="checkbox" disabled checked> <strong>init 기본값 인자 비파괴</strong>: <code>WSServer.init</code>에 <code>strategy: BindStrategy = .loopback</code> 기본값 추가로 기존 8개 호출부 무변경 — <code>grep -rn "WSServer(" Sources/ Tests/</code> 호출부가 <code>strategy</code> 인자 없이 컴파일됨(exit code 0)</li>
+        <li><input type="checkbox" disabled checked> BindStrategy 테스트: <code>loopback</code> 전략으로 띄운 서버가 <code>ws://127.0.0.1:&lt;port&gt;/</code> 라운드트립 성립(기존), <code>tailscaleIP("100.64.0.1")</code> fake 전략 주입 시 <code>requiredLocalEndpoint</code> host가 그 값으로 설정됨을 introspection으로 <code>XCTAssertEqual</code></li>
+        <li><input type="checkbox" disabled checked> Tailscale 진단 fake 테스트: <code>TailscaleProbing</code> fake가 미설치/미로그인/오프라인/정상(100.x) 4분기 반환 → <code>TailscaleDiagnostics</code>가 각 한국어 사유 + BindStrategy(정상=tailscaleIP, 그 외=loopback 폴백) <code>XCTAssertEqual</code> 4건</li>
+        <li><input type="checkbox" disabled checked> 동시성 멱등 테스트: 같은 deviceId에 <code>disconnectDevice</code>를 2회 연속 호출해도 crash·이중 cleanup 부작용 0건 (2회째는 no-op) <code>XCTAssertEqual</code> + <code>handleDisconnect</code>와 <code>disconnectDevice</code> 동시 트리거 시 역인덱스 잔존 0건</li>
+        <li><input type="checkbox" disabled checked> 미연결 디바이스 revoke 테스트: 연결된 적 없는 deviceId revoke 시 <code>disconnectDevice</code>가 no-op + <code>store.revoke</code>만 성립(이후 그 Bearer 첫 connect가 <code>UNAUTHORIZED</code>) <code>XCTAssertEqual</code></li>
+        <li><input type="checkbox" disabled checked> <code>grep -rnE "deviceTokenSecret|100\.[0-9]+\.[0-9]+\.[0-9]+" Sources/ | grep -iE "PushLog|os_log|print|FileHandle"</code> 결과 0건 (토큰·실 IP 로그 노출 없음)</li>
+      </ul>
+    </dd>
+  </dl>
+</div>
+
+<div class="day-card" id="day-3">
+  <h3>Day 3 — lifecycle UI 배선 + 사전 진단 UX</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd><code>PairingSettingsContent</code>에 (1) 만료 임박(7일) 경고 callout/뱃지, (2) 디바이스 행 "폐기"(revoke) 버튼 → <code>DeviceRevocationCoordinator</code>, (3) Tailscale 진단 상태 표시(미설치/미로그인/오프라인/연결됨 + 한국어 안내)를 배선한다. push 만료 알림은 seam만(미배선).</dd>
+    <dt>산출물</dt>
+    <dd><code>Sources/UI/Settings/PairingSettingsContent.swift</code>(만료 경고 + 폐기 버튼 + Tailscale 상태 카드) + <code>PairingModel</code>(만료 임박 노출 + revoke 배선 + 진단 상태) + <code>project.yml</code> excludes 정합 확인</dd>
+    <dt>OMC 위임</dt>
+    <dd>executor(model=sonnet) — 기존 <code>PairingSettingsContent</code> 카드 패턴 재사용(revoked 뱃지 로직 이미 존재). designer 리뷰 후 executor</dd>
+    <dt>예상 소요</dt>
+    <dd>1일</dd>
+    <dt>기술 노트</dt>
+    <dd><code>PairingSettingsContent.deviceRow</code>는 이미 <code>device.revoked</code> 뱃지("폐기됨")를 그리므로, 만료 임박은 동형 뱃지("N일 후 만료", <code>expiringWithin</code> 결과)로 추가한다. 현재 "삭제"(remove) 버튼에 "폐기"(revoke) 버튼을 더한다 — remove는 store 완전 삭제, revoke는 무효화 표시(둘 다 Bearer 즉시 무효, 의미 구분은 §6 설명). 폐기 버튼은 <code>model.revokeDevice(id:)</code> → <code>DeviceRevocationCoordinator.revoke</code>. Tailscale 상태 카드는 <code>PushSettingsContent</code> 상태 callout 패턴 재사용 — <code>TailscaleDiagnostics</code> 결과를 한국어 4분기로 표시. <code>PairingSettingsContent.swift</code>는 <code>SessionVerifier</code> excludes에 이미 포함(project.yml line 148). 신규 데몬 타입 의존 시 5개 non-app 타겟 excludes 갱신.</dd>
+    <dt>종료 조건</dt>
+    <dd>
+      <ul class="exit-criteria">
+        <li><input type="checkbox" disabled checked> <code>xcodegen generate &amp;&amp; xcodebuild build -scheme ClaudeAlarmTerminal</code> exit code 0 (UI 컴파일)</li>
+        <li><input type="checkbox" disabled checked> <code>xcodebuild build -scheme SessionVerifier &amp;&amp; xcodebuild build -scheme WorkspaceTests</code> exit code 0 (exclude 갱신으로 non-app 타겟 비파괴)</li>
+        <li><input type="checkbox" disabled checked> GUI walkthrough: 앱 실행 → 설정 → 페어링 → (a) 만료 임박 디바이스에 "N일 후 만료" 뱃지, (b) "폐기" 버튼 클릭 → 디바이스 revoked 뱃지 전환, (c) Tailscale 상태 카드 표시. 절차/스크린샷을 <code>docs/plans/p6b/walkthrough.md</code>에 기록</li>
+        <li><input type="checkbox" disabled checked> 폐기 왕복: GUI에서 디바이스 1건 폐기 → <code>store.find</code>의 <code>revoked == true</code> + (연결돼 있었다면) 끊김 확인. secret 본문은 출력하지 않음</li>
+        <li><input type="checkbox" disabled checked> <code>grep -rn "deviceTokenSecret" Sources/UI/</code> 결과 0건 (UI에 secret 노출 없음 — tokenId 마스킹·만료일·상태만)</li>
+      </ul>
+    </dd>
+  </dl>
+</div>
+
+<div class="day-card" id="day-4">
+  <h3>Day 4 — e2e 무효화 검증 + ADR-F + Exit Gate</h3>
+  <dl>
+    <dt>목표</dt>
+    <dd>모바일 없이 <code>DaemonDevCLI --lifecycle</code>로 만료/revoked 토큰의 WS 연결·push가 모두 즉시 거부됨을 e2e로 통과시킨다. <code>fetchHint</code> 명세(§8) 확정 + ADR-F 동결 + Exit Gate 채움.</dd>
+    <dt>산출물</dt>
+    <dd><code>DaemonDevCLI --lifecycle</code> + <code>Tests/DaemonTests/LifecycleE2ETests.swift</code> + <code>docs/adr/F-tailscale-prerequisite-ux.md</code> + §8 fetchHint 명세 확정 + Exit Gate 체크</dd>
+    <dt>OMC 위임</dt>
+    <dd>executor(model=opus) e2e 배선 + verifier(model=opus) Exit 검증 게이트(별도 lane, self-approve 금지)</dd>
+    <dt>예상 소요</dt>
+    <dd>1일</dd>
+    <dt>기술 노트</dt>
+    <dd><code>--lifecycle</code>: 데몬 기동 → 디바이스 페어링(claim 승격) → (a) 인증 connect 성립 → revoke → 연결 즉시 끊김 확인, (b) 만료 디바이스(expiresAt 과거) Bearer로 connect → <code>UNAUTHORIZED</code> 확인, (c) revoked 디바이스 push 거부. push 거부는 발신 전 필터가 revoked 디바이스 target을 transport에 넘기지 않음을 검증(<code>PushSender.send</code>는 현재 revoked 거부 로직이 없으므로, Coordinator/lifecycle이 발신 대상 목록에서 revoked 디바이스를 제외하는 seam을 둔다 — push 발신 호출자 자체는 D-7로 dead이나, "revoked는 발신 대상에서 제외"라는 필터 로직과 그 단위 검증은 본 단계에 둔다). ADR-F는 §6 본문을 그대로 <code>docs/adr/</code>로 옮긴다. fetchHint는 §8 명세를 확정하되 코드 미배선(P7 freeze 대상).</dd>
+    <dt>종료 조건</dt>
+    <dd>
+      <ul class="exit-criteria">
+        <li><input type="checkbox" disabled checked> <code>./daemon-dev-cli --lifecycle</code> exit code 0, stdout에 "REVOKE_DISCONNECTED"/"EXPIRED_REJECTED"/"PUSH_REJECTED_REVOKED" 3 신호 + secret 평문 0건</li>
+        <li><input type="checkbox" disabled checked> revoked WS 거부 e2e: revoke 후 살아 있던 연결 <code>.cancelled</code> + 재connect <code>UNAUTHORIZED</code> 2건 <code>XCTAssertEqual</code></li>
+        <li><input type="checkbox" disabled checked> 만료 WS 거부 e2e: <code>expiresAt</code> 과거 디바이스 Bearer connect → 게이트 ② <code>UNAUTHORIZED</code> + close <code>XCTAssertEqual</code></li>
+        <li><input type="checkbox" disabled checked> revoked push 거부 e2e: revoked 디바이스 target이 발신 필터에서 제외됨(transport 미호출, 제외 카운터 +1) <code>XCTAssertEqual</code></li>
+        <li><input type="checkbox" disabled checked> <code>LifecycleE2ETests</code> exit code 0, 만료·revoke(WS+push) 전 경로 측정</li>
+        <li><input type="checkbox" disabled checked> <code>docs/adr/F-tailscale-prerequisite-ux.md</code> 존재 + Decision/Drivers/Alternatives/Why/Consequences/Follow-ups 6 섹션 전부 채움</li>
+        <li><input type="checkbox" disabled checked> §8 fetchHint 명세에 <code>kind=fetch</code> payload 스키마(<code>{messageId}</code>) + "P7 v1.0 freeze 대상" 문구 존재 + <code>grep -rn "case fetch" Sources/Daemon/WSEnvelope.swift</code> 0건(코드 미배선 확인)</li>
+        <li><input type="checkbox" disabled checked> 최종 회귀: 전체 3 테스트 타겟 green, 토큰·실 IP 노출 grep 0건, Exit Gate(§11) 전 항목 체크</li>
+      </ul>
+    </dd>
+  </dl>
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-4">4. Architecture Diagram</h2>
+
+<div class="ascii">
+                    P6b 토큰 lifecycle + Tailscale 노출 데이터 흐름 (데스크톱 단독)
+
+  ┌──────────────────────────── 데스크톱 앱 (in-process) ─────────────────────────────┐
+  │                                                                                   │
+  │   ┌────────────────────┐  발급/폐기/만료경고  ┌────────────────────────┐           │
+  │   │ PairingSettings     │◀───────────────────▶│  PairingModel           │           │
+  │   │ Content (SwiftUI)   │   "N일 후 만료" 뱃지  │  (@MainActor)           │           │
+  │   │  · 폐기 버튼         │   폐기 → revoke      │  · issueNewCode(pending) │           │
+  │   │  · 만료 임박 callout  │                     │  · revokeDevice         │           │
+  │   │  · Tailscale 상태    │                     └──────┬──────────┬───────┘           │
+  │   └────────────────────┘                            │ revoke   │ claim 승격         │
+  │                                                      ▼          ▼                   │
+  │            ┌──────────────────────────────┐   ┌──────────────────────────┐         │
+  │            │ DeviceRevocationCoordinator   │   │ DeviceLifecyclePolicy     │         │
+  │            │  ① store.revoke(id:)          │   │  pending(5분)→active(30일) │         │
+  │            │  ② server.disconnectDevice    │   │  expiringWithin(days:7)   │         │
+  │            │  ③ push seam 통지(예약·no-op)  │   └──────────┬───────────────┘         │
+  │            └────────┬──────────────┬───────┘              │ upsert(expiresAt)        │
+  │                     │ ②            │ ①                     ▼                         │
+  │                     ▼              ▼          ┌──────────────────────────┐          │
+  │   ┌──────────────────────────┐  revoke/find  │  DeviceStore (protocol)   │          │
+  │   │  WSServer (actor)         │◀─────────────▶│  ─ KeychainDeviceStore    │          │
+  │   │  authState[cid]→VerifDev  │   secret      │  ─ InMemoryDeviceStore    │          │
+  │   │  deviceToClients[did]→Set │               └──────────┬───────────────┘          │
+  │   │  disconnectDevice(did)    │               find(byTokenId:) │ verify             │
+  │   │   → connection.cancel()   │                              ▼                      │
+  │   │  ──────────────────────── │              ┌──────────────────────────┐          │
+  │   │  BindStrategy:            │              │ DeviceTokenVerifier       │          │
+  │   │   · loopback 127.0.0.1    │              │  !revoked && expiresAt>now │          │
+  │   │   · tailscaleIP 100.x  ───┼──┐           │  (P6a — 무변경)            │          │
+  │   └──────────────────────────┘  │           └──────────────────────────┘          │
+  │            ▲                     │ 바인딩 주소                                        │
+  │            │ status/ip           ▼                                                  │
+  │   ┌──────────────────────────────────────┐         ┌───────────────────────────┐  │
+  │   │ TailscaleDiagnostics                  │         │ (시뮬레이션) 디바이스        │  │
+  │   │  TailscaleProbing seam (fake 주입)     │         │ DaemonDevCLI --lifecycle  │  │
+  │   │  tailscale status --json / ip -4       │◀────────┤  Bearer (만료/revoked 검증) │  │
+  │   │  미설치/미로그인/오프라인/연결됨 → 한국어  │         └───────────────────────────┘  │
+  │   └──────────────────────────────────────┘                                          │
+  └───────────────────────────────────────────────────────────────────────────────────┘
+            │ Tailscale IP 바인딩 시
+            ▼
+   ┌──────────────────────────┐
+   │  외부 tailscale 데몬       │   ← system service (tsnet 미사용)
+   │  100.x.y.z (tailnet 한정) │      tailnet 밖에서는 포트 미노출 (1차 경계)
+   └──────────────────────────┘      그 위 Bearer 2단 게이트 (2차 방어, P6a)
+
+   범례:  ① store.revoke  ② 살아있는 연결 즉시 cancel(누출 0)  ③ push 거부(seam·예약)
+          fetchHint(kind=fetch) = §8 명세만, P7 v1.0 freeze 대상 (코드 미배선)
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-5">5. Critical Code Specs</h2>
+
+<p>P6b는 신규 코드보다 <strong>P6a가 남긴 seam을 잇는</strong> 작업이 핵심이다. 아래 표가 기존 자산과 본 단계 변경의 접점을 한눈에 보인다 — 구현자는 이 매핑으로 "어디를 건드리고 어디는 무변경인지"를 먼저 잡는다.</p>
+<table>
+  <thead><tr><th>기존 자산 (P6a 병합 후)</th><th>현 상태</th><th>P6b 변경</th><th>결정</th></tr></thead>
+  <tbody>
+    <tr><td><code>DeviceStore.revoke(id:)</code></td><td>seam 존재, UI 미배선</td><td>UI/CLI/Coordinator가 호출 배선 (revoke seam 자체는 무변경; 대칭으로 <code>promote(id:to:)</code> 동작 메서드 1개 추가 — revoked no-op, D-3)</td><td>D-2</td></tr>
+    <tr><td><code>DeviceTokenVerifier.verify</code></td><td><code>!revoked &amp;&amp; expiresAt>now</code> 거부 이미 동작</td><td><strong>무변경</strong> — 만료/revoked 거부는 이미 성립</td><td>—</td></tr>
+    <tr><td><code>WSServer.authState[cid]→VerifiedDevice</code></td><td>clientId 색인만(역참조 없음)</td><td>승격 시 <code>deviceToClients[did]</code>(<code>Set&lt;cid&gt;</code>)에 insert + <code>disconnectDevice</code>(집합 전체 cancel)</td><td>D-2</td></tr>
+    <tr><td><code>WSServer.requiredLocalEndpoint</code></td><td><code>127.0.0.1:any</code> 고정</td><td><code>BindStrategy</code>(loopback/tailscaleIP) 분기 — 기본 loopback</td><td>D-1</td></tr>
+    <tr><td><code>PairingModel.issueNewCode</code></td><td>발급 즉시 30일 upsert (부채)</td><td>pending(5분) upsert + claim 승격 hook</td><td>D-3</td></tr>
+    <tr><td><code>PairingSettingsContent.deviceRow</code></td><td>remove 버튼 + revoked 뱃지 존재</td><td>revoke 버튼 + 만료 임박 뱃지 추가</td><td>D-2/D-4</td></tr>
+    <tr><td><code>PushSender.send</code></td><td>revoked 거부 없음(WS만 verifier)</td><td><code>sendIfNotRevoked</code> 발신 필터 seam (호출자는 D-7로 dead)</td><td>D-4</td></tr>
+    <tr><td><code>EnvelopeKind</code> (v0.9)</td><td><code>fetch</code> kind 부재</td><td><strong>무변경</strong> — §8 명세만, P7 freeze 대상</td><td>D-5</td></tr>
+  </tbody>
+</table>
+
+<h4>5.1 DeviceLifecyclePolicy — pending/active 전이 + 만료 임박 (Sources/Pairing/)</h4>
+<pre><code><span class="com">// 토큰 수명 정책. P6a Device.expiresAt 스키마 위에 "발급=pending, claim=active 승격"</span>
+<span class="com">// 의미론을 얹는다. now 주입 clock으로 만료 경계를 결정론적으로 테스트한다(PairingSession 선례).</span>
+<span class="kw">public struct</span> <span class="typ">DeviceLifecyclePolicy</span>: <span class="typ">Sendable</span> {
+    <span class="kw">let</span> activeLifetime: <span class="typ">TimeInterval</span>     <span class="com">// 기본 30일(부록 A CLAUDE_ALARM_DEVICE_TOKEN_EXPIRY_DAYS)</span>
+    <span class="kw">let</span> expiringWithinDays: <span class="typ">Int</span>       <span class="com">// 기본 7일 — 이 안이면 "만료 임박"</span>
+
+    <span class="com">// pending 만료: 코드 ttl(5분)을 expiresAt로 둔다. claim 안 되면 verifier가 5분 후 거부.</span>
+    <span class="com">// "발급=권한 부여"가 아니라 "claim=권한 부여"라는 의미론을 강제하는 핵심(D-3).</span>
+    <span class="kw">public func</span> <span class="fn">pendingExpiry</span>(codeTTL: <span class="typ">TimeInterval</span>, now: <span class="typ">Date</span>) -> <span class="typ">Date</span> {
+        now.<span class="fn">addingTimeInterval</span>(codeTTL)
+    }
+
+    <span class="com">// claim 성공 시 active 승격: expiresAt를 now+30일로 갱신. 동일 deviceId 재upsert는</span>
+    <span class="com">// P6a upsert가 옛 tokenId/secret 폐기와 정합한다.</span>
+    <span class="kw">public func</span> <span class="fn">activeExpiry</span>(now: <span class="typ">Date</span>) -> <span class="typ">Date</span> {
+        now.<span class="fn">addingTimeInterval</span>(activeLifetime)
+    }
+
+    <span class="com">// 만료 임박 판정: 0 &lt; (expiresAt - now) &lt;= 7일. 이미 만료(≤0)는 제외(거부는 verifier 몫),</span>
+    <span class="com">// 7일 초과도 제외. 데스크톱 UI가 이 결과로 "N일 후 만료" 경고를 그린다(push는 seam·미배선, D-4).</span>
+    <span class="kw">public func</span> <span class="fn">isExpiringSoon</span>(_ device: <span class="typ">Device</span>, now: <span class="typ">Date</span>) -> <span class="typ">Bool</span> {
+        <span class="kw">let</span> remaining = device.expiresAt.<span class="fn">timeIntervalSince</span>(now)
+        <span class="kw">let</span> window = <span class="typ">TimeInterval</span>(expiringWithinDays) * <span class="num">86400</span>
+        <span class="kw">return</span> remaining > <span class="num">0</span> &amp;&amp; remaining &lt;= window
+    }
+
+    <span class="com">// 남은 일수(올림). UI 뱃지 "N일 후 만료" 표기용. 음수/0은 호출 전 isExpiringSoon이 거른다.</span>
+    <span class="kw">public func</span> <span class="fn">daysRemaining</span>(_ device: <span class="typ">Device</span>, now: <span class="typ">Date</span>) -> <span class="typ">Int</span> {
+        <span class="kw">let</span> remaining = device.expiresAt.<span class="fn">timeIntervalSince</span>(now)
+        <span class="kw">return</span> <span class="typ">Int</span>((remaining / <span class="num">86400</span>).<span class="fn">rounded</span>(.up))
+    }
+}
+</code></pre>
+
+<h4>5.2 pending 발급(UI) + 데몬 레이어 승격 (부채 해소, D-3)</h4>
+<div class="callout warn">
+  <div class="label">부채 지점 — 현행 issueNewCode</div>
+  <p>현재 <code>PairingModel.issueNewCode</code>는 발급 즉시 <code>expiry = Date() + 30일</code>로 <code>store.upsert</code>한다(<code>Sources/UI/Pairing/PairingModel.swift:48~84</code>, 30일 부여는 line 51 <code>deviceTokenLifetime()</code>, upsert는 line 59). claim 안 된 코드도 30일 유효 디바이스로 store에 남아 누적된다(PR #4 Copilot 리뷰 이연 부채). 아래가 교체안이다.</p>
+</div>
+<div class="callout danger">
+  <div class="label">승격 주체 — 데몬 레이어 전용 (UI dead path 금지)</div>
+  <p>claim 소비는 <strong>데몬측에서만</strong> 일어난다 — <code>WSServer.handlePairingClaim → PairingSession.claim</code>이고, <code>--pair</code> 경로도 <code>PairingClaimClient</code>가 데몬에 코드를 제출한다. UI <code>@MainActor PairingModel</code>은 claim을 소비하지 않으므로, 승격 hook을 PairingModel에 두면 호출 경로가 전무한 <strong>dead path</strong>가 되어 정상 claim된 디바이스가 5분 후 만료된다. 따라서 승격 책임을 데몬 레이어 전용 <code>DevicePromotionCoordinator</code>(actor)로 1점 수렴한다 — revoke의 <code>DeviceRevocationCoordinator</code>(actor)와 <strong>대칭</strong>이며, 핵심 동작도 <code>store.promote(id:to:)</code> ↔ <code>store.revoke(id:)</code>로 모두 store 레이어 원자 메서드라 대칭이 완성된다(promote read-modify-write가 store actor 메서드 안에 묶여 revoke와 직렬화 → revoked 부활 차단, §5.2 하단). UI는 기존 <code>refreshDevices()</code> polling으로 승격 결과를 따라온다(역방향 통지 채널 신설 금지 — P6a claim/운영 채널 분리 보존).</p>
+</div>
+<pre><code><span class="com">// 발급(UI측 PairingModel): pending 디바이스(코드 ttl=5분 수명)로 upsert. 30일 부여를 claim까지 미룬다.</span>
+<span class="kw">public func</span> <span class="fn">issueNewCode</span>() <span class="kw">async</span> {
+    <span class="kw">do</span> {
+        <span class="kw">let</span> issued = <span class="kw">try</span> <span class="typ">DeviceTokenIssuer</span>.<span class="fn">issue</span>()
+        <span class="kw">let</span> now = <span class="typ">Date</span>()
+        <span class="com">// 변경점: now + 30일 → now + session.ttl(5분). pending 수명.</span>
+        <span class="kw">let</span> pendingExpiry = lifecycle.<span class="fn">pendingExpiry</span>(codeTTL: session.ttl, now: now)
+        <span class="kw">let</span> deviceId = <span class="typ">UUID</span>()
+        <span class="kw">let</span> device = <span class="typ">Device</span>(id: deviceId, name: <span class="str">"페어링 대기 디바이스"</span>,
+                            tokenId: issued.tokenId, expiresAt: pendingExpiry)
+        <span class="kw">try await</span> store.<span class="fn">upsert</span>(device, secret: issued.secret)
+        <span class="com">// 시그니처 보강: session.issue(payload:deviceId:) — PairingSession이 (code → deviceId)</span>
+        <span class="com">// 매핑을 actor 내부에 보유하게 한다. payload에는 deviceId가 없어 도출 불가하므로 함께 전달.</span>
+        <span class="kw">let</span> code = <span class="kw">try await</span> session.<span class="fn">issue</span>(payload: payload, deviceId: deviceId)
+        <span class="com">// ... 기존 payload 생성 + QR/코드/카운트다운 노출 (UI는 승격을 직접 트리거하지 않음) ...</span>
+    } <span class="kw">catch</span> { <span class="kw">self</span>.errorMessage = <span class="str">"페어링 코드 발급에 실패했습니다."</span> }
+}
+</code></pre>
+
+<div class="callout danger">
+  <div class="label">승격은 store 레이어 원자 메서드 — revoked 부활 차단</div>
+  <p>승격을 Coordinator에서 <code>find → upsert</code>(read-modify-write)로 하면, revoke와 쓰기-쓰기 경쟁 시 폐기된 디바이스가 30일 active로 <strong>부활</strong>한다(read 시점엔 미revoked였다가 그 사이 revoke가 끼어들고, upsert가 <code>revoked: false</code>로 덮어씀 — Principle 2/3 정면 위반). 근본 원인은 비대칭이다: revoke는 store 동작 메서드(actor 내부 원자)인데 promote만 Coordinator의 비원자 read-modify-write였다. 따라서 promote를 <code>DeviceStore.promote(id:to:)</code> <strong>store 동작 메서드</strong>로 올려 revoke와 같은 원자성 수준에 둔다 — <strong>revoked 디바이스는 no-op(승격 거부)</strong>으로 명세한다. read-check-write가 store actor 메서드 한 호출 안에서 일어나 revoke와 직렬화된다.</p>
+</div>
+<pre><code><span class="com">// DeviceStore protocol에 promote(id:to:)를 revoke(id:)와 대칭인 동작 메서드로 추가한다.</span>
+<span class="com">// 의미: revoked 디바이스는 no-op(승격 거부), 미revoked면 expiresAt만 갱신(secret/메타 보존).</span>
+<span class="com">// read-check-write가 메서드 1개 안에 묶여 revoke와 같은 원자성 수준이 된다.</span>
+<span class="kw">public protocol</span> <span class="typ">DeviceStore</span>: <span class="typ">Sendable</span> {
+    <span class="com">// ... 기존 list/upsert/find(byTokenId:)/secret/revoke(id:)/remove(id:) (P6a 무변경) ...</span>
+    <span class="kw">func</span> <span class="fn">promote</span>(id: <span class="typ">UUID</span>, to expiresAt: <span class="typ">Date</span>) <span class="kw">async throws</span>   <span class="com">// 신규 — revoked면 no-op</span>
+}
+
+<span class="com">// InMemoryDeviceStore(actor): 메서드 내 read-check-write가 자연 원자다.</span>
+<span class="com">// guard !revoked로 폐기 디바이스를 거부한 뒤 expiresAt만 갱신(secret 보존 — 재발급 아님).</span>
+<span class="kw">public func</span> <span class="fn">promote</span>(id: <span class="typ">UUID</span>, to expiresAt: <span class="typ">Date</span>) <span class="kw">async throws</span> {
+    <span class="kw">guard let</span> tokenId = tokenIdByDeviceId[id],
+          <span class="kw">let</span> device = devicesByTokenId[tokenId],
+          !device.revoked <span class="kw">else</span> { <span class="kw">return</span> }   <span class="com">// 미존재/revoked = no-op(부활 차단)</span>
+    devicesByTokenId[tokenId] = <span class="typ">Device</span>(id: device.id, name: device.name, tokenId: device.tokenId,
+                                       fcmToken: device.fcmToken, apnsToken: device.apnsToken,
+                                       expiresAt: expiresAt, revoked: <span class="kw">false</span>)   <span class="com">// !revoked 확인 후이므로 false 안전</span>
+}
+
+<span class="com">// KeychainDeviceStore: revoke(id:)와 같은 패턴 — tokenId(forDeviceId:) → find → revoked 확인 →</span>
+<span class="com">// SecItemUpdate를 한 메서드 안에 묶는다. revoked면 update 없이 return(no-op).</span>
+<span class="com">// (P6a KeychainDeviceStore.revoke가 이미 SecItem read→update를 메서드 내에 묶은 선례와 동형.)</span>
+</code></pre>
+<pre><code><span class="com">// 승격기(데몬 레이어 전용): DeviceRevocationCoordinator와 대칭. actor로 격리해 promotedCount를</span>
+<span class="com">// 어서션 가능한 상태로 둔다(@Sendable onClaimed 콜백이 actor를 캡처해 await로 변경 — struct였다면</span>
+<span class="com">// mutating이 복사본에 갇혀 카운터를 검증할 수 없다). UI는 경유하지 않는다.</span>
+<span class="kw">public actor</span> <span class="typ">DevicePromotionCoordinator</span> {
+    <span class="kw">let</span> store: <span class="kw">any</span> <span class="typ">DeviceStore</span>
+    <span class="kw">let</span> lifecycle: <span class="typ">DeviceLifecyclePolicy</span>
+    <span class="kw">public private(set) var</span> promotedCount = <span class="num">0</span>   <span class="com">// actor 격리 카운터(테스트 어서션 가능)</span>
+
+    <span class="com">// pending → active 승격: store 원자 메서드 1줄 위임. deviceId는 PairingSession이 보유한</span>
+    <span class="com">// (code → deviceId) 매핑이 onClaimed로 넘긴다(payload에서 도출 불가). revoked면 store가 no-op.</span>
+    <span class="kw">public func</span> <span class="fn">promote</span>(deviceId: <span class="typ">UUID</span>) <span class="kw">async</span> {
+        <span class="kw">try?</span> <span class="kw">await</span> store.<span class="fn">promote</span>(id: deviceId, to: lifecycle.<span class="fn">activeExpiry</span>(now: <span class="typ">Date</span>()))
+        promotedCount += <span class="num">1</span>   <span class="com">// 호출 카운트(승격 시도). 실제 갱신 여부는 store no-op 정책이 판정</span>
+    }
+}
+
+<span class="com">// PairingSession 보강: (code → deviceId) 매핑 보유 + claim 성공 시 onClaimed(deviceId:) 발화.</span>
+<span class="com">// issue 시그니처에 deviceId 추가, claim 성공 분기에서 콜백 호출. DaemonBootstrap이 onClaimed를</span>
+<span class="com">// DevicePromotionCoordinator.promote에 바인딩한다(데몬 레이어 내부 — UI 무경유). 콜백은 actor</span>
+<span class="com">// 메서드를 부르므로 await가 필요하다(onClaimed: @Sendable (UUID) async -> Void).</span>
+<span class="kw">public func</span> <span class="fn">issue</span>(payload: <span class="typ">PairingPayload</span>, deviceId: <span class="typ">UUID</span>) <span class="kw">throws</span> -> <span class="typ">String</span> {
+    <span class="kw">let</span> code = <span class="kw">try</span> <span class="typ">SixDigitCode</span>.<span class="fn">generate</span>()
+    active = <span class="typ">ActiveCode</span>(code: code, payload: payload, deviceId: deviceId,   <span class="com">// deviceId 보유</span>
+                        expiresAt: now().<span class="fn">addingTimeInterval</span>(ttl), failedAttempts: <span class="num">0</span>)
+    <span class="kw">return</span> code
+}
+<span class="com">// claim 성공 분기(기존 1회 소비 직후): await onClaimed?(entry.deviceId) → Coordinator.promote.</span>
+</code></pre>
+
+<h4>5.3 WSServer revoke 즉시 끊기 (D-2 옵션 A)</h4>
+<div class="callout danger">
+  <div class="label">핵심 메커니즘 — deviceId 역참조 + 능동 cancel</div>
+  <p>P6a는 <code>authState[clientId] → VerifiedDevice</code>(여기에 <code>deviceId</code> 포함)만 둔다. revoke 대상은 deviceId인데 connection은 clientId로 색인되므로, deviceId → clientIds 역인덱스가 없으면 "그 디바이스의 살아 있는 연결들"을 찾을 수 없다. 옵션 B(다음 envelope 거부)는 이 역참조를 피하지만 누출 창이 무한정이다(long-lived 연결이 envelope을 안 보내면 영원히 생존). 옵션 A는 승격 시점에 역인덱스(<code>[deviceId: Set&lt;clientId&gt;]</code> — 같은 deviceId 동시 N연결 수용)를 채우고 revoke 시 그 집합 전체를 능동 <code>cancel()</code>한다 — 누출 창 0.</p>
+</div>
+<div class="callout warn">
+  <div class="label">다중 연결 — 같은 deviceId의 동시 N연결</div>
+  <p>같은 디바이스(같은 Bearer)가 동시에 2개 이상 연결할 수 있다(예: 모바일 앱 + <code>--lifecycle</code> 진단). 역인덱스가 <code>[UUID: UUID]</code> 단일 매핑이면 두 번째 승격이 첫 clientId를 덮어써, revoke 시 첫 연결이 끊기지 않고 살아남는다(Principle 2 누출 창 0 위반). 따라서 <code>[UUID: Set&lt;UUID&gt;]</code>로 두어 한 deviceId의 모든 연결을 보유하고, <code>disconnectDevice</code>는 집합 전체를 순회 cancel한다.</p>
+</div>
+<pre><code><span class="com">// 신규 역인덱스: 한 deviceId가 여러 clientId를 가질 수 있으므로 Set으로 보유한다.</span>
+<span class="com">// 승격(게이트 ②) 시 집합에 insert, handleDisconnect에서 해당 clientId만 remove.</span>
+<span class="kw">private var</span> deviceToClients: [<span class="typ">UUID</span>: <span class="typ">Set</span>&lt;<span class="typ">UUID</span>&gt;] = [:]   <span class="com">// deviceId -> {clientId...}</span>
+<span class="kw">private(set) var</span> disconnectedCount = <span class="num">0</span>   <span class="com">// testable 카운터 — A5가 "연결이 있었으면 끊김"을 측정</span>
+
+<span class="com">// handleMessage 게이트 ② 승격부에 1줄 추가(나머지는 P6a 무변경):</span>
+<span class="com">//   authState[clientId] = verified</span>
+<span class="com">//   deviceToClients[verified.deviceId, default: []].insert(clientId)   ← 추가(덮어쓰기 아님)</span>
+
+<span class="com">// revoke 시 호출. 그 deviceId에 바인딩된 살아 있는 연결을 전부 능동 종료한다.</span>
+<span class="com">// 연결이 없으면(미연결 디바이스 revoke) no-op — store.revoke만으로 충분(재연결도 거부됨).</span>
+<span class="kw">public func</span> <span class="fn">disconnectDevice</span>(deviceId: <span class="typ">UUID</span>) <span class="kw">async</span> {
+    <span class="kw">guard let</span> clientIds = deviceToClients[deviceId] <span class="kw">else</span> { <span class="kw">return</span> }   <span class="com">// 미연결 = no-op</span>
+    <span class="com">// 집합 전체 순회 cancel — 같은 deviceId의 동시 N연결을 하나도 남기지 않는다(누출 창 0).</span>
+    <span class="kw">for</span> clientId <span class="kw">in</span> clientIds {
+        <span class="kw">guard let</span> connection = connections[clientId] <span class="kw">else</span> { <span class="kw">continue</span> }
+        connection.<span class="fn">cancel</span>()   <span class="com">// long-lived 연결이 envelope을 안 보내도 즉시 끊긴다.</span>
+        <span class="com">// cancel은 비동기 .cancelled 콜백으로 handleDisconnect를 트리거하지만, 즉시성을 위해</span>
+        <span class="com">// 여기서도 상태를 정리한다(handleDisconnect는 멱등 — 이중 정리 무해).</span>
+        connections[clientId] = <span class="kw">nil</span>
+        authState[clientId] = <span class="kw">nil</span>
+        <span class="kw">await</span> registry.<span class="fn">cleanup</span>(clientId: clientId)
+        disconnectedCount += <span class="num">1</span>   <span class="com">// 실제 끊은 연결 수 — A5 측정용</span>
+    }
+    deviceToClients[deviceId] = <span class="kw">nil</span>   <span class="com">// 그 deviceId의 전 연결 제거 후 키 삭제</span>
+}
+
+<span class="com">// handleDisconnect도 역인덱스 정리를 추가(연결이 스스로 끊길 때) — 해당 clientId만 제거.</span>
+<span class="com">// 집합이 비면 키를 지운다(빈 Set 잔존 방지). 같은 deviceId의 다른 연결은 보존된다.</span>
+<span class="kw">private func</span> <span class="fn">handleDisconnect</span>(_ clientId: <span class="typ">UUID</span>) <span class="kw">async</span> {
+    <span class="kw">if let</span> verified = authState[clientId] {
+        deviceToClients[verified.deviceId]?.<span class="fn">remove</span>(clientId)
+        <span class="kw">if</span> deviceToClients[verified.deviceId]?.isEmpty == <span class="kw">true</span> {
+            deviceToClients[verified.deviceId] = <span class="kw">nil</span>
+        }
+    }
+    connections[clientId] = <span class="kw">nil</span>
+    outboundSeq[clientId] = <span class="kw">nil</span>
+    authState[clientId] = <span class="kw">nil</span>
+    <span class="kw">await</span> registry.<span class="fn">cleanup</span>(clientId: clientId)
+}
+</code></pre>
+
+<h4>5.4 DeviceRevocationCoordinator — revoke 1점 수렴 (UI/CLI/"Device lost" 공용)</h4>
+<div class="callout warn">
+  <div class="label">원자 아님 — 순서가 보장된 다단계</div>
+  <p>이 Coordinator는 3개 독립 <code>await</code>를 <strong>순차 실행</strong>하는 것이지 원자 트랜잭션이 아니다(Swift actor await 사이에 다른 작업이 끼어들 수 있다). 그럼에도 안전한 이유는 <strong>store.revoke 선행</strong> 때문이다: ① 이후 단계가 진행되는 사이 구간에 그 Bearer로 재연결이 시도돼도, P6a <code>DeviceTokenVerifier.verify</code>의 <code>!revoked</code> 거부가 게이트 ②에서 막는다. 즉 ②(기존 연결 끊기)가 완료되기 전이라도 새 연결은 절대 승격되지 않는다. ②는 "이미 떠 있던 연결"만 처리하면 되고, 그 사이의 신규 연결은 ①이 닫는다. 따라서 누출 창은 "①과 ② 사이에 떠 있던 기존 연결이 그 짧은 구간 동안 살아 있을 수 있음"으로 한정되며, ②가 즉시 뒤따르므로 사실상 0이다.</p>
+</div>
+<div class="callout">
+  <div class="label">대칭 구현 — 두 Coordinator 모두 actor</div>
+  <p><code>DevicePromotionCoordinator</code>와 <code>DeviceRevocationCoordinator</code>를 <strong>둘 다 actor</strong>로 둔다(진짜 대칭). 승격기는 <code>@Sendable onClaimed</code> 콜백이 <code>promotedCount</code>를 변경해야 해서 actor가 필수다(struct mutating은 콜백 캡처 복사본에 갇혀 어서션 불가). 폐기기는 상태가 없어도 actor로 맞춰 대칭을 유지한다 — 연결 끊김 수는 <code>WSServer.disconnectedCount</code>(actor 격리, §5.3)가 단일 출처라 폐기기에 중복 카운터를 두지 않는다. 두 Coordinator의 핵심 동작(<code>store.promote</code>/<code>store.revoke</code>)이 모두 store 레이어 원자 메서드라는 점에서 대칭이 완성된다.</p>
+</div>
+<pre><code><span class="com">// revoke의 단일 진입점. store 무효화 + 살아있는 연결 끊기 + push 거부 통지(seam)를</span>
+<span class="com">// 순서가 보장된 다단계로 조율한다(원자 아님). UI 폐기 버튼, CLI --lifecycle, "Device lost"가</span>
+<span class="com">// 모두 이 1점으로 수렴해 세 부수효과가 항상 같은 순서로 일어난다(부분 폐기로 인한 잔존 방지).</span>
+<span class="com">// actor로 둔다 — DevicePromotionCoordinator(승격기)와 대칭. 상태는 없으나 대칭을 위해 actor.</span>
+<span class="kw">public actor</span> <span class="typ">DeviceRevocationCoordinator</span> {
+    <span class="kw">let</span> store: <span class="kw">any</span> <span class="typ">DeviceStore</span>
+    <span class="kw">let</span> server: <span class="typ">WSServer</span>
+    <span class="com">// push 거부 통지 seam — P10a까지 no-op 카운터. revoked 디바이스를 push 발신 대상에서</span>
+    <span class="com">// 제외하는 필터로 쓰인다(D-7로 발신 호출자 자체는 dead).</span>
+    <span class="kw">let</span> pushRevocation: <span class="kw">any</span> <span class="typ">PushRevocationSink</span>
+
+    <span class="com">// 폐기 절차: ① store에서 revoked 표시 → ② 살아있는 WS 연결 즉시 끊기 → ③ push 발신 제외 통지.</span>
+    <span class="com">// 부분 실패 정책: throw 가능 지점은 ① store.revoke뿐이다. ①이 throw하면 ②③에 진입하지 않는다</span>
+    <span class="com">// (무효화 자체가 실패했으면 끊기·push 제외는 의미 없음 — 호출자가 재시도). ②③은 non-throwing이라</span>
+    <span class="com">// ①이 성공한 뒤에는 항상 끝까지 진행된다. 순서가 중요: ① 선행이 사이 구간 재연결도 거부되게 한다.</span>
+    <span class="kw">public func</span> <span class="fn">revoke</span>(deviceId: <span class="typ">UUID</span>) <span class="kw">async throws</span> {
+        <span class="kw">try await</span> store.<span class="fn">revoke</span>(id: deviceId)               <span class="com">// ① 무효화(throw 가능 — 실패 시 ②③ 미진입). 재연결도 거부</span>
+        <span class="kw">await</span> server.<span class="fn">disconnectDevice</span>(deviceId: deviceId) <span class="com">// ② 살아있는 연결 전부 cancel(non-throwing, disconnectedCount 증가)</span>
+        <span class="kw">await</span> pushRevocation.<span class="fn">markRevoked</span>(deviceId: deviceId) <span class="com">// ③ push 발신 제외(non-throwing seam)</span>
+    }
+}
+</code></pre>
+
+<h4>5.5 WSServer BindStrategy + TailscaleDiagnostics (D-1 옵션 A)</h4>
+<pre><code><span class="com">// 바인딩 전략. 기본 loopback(383 green·A8 lsof 비파괴), tailnet은 부트스트랩 opt-in.</span>
+<span class="kw">public enum</span> <span class="typ">BindStrategy</span>: <span class="typ">Sendable</span>, <span class="typ">Equatable</span> {
+    <span class="kw">case</span> loopback                  <span class="com">// 127.0.0.1 (P6a 동작 그대로)</span>
+    <span class="kw">case</span> tailscaleIP(<span class="typ">String</span>)        <span class="com">// 100.x.y.z — tailnet 한정 노출(1차 경계)</span>
+
+    <span class="kw">var</span> host: <span class="typ">String</span> {
+        <span class="kw">switch self</span> {
+        <span class="kw">case</span> .loopback: <span class="kw">return</span> <span class="str">"127.0.0.1"</span>
+        <span class="kw">case</span> .tailscaleIP(<span class="kw">let</span> ip): <span class="kw">return</span> ip
+        }
+    }
+}
+
+<span class="com">// makeListenerParameters가 host를 BindStrategy로 분기(P6a 게이트 ① 핸드셰이크 클로저는 무변경):</span>
+<span class="com">//   params.requiredLocalEndpoint = NWEndpoint.hostPort(host: NWEndpoint.Host(strategy.host), port: .any)</span>
+
+<span class="com">// Tailscale 진단 seam. 실 구현은 Process로 CLI 호출하되 이 protocol 뒤에 격리해</span>
+<span class="com">// 테스트는 fake로 4분기를 전부 검증한다(Tailscale 미설치 CI에서도 결정론적).</span>
+<span class="kw">public protocol</span> <span class="typ">TailscaleProbing</span>: <span class="typ">Sendable</span> {
+    <span class="kw">func</span> <span class="fn">probe</span>() <span class="kw">async</span> -> <span class="typ">TailscaleState</span>
+}
+
+<span class="kw">public enum</span> <span class="typ">TailscaleState</span>: <span class="typ">Sendable</span>, <span class="typ">Equatable</span> {
+    <span class="kw">case</span> running(ip: <span class="typ">String</span>)   <span class="com">// 100.x 획득 → tailscaleIP 바인딩</span>
+    <span class="kw">case</span> notInstalled         <span class="com">// CLI 부재 → loopback 폴백 + 한국어 안내</span>
+    <span class="kw">case</span> notLoggedIn          <span class="com">// BackendState=NeedsLogin → loopback + 안내</span>
+    <span class="kw">case</span> offline              <span class="com">// BackendState=Stopped 등 → loopback + 안내</span>
+
+    <span class="com">// 사용자 표시용 한국어 사유(Principle 4 — silent 실패 금지). secret/실IP 미포함.</span>
+    <span class="kw">public var</span> koreanReason: <span class="typ">String</span> {
+        <span class="kw">switch self</span> {
+        <span class="kw">case</span> .running: <span class="kw">return</span> <span class="str">"Tailscale에 연결되어 안전한 원격 접속이 가능합니다."</span>
+        <span class="kw">case</span> .notInstalled: <span class="kw">return</span> <span class="str">"Tailscale이 설치되어 있지 않습니다. 로컬 연결만 사용합니다."</span>
+        <span class="kw">case</span> .notLoggedIn: <span class="kw">return</span> <span class="str">"Tailscale 로그인이 필요합니다. 로컬 연결만 사용합니다."</span>
+        <span class="kw">case</span> .offline: <span class="kw">return</span> <span class="str">"Tailscale이 오프라인 상태입니다. 로컬 연결만 사용합니다."</span>
+        }
+    }
+}
+
+<span class="com">// 진단 → 바인딩 전략. running(ip)만 tailnet 노출, 나머지는 loopback 폴백(사유 노출).</span>
+<span class="kw">public func</span> <span class="fn">bindStrategy</span>(from state: <span class="typ">TailscaleState</span>) -> <span class="typ">BindStrategy</span> {
+    <span class="kw">if case let</span> .running(ip) = state { <span class="kw">return</span> .tailscaleIP(ip) }
+    <span class="kw">return</span> .loopback
+}
+
+<span class="com">// 실 구현(seam 뒤 격리 — 단위 테스트 비대상, Day 0 스파이크 + Day 3 walkthrough만 친람).</span>
+<span class="com">// Process로 외부 CLI를 호출하고 출력을 파싱해 TailscaleState 4분기로 환원한다.</span>
+<span class="com">// 실행 파일 부재(launch throw)는 .notInstalled. BackendState로 로그인/오프라인을 가른다.</span>
+<span class="kw">public struct</span> <span class="typ">ProcessTailscaleProbe</span>: <span class="typ">TailscaleProbing</span> {
+    <span class="kw">let</span> cliPath: <span class="typ">String</span>   <span class="com">// 부록 A CLAUDE_ALARM_TAILSCALE_CLI_PATH (경로만 — secret/IP 아님)</span>
+
+    <span class="kw">public func</span> <span class="fn">probe</span>() <span class="kw">async</span> -> <span class="typ">TailscaleState</span> {
+        <span class="com">// 1) status --json으로 BackendState 판정. launch 실패 = 미설치.</span>
+        <span class="kw">guard let</span> statusJSON = <span class="kw">try?</span> <span class="fn">run</span>([cliPath, <span class="str">"status"</span>, <span class="str">"--json"</span>]) <span class="kw">else</span> {
+            <span class="kw">return</span> .notInstalled
+        }
+        <span class="kw">let</span> backend = <span class="typ">Self</span>.<span class="fn">backendState</span>(statusJSON)   <span class="com">// "Running"/"NeedsLogin"/"Stopped"...</span>
+        <span class="kw">switch</span> backend {
+        <span class="kw">case</span> <span class="str">"NeedsLogin"</span>: <span class="kw">return</span> .notLoggedIn
+        <span class="kw">case</span> <span class="str">"Running"</span>: <span class="kw">break</span>
+        <span class="kw">default</span>: <span class="kw">return</span> .offline   <span class="com">// Stopped/NoState 등은 오프라인으로 묶는다</span>
+        }
+        <span class="com">// 2) Running이면 ip -4로 100.x 1줄 획득. 획득 실패 시 offline로 보수적 폴백.</span>
+        <span class="kw">guard let</span> ipOut = <span class="kw">try?</span> <span class="fn">run</span>([cliPath, <span class="str">"ip"</span>, <span class="str">"-4"</span>]),
+              <span class="kw">let</span> ip = <span class="typ">Self</span>.<span class="fn">firstTailscaleIP</span>(ipOut) <span class="kw">else</span> {
+            <span class="kw">return</span> .offline
+        }
+        <span class="kw">return</span> .running(ip: ip)   <span class="com">// 로그는 100.x.x.x 마스킹(A13). 실 IP는 메모리에만.</span>
+    }
+}
+</code></pre>
+
+<h4>5.5b WSServer makeListenerParameters — BindStrategy 분기 (P6a 게이트 ① 무변경)</h4>
+<pre><code><span class="com">// init 기본값 인자: strategy를 기본값으로 받아 기존 8개 호출부(DaemonBootstrap·DaemonDevCLI·</span>
+<span class="com">// 테스트 5종 등)가 strategy 인자 없이 무변경 컴파일되게 한다 — Day 2 "기존 함수 green"의 전제.</span>
+<span class="kw">public init</span>(registry: <span class="typ">SessionBindRegistry</span>, authGate: <span class="typ">WSAuthGate</span>,
+            verifier: <span class="typ">DeviceTokenVerifier</span>, pairingSession: <span class="typ">PairingSession</span>? = <span class="kw">nil</span>,
+            strategy: <span class="typ">BindStrategy</span> = .loopback,   <span class="com">// ← 신규 기본값 인자(기존 호출부 무변경)</span>
+            pendingWindow: <span class="typ">TimeInterval</span> = <span class="typ">WSServer</span>.<span class="fn">defaultPendingWindow</span>()) { <span class="com">/* ... self.strategy 저장 ... */</span> }
+
+<span class="com">// 변경점은 host 한 곳뿐 — P6a 핸드셰이크 게이트 ①(setClientRequestHandler) 클로저는 무변경.</span>
+<span class="com">// 즉 tailnet 노출은 "어느 인터페이스에 바인딩하느냐"만 바꾸고, 인증 경로는 동일하다.</span>
+<span class="kw">private static func</span> <span class="fn">makeListenerParameters</span>(authGate: <span class="typ">WSAuthGate</span>,
+                                          strategy: <span class="typ">BindStrategy</span>) -> <span class="typ">NWParameters</span> {
+    <span class="kw">let</span> params = <span class="typ">NWParameters</span>.tcp
+    <span class="kw">let</span> ws = <span class="typ">NWProtocolWebSocket</span>.<span class="typ">Options</span>()
+    ws.autoReplyPing = <span class="kw">true</span>
+    ws.<span class="fn">setClientRequestHandler</span>(authGate.queue) { _, headers <span class="kw">in</span>
+        <span class="com">// ... P6a 게이트 ① 무변경: claim 핸드셰이크/Bearer 구조검증/nonce carry ...</span>
+    }
+    params.defaultProtocolStack.applicationProtocols.<span class="fn">insert</span>(ws, at: <span class="num">0</span>)
+    <span class="com">// 핵심 변경: 고정 "127.0.0.1" → strategy.host (loopback 또는 100.x).</span>
+    <span class="com">// tailscaleIP면 그 인터페이스에만 바인딩되어 tailnet 밖은 도달 불가(1차 경계).</span>
+    params.requiredLocalEndpoint = <span class="typ">NWEndpoint</span>.<span class="fn">hostPort</span>(
+        host: <span class="typ">NWEndpoint</span>.<span class="typ">Host</span>(strategy.host), port: .any)
+    <span class="kw">return</span> params
+}
+</code></pre>
+
+<div class="callout warn">
+  <div class="label">SDK/외부 도구 주의 — Day 0 스파이크로 실증</div>
+  <p><code>requiredLocalEndpoint</code>를 100.x 주소로 바꿨을 때 실제로 그 인터페이스에만 바인딩되어 tailnet 밖(loopback 포함 다른 인터페이스)에서 도달 불가능한지, 그리고 <code>tailscale status --json</code>/<code>ip -4</code> 파싱이 환경마다 안정적인지가 외부 도구 의존이라 불확실하다. 위 코드의 D-1 옵션 A는 Day 0 스파이크가 이를 실증한 뒤에만 확정한다. 실증 실패 시 옵션 C(<code>tailscale serve</code> 프록시 — 데몬은 loopback 유지, 외부 Tailscale이 tailnet→loopback 포워딩)로 폴백한다. 어느 경우든 그 위의 Bearer 2단 게이트(2차 방어)는 P6a 그대로라 인증 강도는 보존된다 — D-1은 1차 경계(노출 범위)의 선택일 뿐이다.</p>
+</div>
+
+<h4>5.6 PushSender revoked 발신 제외 (push 거부 검증 대상)</h4>
+<pre><code><span class="com">// P6a/P5 PushSender.send는 revoked 거부 로직이 없다(WS만 verifier 경유). push 발신 호출자</span>
+<span class="com">// 자체는 D-7로 dead(internal output tap 미지원)이나, "revoked 디바이스는 push 발신 대상에서</span>
+<span class="com">// 제외한다"는 필터 로직과 그 단위 검증은 본 단계에 둔다(Coordinator ③의 실효).</span>
+<span class="kw">public protocol</span> <span class="typ">PushRevocationSink</span>: <span class="typ">Sendable</span> {
+    <span class="kw">func</span> <span class="fn">markRevoked</span>(deviceId: <span class="typ">UUID</span>) <span class="kw">async</span>
+    <span class="kw">func</span> <span class="fn">isRevoked</span>(deviceId: <span class="typ">UUID</span>) <span class="kw">async</span> -> <span class="typ">Bool</span>
+}
+
+<span class="com">// 발신 필터(미래 발신 호출자가 쓸 seam): revoked 디바이스 target은 transport에 넘기지 않는다.</span>
+<span class="com">// 현재는 LifecycleE2ETests가 직접 호출해 "revoked는 발신 제외"를 측정한다(transport 미호출).</span>
+<span class="kw">public func</span> <span class="fn">sendIfNotRevoked</span>(_ env: <span class="typ">PushEnvelope</span>, target: <span class="typ">PushTarget</span>, deviceId: <span class="typ">UUID</span>) <span class="kw">async</span> {
+    <span class="kw">if await</span> revocationSink.<span class="fn">isRevoked</span>(deviceId: deviceId) {
+        excludedCount += <span class="num">1</span>          <span class="com">// 거부 카운터(P6b 신규 — 기존 PushSender.rejectedCount 패턴 차용)</span>
+        <span class="kw">return</span>                       <span class="com">// transport 미호출 — revoked 디바이스에 push 전송 안 함</span>
+    }
+    <span class="kw">await</span> <span class="fn">send</span>(env, target: target)  <span class="com">// 기존 P5 send 경로(WS-attached skip + 4KB + transport)</span>
+}
+</code></pre>
+
+<h4>5.7 fetchHint 명세 (코드 미배선 — §8 참조)</h4>
+<p><code>fetchHint</code>는 push 수신 후 모바일이 본문을 보강하는 WS 채널(<code>kind=fetch, messageId</code>)이다. P6b는 <strong>EnvelopeKind에 <code>fetch</code>를 추가하지 않는다</strong> — v0.9 스키마를 P7 freeze 전에 흔들지 않기 위함이다(Principle 5, D-5). 스키마·의미만 §8에 명세하고 P7 v1.0 freeze 대상으로 기록한다. 의사 코드는 §8을 참조한다.</p>
+
+<!-- =================================================================== -->
+<h2 id="sec-6">6. ADR 운영화 — ADR-F: Tailscale prerequisite UX</h2>
+
+<div class="callout danger">
+  <div class="label">동결 — 데스크톱 측 확정, P8 모바일 측 적용</div>
+  <p>master § 6 ADR 목록에서 ADR-F는 작성 단계가 <strong>P6b/P8</strong>이다. P6b는 <strong>데스크톱 측 정책</strong>(데몬이 Tailscale 상태를 어떻게 진단·노출·폴백하는가)을 확정하고, 모바일 측 설치/로그인 안내 화면은 P8이 본 ADR을 참조해 적용한다. 본 §6 본문이 그대로 <code>docs/adr/F-tailscale-prerequisite-ux.md</code>가 된다(Day 4).</p>
+</div>
+
+<h4>Decision (결정)</h4>
+<ol>
+  <li><strong>Tailscale은 system service 의존, tsnet 미사용.</strong> 데몬은 외부 <code>tailscale</code> CLI/데몬의 상태를 <code>tailscale status --json</code>/<code>tailscale ip -4</code>로 진단·소비만 하고, 임베디드 Tailscale(tsnet)은 도입하지 않는다.</li>
+  <li><strong>데스크톱은 진단 4분기를 한국어로 명시 노출한다.</strong> <code>running(ip)</code>/<code>notInstalled</code>/<code>notLoggedIn</code>/<code>offline</code> 각각에 대해 설정 UI가 한국어 안내를 띄운다. silent 실패(조용한 loopback 폴백)는 금지한다(Principle 4).</li>
+  <li><strong>tailnet 미충족 시 loopback 폴백 + 노출.</strong> Tailscale IP를 못 얻으면 데몬은 loopback으로 폴백하되 그 사유를 진단으로 노출한다 — 데몬은 항상 기동하고(loopback 최소 보장), 원격 접속만 비활성된다.</li>
+  <li><strong>모바일 prerequisite는 P8이 본 ADR 참조.</strong> 모바일 앱은 페어링 전 Tailscale 앱 설치 + 동일 tailnet 로그인을 요구하는 안내 화면을 P8에서 제공한다. 데스크톱이 발급하는 <code>wsEndpoint</code>가 100.x 주소이므로(P6b), 모바일이 같은 tailnet에 없으면 도달 불가하다 — 이 전제를 P8 UX가 안내한다.</li>
+</ol>
+
+<h4>Drivers (결정 동인)</h4>
+<ul>
+  <li>master § 3 P6b "Tailscale은 system service 의존(tsnet 미사용). <code>tailscale status</code> 사전 진단 + 한국어 안내" — 명시적 요구.</li>
+  <li>tsnet 임베디드는 데몬에 Tailscale 인증·키 관리를 끌어와 보안 표면·바이너리 크기·유지보수를 키운다 — system service 위임이 경계를 단순하게 유지.</li>
+  <li>silent 폴백은 "왜 모바일이 연결 안 되는가"를 사용자가 진단 불가능하게 만든다 — 명시 노출이 지원 비용을 낮춘다.</li>
+</ul>
+
+<h4>Alternatives considered (검토한 대안)</h4>
+<table>
+  <thead><tr><th>대안</th><th>내용</th><th>기각 사유</th></tr></thead>
+  <tbody>
+    <tr><td>tsnet 임베디드</td><td>데몬이 Tailscale을 라이브러리로 내장해 자체 tailnet 노드가 됨</td><td>데몬에 Tailscale 인증/키/업데이트 책임 유입 — 보안 표면·바이너리·유지보수 증가. system service 위임 대비 이득 없음(사용자는 이미 Tailscale 앱 사용)</td></tr>
+    <tr><td>silent loopback 폴백</td><td>Tailscale 미충족 시 조용히 loopback으로 떨어지고 안내 없음</td><td>"왜 원격 연결이 안 되는가"를 사용자가 알 수 없음 — 지원 비용·혼란 증가. Principle 4 위반</td></tr>
+    <tr><td><code>0.0.0.0</code> 무진단 노출</td><td>Tailscale 무관하게 모든 인터페이스 노출(D-1 옵션 B)</td><td>tailnet 밖 공격 표면 확대(단층 방어). D-1에서 이미 기각</td></tr>
+  </tbody>
+</table>
+
+<h4>Why chosen (선택 이유)</h4>
+<p>system service 의존 + 명시 진단 노출 + loopback 폴백의 조합이 (a) 데몬의 보안 경계를 단순하게 유지하고(tsnet 인증 책임 회피), (b) 사용자가 Tailscale 상태를 항상 알 수 있게 하며(silent 실패 제거), (c) Tailscale이 없어도 데몬은 loopback으로 최소 동작(점진적 저하)하는 세 목표를 동시에 만족한다. 모바일 측 안내를 P8로 미루는 것은 데스크톱이 먼저 <code>wsEndpoint</code>를 100.x로 발급하는 주체이므로(P6b), 그 전제를 데스크톱에서 확정하고 모바일이 소비하는 순서가 자연스럽기 때문이다.</p>
+
+<h4>Consequences (결과)</h4>
+<ul>
+  <li>(+) 데몬이 Tailscale 인증/키를 다루지 않아 보안 표면이 작다.</li>
+  <li>(+) 사용자가 설정 UI에서 Tailscale 상태를 한눈에 확인 — 원격 연결 실패 진단이 쉽다.</li>
+  <li>(+) Tailscale 부재에도 데몬은 loopback으로 기동 — 데스크톱 단독 기능은 무영향.</li>
+  <li>(−) 모바일 원격 접속은 양측이 같은 tailnet에 있어야만 성립 — P8이 이 전제를 안내해야 하는 부담(MVP 수용).</li>
+  <li>(−) Tailscale IP 변동 시 데몬 재바인딩(재시작) 필요 — 진단 + 재시작 경로로 흡수(자동 재바인딩은 post-MVP).</li>
+  <li>(−) IP 변동 시 <strong>기존 발급된 <code>wsEndpoint</code>도 stale</strong>하다 — 페어링 payload는 발급 시점 IP를 고정 인코딩하므로(QR/6자리 코드 모두), 재바인딩 후에는 기존 디바이스가 옛 주소로 도달 불가하여 <strong>재페어링이 필요</strong>하다. 설정 UI가 현 바인딩 주소 변경을 노출해 사용자가 재페어링 시점을 판단한다(자동 endpoint 갱신은 post-MVP).</li>
+</ul>
+
+<h4>Follow-ups (후속)</h4>
+<ul>
+  <li>P8: 모바일 페어링 전 Tailscale 설치 + 동일 tailnet 로그인 안내 화면(본 ADR 참조).</li>
+  <li>P8: 모바일이 데스크톱 발급 <code>wsEndpoint</code>(100.x)에 도달 가능한지 사전 점검 UX.</li>
+  <li>post-MVP: Tailscale IP 변동 자동 감지 + 무중단 재바인딩(현재는 재시작).</li>
+  <li>P7: <code>wsEndpoint</code>가 tailnet 주소일 때의 envelope/페어링 payload 규약 동결(현재 loopback/100.x 양립).</li>
+</ul>
+
+<!-- =================================================================== -->
+<h2 id="sec-7">7. Pre-mortem + 확장 테스트 계획 (deliberate 특수 섹션)</h2>
+
+<h3 id="sec-7-1">7.1 Pre-mortem — 4 실패 시나리오</h3>
+<p>"P6b가 출시됐는데 보안 사고가 났다. 무엇이 잘못됐나?"를 역산한다.</p>
+
+<h4>시나리오 1 — tailnet 노출 후 인증 우회 경로</h4>
+<table>
+  <tbody>
+    <tr><th>증상</th><td>WS endpoint를 tailnet에 노출한 뒤, tailnet 내부의 다른 디바이스(또는 침해된 노드)가 Bearer 없이 또는 위조 Bearer로 데몬에 접근해 세션을 탈취하거나, <code>0.0.0.0</code> 오바인딩으로 tailnet 밖에서도 접근 가능.</td></tr>
+    <tr><th>근본 원인</th><td>(a) 바인딩이 의도와 달리 모든 인터페이스에 떠 tailnet 밖 노출(D-1 옵션 B 실수). (b) tailnet 노출 후 P6a 인증 게이트가 우회되거나, 핸드셰이크 게이트 ①이 tailnet 연결에 대해 약화됨.</td></tr>
+    <tr><th>완화 (계획 반영)</th><td>D-1 옵션 A(Tailscale IP 직접 바인딩) — tailnet 밖에서는 포트 미노출(1차 경계). 그 위 P6a Bearer 2단 게이트 무변경(2차 방어). Day 0 스파이크가 "100.x 바인딩 서버에 loopback 클라이언트 도달 불가"를 실측(종료 조건). Day 2 종료: <code>tailscaleIP</code> 전략에서도 게이트 ①② 인증 경로가 loopback과 동일하게 동작(<code>RoundTripTests</code> 비파괴 + 무토큰 거부 테스트). <code>0.0.0.0</code> 바인딩은 코드에 부재(<code>BindStrategy</code>는 loopback/tailscaleIP 2분기만).</td></tr>
+  </tbody>
+</table>
+
+<h4>시나리오 2 — revoke 후에도 살아있는 연결로 데이터 누출</h4>
+<table>
+  <tbody>
+    <tr><th>증상</th><td>분실된 디바이스를 revoke했는데, 이미 수립된 WS 연결이 끊기지 않아 그 디바이스가 데스크톱의 터미널 출력(output envelope)을 계속 수신. 모바일이 아무 envelope도 안 보내는 동안(수신만) revoked 연결이 무한정 생존.</td></tr>
+    <tr><th>근본 원인</th><td>revoke가 store만 바꾸고 살아 있는 connection을 끊지 않음(D-2 옵션 B). WS long-lived 연결은 다음 inbound envelope이 없으면 재검증 트리거가 영영 안 옴.</td></tr>
+    <tr><th>완화 (계획 반영)</th><td>D-2 옵션 A(즉시 끊기) — <code>WSServer.disconnectDevice(deviceId:)</code>가 deviceId 역참조(<code>[deviceId: Set&lt;clientId&gt;]</code>)로 그 디바이스의 <strong>모든</strong> connection을 능동 <code>cancel()</code>(같은 Bearer 동시 N연결이 하나도 안 남게 — 단일 매핑 회귀 차단). <code>DeviceRevocationCoordinator</code>가 store.revoke 직후 순서 보장 호출(원자 아님 — store.revoke 선행이 사이 구간 재연결도 거부). Day 2 종료: "revoke 호출 시 connection 5초 내 <code>.cancelled</code> + <code>boundSession == nil</code>" + "같은 Bearer 2연결 모두 끊김(<code>disconnectedCount == 2</code>)" + "재연결도 <code>UNAUTHORIZED</code>" <code>XCTAssertEqual</code>. Day 4 e2e: <code>--lifecycle</code>의 REVOKE_DISCONNECTED 신호.</td></tr>
+  </tbody>
+</table>
+
+<h4>시나리오 2b — 폐기한 디바이스가 마침 claim 중이라 되살아남</h4>
+<table>
+  <tbody>
+    <tr><th>증상</th><td>분실 디바이스를 사용자가 revoke한 바로 그 순간, 그 디바이스(또는 코드를 탈취한 공격자)가 마침 pairing.claim을 진행 중이었다. claim 성공 통지(<code>onClaimed</code>)가 revoke 직후 도착해 승격이 폐기된 디바이스를 30일 active로 되살린다 — 사용자는 폐기했다고 믿지만 토큰이 살아 있다.</td></tr>
+    <tr><th>근본 원인</th><td>승격이 Coordinator의 <code>find → upsert</code> read-modify-write(비원자)라, find 시점엔 미revoked였다가 그 사이 revoke가 끼어들고 upsert가 <code>revoked: false</code>로 덮어씀(쓰기-쓰기 경쟁). revoke는 store 원자 메서드인데 promote만 비원자인 비대칭이 원인.</td></tr>
+    <tr><th>완화 (계획 반영)</th><td>승격을 store 레이어 원자 메서드 <code>DeviceStore.promote(id:to:)</code>로 올린다(M1 채택) — <strong>revoked 디바이스는 no-op</strong>(승격 거부). read-check-write(<code>guard !revoked</code> → expiresAt 갱신)가 store actor 메서드 1개 안에 묶여 revoke와 직렬화되므로, revoke가 먼저 커밋됐으면 뒤이은 promote는 <code>revoked == true</code>를 보고 즉시 return한다(부활 불가). Day 1 종료: "revoke 후 promote 호출 → <code>revoked == true</code> 유지 + <code>expiresAt</code> 미갱신" 경쟁 테스트(<code>XCTAssertEqual</code>). Principle 2/3 보존.</td></tr>
+  </tbody>
+</table>
+
+<h4>시나리오 3 — Tailscale 미설치/미로그인 환경의 silent 실패</h4>
+<table>
+  <tbody>
+    <tr><th>증상</th><td>사용자가 Tailscale 없이 앱을 실행. 데몬이 조용히 loopback으로 떨어지고 아무 안내가 없어, 사용자는 "왜 모바일 페어링이 안 되는가"를 진단할 수 없음. 또는 발급된 <code>wsEndpoint</code>가 도달 불가 주소라 모바일이 침묵 실패.</td></tr>
+    <tr><th>근본 원인</th><td>Tailscale 미충족 분기에 사용자 노출이 없음(silent 폴백). 진단이 <code>Process</code> 실패를 삼켜 상태 불명.</td></tr>
+    <tr><th>완화 (계획 반영)</th><td>Principle 4 + ADR-F — <code>TailscaleDiagnostics</code>가 4분기(running/notInstalled/notLoggedIn/offline)를 한국어 사유로 노출. Day 2 종료: fake 4분기가 각 한국어 사유 + 폴백 전략 <code>XCTAssertEqual</code> 4건. Day 3 종료: GUI walkthrough에 Tailscale 상태 카드 표시 확인. 데몬은 어느 분기든 loopback으로 기동(점진적 저하 — 데스크톱 단독 기능 무영향).</td></tr>
+  </tbody>
+</table>
+
+<h3 id="sec-7-2">7.2 확장 테스트 계획 (unit / integration / e2e / observability)</h3>
+
+<h4>Unit (Day 1, <code>DaemonTests</code>)</h4>
+<table>
+  <thead><tr><th>대상</th><th>케이스</th><th>측정</th></tr></thead>
+  <tbody>
+    <tr><td><code>DeviceLifecyclePolicy</code></td><td>pending(5분)/active(30일) 만료 계산 + <code>isExpiringSoon</code> 경계(6일/8일/0.5일)</td><td><code>XCTAssertEqual</code> 경계 3종 + 만료 산식</td></tr>
+    <tr><td><code>PairingModel</code> pending</td><td>발급 후 <code>expiresAt</code>이 ttl(5분)임</td><td>30일 아님 <code>XCTAssertEqual</code></td></tr>
+    <tr><td>승격 데몬 경로</td><td>데몬 claim 경로 후 동일 deviceId 30일 갱신, 미claim 5분 후 거부, <code>promotedCount</code>(actor) 증가</td><td><code>verify == nil</code> + <code>await coordinator.promotedCount &gt;= 1</code></td></tr>
+    <tr><td><code>store.promote</code> 부활 차단</td><td>revoke 후 <code>promote(id:to:)</code> 호출(revoked no-op)</td><td><code>revoked == true</code> 유지 + <code>expiresAt</code> 미갱신 <code>XCTAssertEqual</code></td></tr>
+    <tr><td><code>TailscaleState</code></td><td>4분기 <code>koreanReason</code> + <code>bindStrategy</code> 매핑</td><td>한국어 사유 + 전략 <code>XCTAssertEqual</code> 4건</td></tr>
+  </tbody>
+</table>
+
+<h4>Integration (Day 2, <code>DaemonTests</code> — WSServer in-process)</h4>
+<table>
+  <thead><tr><th>대상</th><th>케이스</th><th>측정</th></tr></thead>
+  <tbody>
+    <tr><td>revoke 즉시 끊기</td><td>인증 연결 후 <code>coordinator.revoke</code></td><td>connection <code>.cancelled</code> 5초 내 + <code>boundSession == nil</code></td></tr>
+    <tr><td>revoke 후 재연결</td><td>같은 Bearer 재connect</td><td><code>UNAUTHORIZED</code> + close</td></tr>
+    <tr><td>역참조 정합</td><td>서로 다른 2 디바이스 중 1개만 revoke</td><td>그 connection만 끊김, 타 connection 생존</td></tr>
+    <tr><td>다중 연결 revoke</td><td>같은 Bearer 2연결 후 revoke</td><td>두 connection 모두 <code>.cancelled</code>, <code>disconnectedCount == 2</code></td></tr>
+    <tr><td>Coordinator 순서 보장</td><td>revoke 후 store+connection+push 3 부수효과 + 부분 실패</td><td>3건 + <code>disconnectedCount</code> + store throw 시 ②③ 미진입 <code>XCTAssertEqual</code></td></tr>
+    <tr><td>BindStrategy</td><td>loopback 라운드트립 + tailscaleIP host 설정</td><td>introspection <code>XCTAssertEqual</code></td></tr>
+    <tr><td>tailnet 인증 비파괴</td><td><code>tailscaleIP</code> 전략에서 무토큰 거부 + 유효 토큰 통과</td><td>게이트 ①② 동작 동일</td></tr>
+    <tr><td>loopback 기본 비파괴</td><td><code>RoundTripTests</code>/<code>SessionBindTests</code></td><td>기존 green 유지</td></tr>
+  </tbody>
+</table>
+
+<h4>e2e (Day 4, <code>DaemonDevCLI --lifecycle</code>)</h4>
+<table>
+  <thead><tr><th>경로</th><th>케이스</th><th>측정</th></tr></thead>
+  <tbody>
+    <tr><td>revoke 끊기</td><td>연결 → revoke → 끊김 → 재connect 거부</td><td>"REVOKE_DISCONNECTED" exit 0</td></tr>
+    <tr><td>만료 거부</td><td>expiresAt 과거 Bearer connect</td><td>"EXPIRED_REJECTED" <code>UNAUTHORIZED</code></td></tr>
+    <tr><td>revoked push 제외</td><td>revoked 디바이스 push 발신 필터</td><td>"PUSH_REJECTED_REVOKED" transport 미호출</td></tr>
+    <tr><td>claim 승격 e2e</td><td>페어링 → pending → claim → 30일 active</td><td>승격 후 <code>expiresAt</code> 30일</td></tr>
+    <tr><td>GUI walkthrough (Day 3)</td><td>만료 뱃지 + 폐기 + Tailscale 카드</td><td>스크린샷 기록</td></tr>
+  </tbody>
+</table>
+
+<h4>Observability</h4>
+<ul>
+  <li><strong>revoke 로그</strong>: <code>DeviceRevocationCoordinator.revoke</code> 시 사유(<code>USER_REVOKE</code>/<code>DEVICE_LOST</code>) + deviceId만(tokenId 마스킹). secret/실 IP 절대 금지. <code>PushLog</code> 패턴.</li>
+  <li><strong>Tailscale 진단 로그</strong>: 4분기 상태 전이를 기록하되 실 100.x IP는 <code>100.x.x.x</code> 마스킹. 진단 카운터(running/notInstalled/notLoggedIn/offline)를 testable로 노출.</li>
+  <li><strong>lifecycle 메트릭</strong>: pending→active 승격 수, 만료 임박 디바이스 수, revoke 수를 testable 카운터로(P5 <code>PushSender.rejectedCount</code>·P6a <code>PairingSession</code> 선례).</li>
+  <li><strong>토큰·IP 노출 감사</strong>: 매 Day 종료 시 <code>grep -rnE "deviceTokenSecret|100\.[0-9]+\.[0-9]+\.[0-9]+" Sources/ | grep -iE "log|print|FileHandle|os_log"</code> 0건이 종료 조건.</li>
+</ul>
+
+<!-- =================================================================== -->
+<h2 id="sec-8">8. Tailscale 진단 + fetchHint 명세 (특수 섹션)</h2>
+
+<h3>8.1 Tailscale CLI 진단 계약</h3>
+<p><code>TailscaleDiagnostics</code> 실 구현은 <code>Process</code>로 외부 CLI를 호출한다. 파싱 계약은 다음과 같다(Day 0 스파이크가 fixture로 실측·고정).</p>
+<table>
+  <thead><tr><th>호출</th><th>관측</th><th>매핑 → TailscaleState</th></tr></thead>
+  <tbody>
+    <tr><td>실행 파일 부재</td><td><code>Process</code> launch 실패(경로 없음)</td><td><code>.notInstalled</code></td></tr>
+    <tr><td><code>tailscale status --json</code></td><td><code>BackendState == "NeedsLogin"</code></td><td><code>.notLoggedIn</code></td></tr>
+    <tr><td><code>tailscale status --json</code></td><td><code>BackendState == "Stopped"</code> 또는 오프라인</td><td><code>.offline</code></td></tr>
+    <tr><td><code>tailscale ip -4</code></td><td><code>100.x.y.z</code> 1줄 획득(<code>BackendState == "Running"</code>)</td><td><code>.running(ip: "100.x.y.z")</code></td></tr>
+  </tbody>
+</table>
+<div class="callout warn">
+  <div class="label">진단 격리 — seam 필수</div>
+  <p>실 CLI 호출은 <code>TailscaleProbing</code> protocol 뒤에 격리한다. 테스트는 fake conformer로 4분기를 전부 검증해 Tailscale 미설치 CI에서도 결정론적이다(P6a <code>DeviceStore</code> seam·P5 <code>PushTransport</code> seam 선례). 실 <code>Process</code> 경로는 Day 0 스파이크 + Day 3 GUI walkthrough로만 검증하고 단위 테스트 비대상으로 분리한다.</p>
+</div>
+
+<h3>8.2 fetchHint 명세 (kind=fetch — 코드 미배선, P7 freeze 대상)</h3>
+<p>push 수신 후 모바일이 본문을 보강하는 채널이다. P6b는 스키마·의미만 못박고 코드는 배선하지 않는다(D-5, Principle 5).</p>
+<pre><code><span class="com">// P7에서 EnvelopeKind에 추가될 예정(P6b는 추가 안 함 — v0.9 freeze 전 무변경).</span>
+<span class="com">// case fetch = "fetch"   ← P7 v1.0 freeze에서 add. P6b는 WSEnvelope.swift에 부재.</span>
+
+<span class="com">// 요청(모바일 → 데스크톱): push로 받은 messageId의 본문을 데스크톱에 요청.</span>
+<span class="com">// payload 스키마: { "messageId": "&lt;데스크톱 발급 단조 id&gt;" }</span>
+<span class="com">//   - messageId 발급 주체는 데스크톱(ADR-A 정합 — chatRoomId·messageId 데스크톱 단조 발급).</span>
+
+<span class="com">// 응답(데스크톱 → 모바일): 그 messageId의 본문(ring buffer/세션 scrollback에서 조회).</span>
+<span class="com">//   - 본문이 ring buffer drop으로 사라졌으면 drop-and-mark 신호로 응답(P10b가 한국어 표시).</span>
+<span class="com">//   - 응답 kind/형식은 P7 freeze에서 확정(현재는 의미만 — output 재전송 vs 전용 fetch.response).</span>
+
+<span class="com">// P6b 책임: 위 스키마를 명세로 못박고 Exit Gate에 "P7 v1.0 freeze 대상"으로 기록.</span>
+<span class="com">// 코드(kind 추가·핸들러·ring 재조회)는 P7(freeze) + P10b(모바일 송수신)가 배선한다.</span>
+</code></pre>
+
+<p>아래는 P6b가 명세로 못박되 <strong>P7 freeze에서 최종 결정</strong>할 미해결 항목이다 — P6b는 결정하지 않고 freeze 입력으로 넘긴다.</p>
+<table>
+  <thead><tr><th>미해결 항목</th><th>P6b 명세 범위</th><th>P7 freeze 결정 대상</th></tr></thead>
+  <tbody>
+    <tr><td><code>fetch.response</code> kind 형식</td><td>"본문을 응답한다"는 의미만</td><td>전용 <code>fetch.response</code> kind vs 기존 <code>output</code> 재전송 중 택1</td></tr>
+    <tr><td>ring drop 시 응답</td><td>"drop-and-mark 신호"라는 의미만</td><td>에러 code(<code>FETCH_DROPPED</code> 등) vs 빈 본문 + 플래그</td></tr>
+    <tr><td><code>messageId</code> 형식</td><td>데스크톱 단조 발급(ADR-A 정합)</td><td>u64-string vs UUID vs 복합키 — seq 규칙과 정합</td></tr>
+    <tr><td>fetch 인증</td><td>운영 envelope이라 게이트 ② 후</td><td>인증 연결 위 일반 envelope으로 충분한지(추가 권한 불요) 확인</td></tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-9">9. Acceptance Criteria</h2>
+<table>
+  <thead><tr><th>#</th><th>기준</th><th>검증 일자</th><th>검증 절차</th><th>통과</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>A1</td>
+      <td>Tailscale IP 바인딩이 tailnet 한정 노출을 실증하고 D-1 옵션(A/C)이 확정됐다</td>
+      <td>Day 0</td>
+      <td><code>xcodebuild test -only-testing:DaemonTests/TailscaleBindingSpikeTests</code> exit 0 + <code>.omc/research/p6b-tailscale-spike.md</code>에 옵션 결정 1개 명시 (Tailscale 가용 시 loopback 도달 불가 측정, 부재 시 진단 분기 + <code>XCTSkip</code>)</td>
+      <td><input type="checkbox" disabled checked></td>
+    </tr>
+    <tr>
+      <td>A2</td>
+      <td>토큰이 pending(5분)으로 발급되고 claim 시에만 active(30일)로 승격되며, revoked 디바이스는 승격으로 되살아나지 않는다 (부채 해소 + 부활 차단)</td>
+      <td>Day 1</td>
+      <td><code>issueNewCode</code> 후 <code>expiresAt</code>=ttl(5분), 데몬 claim 경로 후 30일 갱신, 미claim 5분 후 <code>verify == nil</code> + <strong>revoke 후 <code>store.promote</code> 호출 시 <code>revoked == true</code> 유지·<code>expiresAt</code> 미갱신</strong>(no-op) <code>XCTAssertEqual</code></td>
+      <td><input type="checkbox" disabled checked></td>
+    </tr>
+    <tr>
+      <td>A3</td>
+      <td>만료 임박(7일) 판정이 경계에서 정확하다</td>
+      <td>Day 1</td>
+      <td><code>isExpiringSoon</code>: now+6일·now+0.5일 포함 / now+8일·이미만료 제외 <code>XCTAssertEqual</code></td>
+      <td><input type="checkbox" disabled checked></td>
+    </tr>
+    <tr>
+      <td>A4</td>
+      <td>revoke 시 살아 있는 WS 연결이 즉시 끊기고 재연결도 거부된다 (누출 창 0)</td>
+      <td>Day 2</td>
+      <td><code>coordinator.revoke</code> 후 connection <code>.cancelled</code> 5초 내 + <code>boundSession == nil</code> + 재connect <code>UNAUTHORIZED</code> <code>XCTAssertEqual</code></td>
+      <td><input type="checkbox" disabled checked></td>
+    </tr>
+    <tr>
+      <td>A5</td>
+      <td>revoke가 store+connection+push 3 부수효과를 순서 보장 다단계로 일으키고, 연결이 있었으면 끊김이 측정된다 (Coordinator 1점, 원자 아님)</td>
+      <td>Day 2</td>
+      <td><code>revoke</code> 후 (a) <code>revoked == true</code>, (b) connection <code>.cancelled</code>(또는 미연결 no-op), (c) push 제외 카운터 +1 — 3건 + 연결이 있었으면 <code>disconnectedCount &gt;= 1</code>(no-op 침묵 가시화) + 같은 Bearer 2연결은 <code>disconnectedCount == 2</code> + store.revoke throw 시 ②③ 미진입 <code>XCTAssertEqual</code></td>
+      <td><input type="checkbox" disabled checked></td>
+    </tr>
+    <tr>
+      <td>A6</td>
+      <td>BindStrategy가 loopback 기본 비파괴 + tailscaleIP 분기를 정확히 한다</td>
+      <td>Day 2</td>
+      <td>loopback <code>RoundTripTests</code> green + <code>tailscaleIP("100.64.0.1")</code> 주입 시 <code>requiredLocalEndpoint</code> host 일치 <code>XCTAssertEqual</code></td>
+      <td><input type="checkbox" disabled checked></td>
+    </tr>
+    <tr>
+      <td>A7</td>
+      <td>Tailscale 진단 4분기가 한국어 사유 + 폴백 전략을 정확히 노출한다 (silent 실패 없음)</td>
+      <td>Day 2</td>
+      <td><code>TailscaleProbing</code> fake 4분기 → 각 <code>koreanReason</code> + <code>bindStrategy</code>(running=tailscaleIP, 그 외=loopback) <code>XCTAssertEqual</code> 4건</td>
+      <td><input type="checkbox" disabled checked></td>
+    </tr>
+    <tr>
+      <td>A8</td>
+      <td>lifecycle UI가 만료 임박 경고 + 폐기 버튼 + Tailscale 상태를 표시하고 non-app 타겟 비파괴</td>
+      <td>Day 3</td>
+      <td><code>xcodebuild build -scheme ClaudeAlarmTerminal</code> + <code>SessionVerifier</code>/<code>WorkspaceTests</code> exit 0 + GUI walkthrough 기록(뱃지/폐기/카드)</td>
+      <td><input type="checkbox" disabled checked></td>
+    </tr>
+    <tr>
+      <td>A9</td>
+      <td>만료/revoked 토큰의 WS 연결과 push가 모두 즉시 거부된다 (e2e)</td>
+      <td>Day 4</td>
+      <td><code>./daemon-dev-cli --lifecycle</code> exit 0 + "REVOKE_DISCONNECTED"/"EXPIRED_REJECTED"/"PUSH_REJECTED_REVOKED" 3 신호 + <code>LifecycleE2ETests</code> green</td>
+      <td><input type="checkbox" disabled checked></td>
+    </tr>
+    <tr>
+      <td>A10</td>
+      <td>ADR-F가 동결됐다 (Tailscale prerequisite UX)</td>
+      <td>Day 4</td>
+      <td><code>docs/adr/F-tailscale-prerequisite-ux.md</code> 존재 + 6 섹션(Decision/Drivers/Alternatives/Why/Consequences/Follow-ups) 전부 채움</td>
+      <td><input type="checkbox" disabled checked></td>
+    </tr>
+    <tr>
+      <td>A11</td>
+      <td><code>fetchHint</code>가 명세로 기록되고 코드는 미배선이다 (P7 freeze 대상)</td>
+      <td>Day 4</td>
+      <td>§8.2에 <code>kind=fetch</code> payload 스키마 + "P7 v1.0 freeze 대상" 문구 + <code>grep -rn "case fetch" Sources/Daemon/WSEnvelope.swift</code> 0건</td>
+      <td><input type="checkbox" disabled checked></td>
+    </tr>
+    <tr>
+      <td>A12</td>
+      <td>전체 테스트 기준선 비파괴 (383 + 신규 green)</td>
+      <td>Day 4</td>
+      <td>3 타겟 전부 exit 0, 기존 함수 실패 0건, <code>383 + 신규 M = K</code> 검산</td>
+      <td><input type="checkbox" disabled checked></td>
+    </tr>
+    <tr>
+      <td>A13</td>
+      <td>토큰 secret/실 Tailscale IP가 코드·로그·UI·문서에 노출 0건</td>
+      <td>전 Day</td>
+      <td><code>grep -rnE "deviceTokenSecret|100\.[0-9]+\.[0-9]+\.[0-9]+" Sources/ | grep -iE "log|print|FileHandle|os_log"</code> 0건 + <code>Sources/UI/</code> secret 0건 + 산출 문서 마스킹</td>
+      <td><input type="checkbox" disabled checked></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- =================================================================== -->
+<h2 id="sec-10">10. Risks &amp; Mitigations</h2>
+<table>
+  <thead><tr><th>위험</th><th>가능성</th><th>영향</th><th>완화</th><th>책임</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Tailscale IP 바인딩이 의도와 달리 도달 범위가 넓거나 CLI 파싱 불안정</td>
+      <td><span class="tag warn">중</span></td>
+      <td><span class="tag danger">높음</span></td>
+      <td>Day 0 스파이크를 1차 게이트로 배치(바인딩 실측 + fixture 파싱). 실패 시 옵션 C(<code>serve</code> 프록시)로 폴백 — Bearer 2차 방어는 보존되어 인증 강도 무손실</td>
+      <td>Day 0 executor</td>
+    </tr>
+    <tr>
+      <td>revoke 즉시 끊기가 actor isolation에서 경쟁/이중 정리</td>
+      <td><span class="tag warn">중</span></td>
+      <td><span class="tag danger">높음</span></td>
+      <td><code>disconnectDevice</code>/<code>handleDisconnect</code>를 WSServer actor 격리 + 멱등 정리 + <code>[deviceId: Set&lt;cid&gt;]</code> 다중 연결로 설계. Day 2 종료에 역참조 정합(서로 다른 2 중 1만 끊김) + 같은 Bearer 2연결 모두 끊김(<code>disconnectedCount == 2</code>) + 동시성 멱등 + 재연결 거부 테스트</td>
+      <td>Day 2 executor + code-reviewer</td>
+    </tr>
+    <tr>
+      <td><code>requiredLocalEndpoint</code> 변경이 기존 loopback 테스트(A8 lsof/라운드트립) 파손</td>
+      <td><span class="tag warn">중</span></td>
+      <td><span class="tag warn">중</span></td>
+      <td><code>BindStrategy</code> 기본을 loopback으로 두고 tailnet은 부트스트랩 opt-in. Day 2 종료에 <code>RoundTripTests</code>/<code>SessionBindTests</code> green 명시</td>
+      <td>Day 2 executor</td>
+    </tr>
+    <tr>
+      <td>승격 hook을 UI 레이어에 두면 dead path가 되어 claim 후에도 5분 만료(정상 디바이스 거부) — claim은 데몬측에서만 소비</td>
+      <td><span class="tag warn">중</span></td>
+      <td><span class="tag danger">높음</span></td>
+      <td>승격을 데몬 레이어 <code>DevicePromotionCoordinator</code>로 1점 수렴(<code>PairingSession.onClaimed</code> 콜백 발화 — UI 미경유). Day 1 종료에 <strong>데몬 claim 경로 e2e</strong>로 30일 갱신 측정(승격기 수동 직접 호출 green 위장 금지)</td>
+      <td>Day 1 executor</td>
+    </tr>
+    <tr>
+      <td>revoke 직후 도착한 claim의 promote가 폐기 디바이스를 30일 active로 되살림 (쓰기-쓰기 경쟁)</td>
+      <td><span class="tag warn">중</span></td>
+      <td><span class="tag danger">높음</span></td>
+      <td>승격을 store 레이어 원자 메서드 <code>promote(id:to:)</code>로 올려 revoke와 같은 원자성(<strong>revoked면 no-op</strong>). read-check-write가 store actor 메서드 안에 묶여 revoke와 직렬화. Day 1 종료에 "revoke 후 promote가 revoked 유지 + expiresAt 미갱신" 경쟁 테스트</td>
+      <td>Day 1 executor + code-reviewer</td>
+    </tr>
+    <tr>
+      <td>Tailscale 미설치 CI에서 실 Process 테스트 불안정</td>
+      <td><span class="tag warn">중</span></td>
+      <td><span class="tag warn">중</span></td>
+      <td><code>TailscaleProbing</code> seam으로 단위 테스트는 fake. 실 CLI는 Day 0 스파이크 + Day 3 walkthrough만. CI는 <code>XCTSkip</code> + 사유</td>
+      <td>Day 0/3 executor</td>
+    </tr>
+    <tr>
+      <td>lifecycle UI가 신규 데몬 타입 의존으로 non-app 타겟 빌드 파손</td>
+      <td><span class="tag warn">중</span></td>
+      <td><span class="tag warn">중</span></td>
+      <td><code>PairingSettingsContent.swift</code> 이미 <code>SessionVerifier</code> excludes 포함. 신규 의존 시 5개 non-app 타겟 excludes 갱신. Day 3 종료에 빌드 검증</td>
+      <td>Day 3 executor</td>
+    </tr>
+    <tr>
+      <td>Tailscale IP 변동(로그인/로그아웃) 후 데몬이 옛 주소에 묶여 모바일 도달 불가</td>
+      <td><span class="tag warn">중</span></td>
+      <td><span class="tag warn">중</span></td>
+      <td>ADR-F가 "IP 변동 시 진단 + 재시작 재바인딩"을 명문화(자동 무중단 재바인딩은 post-MVP). 설정 UI Tailscale 상태 카드가 현 바인딩 주소 상태를 노출해 사용자가 재시작 시점을 판단</td>
+      <td>Day 3 executor</td>
+    </tr>
+    <tr>
+      <td>pending→active 승격 경쟁: claim과 5분 만료가 동시 발생해 만료가 승격을 덮음</td>
+      <td><span class="tag warn">중</span></td>
+      <td><span class="tag warn">중</span></td>
+      <td>승격은 claim 성공(코드 1회 소비 — <code>PairingSession</code>이 actor 직렬화)을 전제하므로 만료된 코드는 claim 자체가 실패해 승격 트리거가 안 옴. Day 1 종료에 "만료 1초 후 claim → 승격 안 함" 경계 테스트</td>
+      <td>Day 1 executor</td>
+    </tr>
+    <tr>
+      <td>토큰 secret/실 IP가 디버그 로그·진단 문서에 유출</td>
+      <td><span class="tag warn">중</span></td>
+      <td><span class="tag danger">높음</span></td>
+      <td>pre-mortem 시나리오 3 완화 — 매 Day grep 게이트(secret + 100.x). tokenId/IP 마스킹. 진단 문서도 <code>100.x.x.x</code></td>
+      <td>전 Day + security-reviewer</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <div class="label">신뢰 경계 진화 — P6a → P6b → S1</div>
+  <p>P6a는 신뢰 경계를 코드베이스에 처음 도입하되 <strong>loopback에 가뒀다</strong>(단일 호스트 내부). 토큰은 발급되나 수명·폐기 경로가 미배선이었다. P6b는 그 경계를 두 축으로 확장한다: (1) <strong>공간축</strong> — loopback → tailnet(Tailscale IP 바인딩, 1차 경계 + Bearer 2차 방어), (2) <strong>시간축</strong> — 무기한 토큰 → 30일 수명 + 즉시 폐기(revoke 시 살아 있는 연결까지 끊기). 동시에 P6a 부채(미claim 토큰 누적)를 claim 승격 모델로 정리한다. S1은 여기서 검증된 디바이스 토큰·tailnet 경계 위에서 실 FCM/APNs wire를 한 번 통과시킨다 — P6b가 닫지 못한 push 발신 호출자(D-7, C4 의존)는 S1/P10a가 잇고, P6b는 "revoked는 발신 제외"라는 필터 규약만 미리 둔다.</p>
+</div>
+
+<!-- =================================================================== -->
+<h2 id="sec-11">11. Exit Gate to S1</h2>
+<p>아래 전 항목이 체크되어야 S1(실 FCM/APNs wire 검증)로 진입한다.</p>
+<ul class="exit-criteria">
+  <li><input type="checkbox" disabled checked> A1~A13 수락 기준 전부 통과 (§9)</li>
+  <li><input type="checkbox" disabled checked> 토큰이 pending→active 승격 모델로 발급되어 미claim 토큰 누적이 차단된다 (A2, PR #4 부채 해소)</li>
+  <li><input type="checkbox" disabled checked> revoke가 살아 있는 연결을 즉시 끊고 재연결을 거부한다 — "Device lost 즉시 무효화" (A4/A5)</li>
+  <li><input type="checkbox" disabled checked> 만료 7일 전 데스크톱 UI 경고가 실배선됐고 push 알림은 seam만 예약(미배선)이다 (A8, D-4)</li>
+  <li><input type="checkbox" disabled checked> WS endpoint가 Tailscale IP에 바인딩되고(tailnet 한정), 미충족 시 loopback 폴백 + 한국어 진단 노출 (A1/A6/A7)</li>
+  <li><input type="checkbox" disabled checked> 만료/revoked 토큰의 WS 연결·push가 모두 즉시 거부됨이 e2e로 측정됐다 (A9)</li>
+  <li><input type="checkbox" disabled checked> ADR-F가 <code>docs/adr/</code>에 동결됐다 (A10) — 데스크톱 측 확정, P8 모바일 측 적용</li>
+  <li><input type="checkbox" disabled checked> <code>fetchHint</code>(<code>kind=fetch</code>)가 명세로 기록되고 P7 v1.0 freeze 대상이며 v0.9 코드는 무변경이다 (A11, D-5)</li>
+  <li><input type="checkbox" disabled checked> 토큰 secret/실 Tailscale IP가 코드·로그·UI·문서에 평문 0건 (A13 + pre-mortem 4)</li>
+  <li><input type="checkbox" disabled checked> 전체 테스트 기준선 비파괴 (A12) — 383 + 신규 green</li>
+  <li><input type="checkbox" disabled checked> APPROVE 후 <code>.omc/plans/p6b-detailed.html</code> → <code>docs/plans/p6b/</code> 이전 + 합의 이력 <code>p6b-history.md</code> 분리 완료</li>
+</ul>
+
+<h4>후속 단계 인계 항목 (P6b가 명세·예약만 하고 넘기는 것)</h4>
+<table>
+  <thead><tr><th>인계 항목</th><th>P6b 범위</th><th>인계 대상</th></tr></thead>
+  <tbody>
+    <tr><td>push 만료 알림 발신</td><td>UI callout 실배선 + push seam 예약</td><td>P10a (모바일 수신) + D-7(C4 후 발신 호출자)</td></tr>
+    <tr><td>revoked push 발신 제외</td><td><code>sendIfNotRevoked</code> 필터 + 단위 검증</td><td>P6+/S1 (실 발신 호출자 배선)</td></tr>
+    <tr><td><code>fetchHint</code> 코드</td><td><code>kind=fetch</code> 스키마 명세(§8)</td><td>P7 (freeze + kind 추가) + P10b (모바일 송수신)</td></tr>
+    <tr><td>Tailscale 모바일 안내 화면</td><td>ADR-F 데스크톱 측 정책 확정</td><td>P8 (모바일 설치/로그인 UX)</td></tr>
+    <tr><td>IP 변동 무중단 재바인딩</td><td>진단 + 수동 재시작 경로</td><td>post-MVP (자동 감지·재바인딩)</td></tr>
+  </tbody>
+</table>
+<p>위 인계 항목은 <code>.omc/plans/open-questions.md</code>에도 추적 기록된다(에이전트 규약).</p>
+
+<!-- =================================================================== -->
+<h2 id="app-a">부록 A. 환경 변수</h2>
+<table>
+  <thead><tr><th>변수</th><th>용도</th><th>기본값</th><th>비고</th></tr></thead>
+  <tbody>
+    <tr><td><code>CLAUDE_ALARM_DEVICE_TOKEN_EXPIRY_DAYS</code></td><td>active 디바이스 수명(claim 승격 후)</td><td><code>30</code></td><td>P6a 스키마 — P6b가 강제. pending은 코드 ttl(5분) 별도</td></tr>
+    <tr><td><code>CLAUDE_ALARM_DEVICE_EXPIRY_WARNING_DAYS</code></td><td>만료 임박 경고 기준일</td><td><code>7</code></td><td>이 안이면 UI "N일 후 만료" 뱃지 (D-4, push는 미배선)</td></tr>
+    <tr><td><code>CLAUDE_ALARM_PAIRING_TTL_SECONDS</code></td><td>(기존) 6자리 코드/pending 만료 초</td><td><code>300</code> (5분)</td><td>pending 디바이스 <code>expiresAt</code>의 근거 — claim 안 되면 5분 후 거부</td></tr>
+    <tr><td><code>CLAUDE_ALARM_TAILSCALE_CLI_PATH</code></td><td><code>tailscale</code> 실행 파일 경로</td><td><code>/usr/local/bin/tailscale</code> 등 PATH 탐색</td><td>미발견 시 <code>.notInstalled</code>. 실 IP·secret 아님 — 경로만</td></tr>
+    <tr><td><code>CLAUDE_ALARM_BIND_STRATEGY</code></td><td>바인딩 전략 강제(진단 우회 — 테스트/디버그)</td><td>(미설정 = 진단 자동)</td><td><code>loopback</code> 강제 가능. tailnet 노출은 진단 통과 + 명시 opt-in만</td></tr>
+    <tr><td><code>CLAUDE_ALARM_PAIRING_PENDING_WINDOW_SECONDS</code></td><td>(기존 P6a) carry-over <code>pendingAuth</code> 시간창</td><td><code>10</code></td><td>P6a 인증 게이트 — P6b 무변경</td></tr>
+  </tbody>
+</table>
+<div class="callout warn">
+  <div class="label">보안 — env 정책</div>
+  <p>env에는 Keychain item ID와 <code>tailscale</code> 실행 <strong>경로</strong>만 둔다. <code>deviceTokenSecret</code> 본문·실 Tailscale 100.x IP는 env·코드·로그에 절대 두지 않는다(master § 7 보안 원칙). 키 누출 시 rotation 절차는 work-plan-v4 § 4.5.</p>
+</div>
+
+<!-- =================================================================== -->
+<h2 id="app-b">부록 B. 참고 문헌</h2>
+<ul>
+  <li><strong>master 계획</strong>: <code>docs/plans/development-master-plan-v2.md</code> § 3 P6b, § 6 ADR-F, § 7 보안 원칙</li>
+  <li><strong>선행 단계 상세</strong>: <code>docs/plans/p6a/p6a-detailed.html</code> (인증 2단 게이트, Device/DeviceStore seam, ADR-A)</li>
+  <li><strong>WS 서버</strong>: <code>Sources/Daemon/WSServer.swift</code> (<code>requiredLocalEndpoint = 127.0.0.1:any</code> — 바인딩 전략 핵심 변경 지점, <code>authState</code>·<code>connections</code> 보유)</li>
+  <li><strong>Device 스키마</strong>: <code>Sources/Pairing/Device.swift</code> (<code>expiresAt</code>/<code>revoked</code> 필드 — P6a 예약, P6b 강제)</li>
+  <li><strong>DeviceStore seam</strong>: <code>Sources/Pairing/DeviceStore.swift</code> (<code>revoke(id:)</code>/<code>remove(id:)</code> seam 존재, UI 미배선; P6b가 승격용 <code>promote(id:to:)</code> 동작 메서드 1개 추가 — revoke와 대칭, revoked no-op) + <code>KeychainDeviceStore.swift</code>(revoke의 SecItem read→update 패턴 재사용) + <code>InMemoryDeviceStore</code></li>
+  <li><strong>토큰 검증</strong>: <code>Sources/Pairing/DeviceTokenVerifier.swift</code> (<code>!revoked &amp;&amp; expiresAt > Date()</code> 거부 — P6b 무변경, 만료/revoked 거부는 이미 동작)</li>
+  <li><strong>페어링 모델(부채 지점)</strong>: <code>Sources/UI/Pairing/PairingModel.swift:48~84</code> (<code>issueNewCode</code> 발급 즉시 30일 upsert — D-3 교체 대상)</li>
+  <li><strong>페어링 세션</strong>: <code>Sources/Pairing/PairingSession.swift</code> (<code>claim</code> 1회 소비 — claim 승격 hook 지점)</li>
+  <li><strong>설정 UI</strong>: <code>Sources/UI/Settings/PairingSettingsContent.swift</code> (디바이스 목록 + remove 버튼 + revoked 뱃지 로직 존재 — revoke 버튼·만료 경고 추가 지점)</li>
+  <li><strong>Push seam 선례</strong>: <code>Sources/Push/PushSender.swift</code> (<code>rejectedCount</code> testable 카운터 — revoked 발신 제외 동형) + <code>PushTransport.swift</code>/<code>MockPushTransport.swift</code></li>
+  <li><strong>데몬 부트스트랩</strong>: <code>Sources/Daemon/DaemonBootstrap.swift</code> (<code>BindStrategy</code>/<code>TailscaleProbing</code> 주입 지점, bootstrap 디바이스 1시간 수명)</li>
+  <li><strong>시뮬레이션 드라이버</strong>: <code>Sources/DaemonDevCLI/main.swift</code> (<code>--pair</code>/<code>--connect-auth</code>/<code>--roundtrip</code> — <code>--lifecycle</code> 추가)</li>
+  <li><strong>claim 클라이언트</strong>: <code>Sources/Daemon/PairingClaimClient.swift</code> (pre-auth claim 패턴 — pending 승격 e2e 참조)</li>
+  <li><strong>registry</strong>: <code>Sources/Daemon/SessionBindRegistry.swift</code> (<code>cleanup</code>/<code>boundSession</code> — disconnectDevice가 호출), <code>AttachmentInvalidator.swift</code> (bindings 무효화 선례)</li>
+  <li><strong>빌드</strong>: <code>project.yml</code> (XcodeGen, non-app 타겟 excludes line 137~347, <code>PairingSettingsContent.swift</code> 이미 exclude), 신규 파일 시 <code>xcodegen generate</code> 선행 필수</li>
+  <li><strong>형식 규약</strong>: <code>~/.claude/rules/plan-documents.md</code></li>
+  <li><strong>스파이크 게이트 선례</strong>: P6a Day 0 <code>WSHandshakeRejectSpikeTests</code> (<code>docs/plans/p6a/p6a-detailed.html</code> Day 0)</li>
+  <li><strong>NWWebSocket 클라이언트 ws:// 메모리</strong>: WS 클라이언트는 ws:// URL 엔드포인트 필수(host:port면 .preparing 교착, macOS 26 검증)</li>
+  <li><strong>D7 이연</strong>: push trigger source(internal output tap C4) — <code>PushSender</code> dead-until-C4. P6b의 revoked push 제외는 발신 필터 로직만(발신 호출자는 P6+/C4 후)</li>
+</ul>
+
+</main>
+</div>
+</body>
+</html>

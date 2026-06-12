@@ -183,6 +183,40 @@ public struct KeychainDeviceStore: DeviceStore {
         }
     }
 
+    public func promote(id: UUID, to expiresAt: Date) async throws {
+        // revoke(id:)와 같은 패턴 — tokenId 역참조 → find → revoked 확인 → SecItemUpdate를 한
+        // 메서드 안에 묶어 revoke와 같은 원자성 수준에 둔다. revoked면 update 없이 return(no-op,
+        // 부활 차단). 미존재 id/디바이스도 no-op. expiresAt만 갱신하고 secret(data)은 건드리지
+        // 않는다(메타만 SecItemUpdate — kSecValueData 무변경으로 secret 보존).
+        guard let tokenId = try tokenId(forDeviceId: id),
+              let device = try await find(byTokenId: tokenId),
+              !device.revoked else {
+            return
+        }
+        let promoted = Device(
+            id: device.id,
+            name: device.name,
+            tokenId: device.tokenId,
+            fcmToken: device.fcmToken,
+            apnsToken: device.apnsToken,
+            expiresAt: expiresAt,
+            revoked: false
+        )
+        let metadata = try Self.encodeMetadata(from: promoted)
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: tokenId
+        ]
+        let status = SecItemUpdate(
+            query as CFDictionary,
+            [kSecAttrGeneric as String: metadata] as CFDictionary
+        )
+        guard status == errSecSuccess else {
+            throw KeychainError.unexpectedStatus(status)
+        }
+    }
+
     public func remove(id: UUID) async throws {
         // deviceId → tokenId 역참조 후 해당 item을 통째로 삭제한다(메타+secret 동시 폐기).
         // id가 없으면(이미 삭제됨) no-op로 멱등 처리한다. deleteItem은 errSecItemNotFound를

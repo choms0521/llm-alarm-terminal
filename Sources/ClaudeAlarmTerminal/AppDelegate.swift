@@ -255,15 +255,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             do {
                 // P6a Day 3: 실 Keychain store를 주입해 데몬 토큰 인증이 디스크의 신뢰 목록을
                 // 보게 한다. 페어링 UI도 같은 store를 공유한다.
-                let handle = try await DaemonBootstrap(store: self.deviceStore).start()
+                // P6b Day 1: 데몬/UI가 공유하는 단일 PairingSession을 주입해 claim 성공 시
+                // pending → active 승격(DevicePromotionCoordinator)이 데몬 레이어에 배선되게 한다(D-3).
+                let handle = try await DaemonBootstrap(
+                    store: self.deviceStore,
+                    pairingSession: self.pairingSession
+                ).start()
                 self.daemonHandle = handle
 
                 // P6a Day 3: 데몬 port가 정해졌으니 페어링 화면 모델을 구성한다. wsEndpoint는
                 // loopback ws://127.0.0.1:<port>/ (D-5).
+                // P6b Day 3: revoke 단일 진입점(§5.4)과 Tailscale 진단(§5.5)을 주입한다.
+                // DeviceRevocationCoordinator는 데몬 핸들의 WSServer가 있어야 살아있는 연결을
+                // 끊을 수 있으므로 부트스트랩 완료 후 생성한다. push 발신 제외 통지는 in-memory
+                // sink(③ seam) — 발신 호출자는 D-7로 dead이나 "revoked는 발신 제외" 통지는 살아 있다.
+                let revocationCoordinator = DeviceRevocationCoordinator(
+                    store: self.deviceStore,
+                    server: handle.server,
+                    pushRevocation: InMemoryPushRevocationSink()
+                )
+                // Tailscale 진단은 실 CLI 호출을 ProcessTailscaleProbe(seam 뒤)에 격리한다.
+                // 이 머신 Tailscale이 미설치/오프라인이면 4분기 중 해당 사유를 한국어로 노출하고
+                // 데몬은 loopback으로 기동된다(점진적 저하 — 데스크톱 단독 기능 무영향).
+                let tailscaleDiagnostics = TailscaleDiagnostics(probe: ProcessTailscaleProbe())
                 let model = PairingModel(
                     session: self.pairingSession,
                     store: self.deviceStore,
-                    wsEndpoint: "ws://127.0.0.1:\(handle.port)/"
+                    wsEndpoint: "ws://127.0.0.1:\(handle.port)/",
+                    revocationCoordinator: revocationCoordinator,
+                    tailscaleDiagnostics: tailscaleDiagnostics
                 )
                 self.pairingModel = model
                 // AppSettingsState도 동기화해 SettingsPageView가 자동 갱신되도록 한다.

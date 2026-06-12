@@ -21,26 +21,44 @@ public final class PairingModel: ObservableObject {
     /// 발급/조회 중 발생한 사용자 표시용 오류 메시지(한국어). 정상 시 nil.
     @Published public private(set) var errorMessage: String?
 
+    /// Tailscale 진단 결과(설정 진입 시 1회 + 수동 새로고침). nil이면 아직 진단 전이다.
+    @Published public private(set) var tailscaleResult: TailscaleDiagnostics.Result?
+
     private let session: PairingSession
     private let store: any DeviceStore
+    private let lifecycle: DeviceLifecyclePolicy
     private let wsEndpoint: String
     private let pushChannelHint: String
+    /// revoke 단일 진입점(§5.4). nil이면 데몬 미부트스트랩 상태 — revokeDevice가 한국어
+    /// 안내 메시지("데몬이 준비되지 않아...")로 실패한다. AppDelegate가 데몬 핸들을 얻은 뒤 주입한다.
+    private let revocationCoordinator: DeviceRevocationCoordinator?
+    /// Tailscale 사전 진단(§5.5, ADR-F). nil이면 refreshTailscale이 no-op이라
+    /// tailscaleResult가 nil로 남고, 진단 카드는 진단 전 상태에 머문다.
+    private let tailscaleDiagnostics: TailscaleDiagnostics?
     /// 만료 카운트다운 기준 시각. 발급 시 갱신.
     private var expiresAt: Date?
     private var timerCancellable: AnyCancellable?
 
     /// PairingSession/DeviceStore/엔드포인트를 주입한다. wsEndpoint는 데몬 port로 구성한
-    /// ws://127.0.0.1:<port>/ 문자열이다.
+    /// ws://127.0.0.1:<port>/ 문자열이다. revocationCoordinator/tailscaleDiagnostics는
+    /// 데몬 부트스트랩 후 AppDelegate가 주입한다(미주입 시 폐기는 안내 메시지로 실패하고
+    /// 진단 새로고침은 no-op).
     public init(
         session: PairingSession,
         store: any DeviceStore,
         wsEndpoint: String,
-        pushChannelHint: String = "mock-channel"
+        pushChannelHint: String = "mock-channel",
+        lifecycle: DeviceLifecyclePolicy = DeviceLifecyclePolicy(),
+        revocationCoordinator: DeviceRevocationCoordinator? = nil,
+        tailscaleDiagnostics: TailscaleDiagnostics? = nil
     ) {
         self.session = session
         self.store = store
+        self.lifecycle = lifecycle
         self.wsEndpoint = wsEndpoint
         self.pushChannelHint = pushChannelHint
+        self.revocationCoordinator = revocationCoordinator
+        self.tailscaleDiagnostics = tailscaleDiagnostics
     }
 
     /// 새 페어링 코드를 발급한다. 새 토큰 secret을 만들어 DeviceStore에 등록하고, 같은
@@ -48,19 +66,21 @@ public final class PairingModel: ObservableObject {
     public func issueNewCode() async {
         do {
             let issued = try DeviceTokenIssuer.issue()
-            let expiry = Date().addingTimeInterval(deviceTokenLifetime())
+            let now = Date()
+            // 부채 해소(D-3): 발급 즉시 30일 부여하던 부채를 pending(코드 ttl=5분 수명)로 교체한다.
+            // 30일 active 수명은 claim 성공 시 데몬 레이어(DevicePromotionCoordinator)의 승격만이
+            // 부여한다 — claim 안 된 코드는 5분 후 verifier가 자연 거부해 누적되지 않는다.
+            let codeExpiry = lifecycle.pendingExpiry(codeTTL: session.ttl, now: now)
             let pairingId = UUID().uuidString
+            let deviceId = UUID()
             let device = Device(
-                id: UUID(),
-                name: "페어링 디바이스",
+                id: deviceId,
+                name: "페어링 대기 디바이스",
                 tokenId: issued.tokenId,
-                expiresAt: expiry
+                expiresAt: codeExpiry
             )
             try await store.upsert(device, secret: issued.secret)
 
-            // 세션에 주입된 실제 ttl로 계산해 UI 카운트다운/payload expiresAt이
-            // PairingSession.issue의 만료 판정과 항상 일치하게 한다.
-            let codeExpiry = Date().addingTimeInterval(session.ttl)
             let payload = PairingPayload(
                 pairingId: pairingId,
                 deviceTokenSecret: issued.secretBase64url,
@@ -68,7 +88,9 @@ public final class PairingModel: ObservableObject {
                 pushChannelHint: pushChannelHint,
                 expiresAt: codeExpiry
             )
-            let code = try await session.issue(payload: payload)
+            // deviceId를 함께 전달해 PairingSession이 (code → deviceId)를 보유하게 한다. claim
+            // 성공 시 데몬 레이어가 onClaimed로 이 deviceId를 받아 active로 승격한다(§5.2).
+            let code = try await session.issue(payload: payload, deviceId: deviceId)
             let url = try PairingCodec.encodeURL(payload)
 
             self.sixDigitCode = code
@@ -92,6 +114,52 @@ public final class PairingModel: ObservableObject {
         } catch {
             self.errorMessage = "디바이스 삭제에 실패했습니다."
         }
+    }
+
+    /// 디바이스를 폐기(revoke)한다. remove와 달리 항목을 삭제하지 않고 revoked 표시만 남겨
+    /// "폐기됨" 상태로 목록에 존속시킨다. DeviceRevocationCoordinator를 경유해 토큰 무효화 +
+    /// 살아있는 WS 연결 즉시 끊기 + push 발신 제외를 순서대로 수행한다(§5.4). 데몬 미부트스트랩
+    /// 상태(coordinator nil)면 안내 메시지만 남긴다.
+    public func revokeDevice(id: UUID) async {
+        guard let coordinator = revocationCoordinator else {
+            self.errorMessage = "데몬이 준비되지 않아 폐기할 수 없습니다."
+            return
+        }
+        do {
+            try await coordinator.revoke(deviceId: id)
+            self.errorMessage = nil
+            await refreshDevices()
+        } catch {
+            self.errorMessage = "디바이스 폐기에 실패했습니다."
+        }
+    }
+
+    // MARK: - lifecycle 판정 노출 (DeviceLifecyclePolicy 위임)
+
+    /// 디바이스가 만료 임박(7일 이내)인지 판정한다. 판정 코어는 DeviceLifecyclePolicy가 보유하며
+    /// (Day 1 테스트 커버) 이 메서드는 위임만 한다. 뷰가 "N일 후 만료" 주황 뱃지 표시 여부에 쓴다.
+    public func isExpiringSoon(_ device: Device, now: Date = Date()) -> Bool {
+        lifecycle.isExpiringSoon(device, now: now)
+    }
+
+    /// 만료까지 남은 일수(올림). 뷰의 "N일 후 만료" 뱃지 표기용. 호출 전 isExpiringSoon로 거른다.
+    public func daysRemaining(_ device: Device, now: Date = Date()) -> Int {
+        lifecycle.daysRemaining(device, now: now)
+    }
+
+    /// 디바이스가 이미 만료됐는지 판정한다(expiresAt <= now). 뷰가 "만료됨" 빨강 뱃지에 쓴다.
+    /// revoked와 독립적인 표시다(폐기는 device.revoked, 만료는 시간 경과).
+    public func isExpired(_ device: Device, now: Date = Date()) -> Bool {
+        device.expiresAt <= now
+    }
+
+    // MARK: - Tailscale 진단
+
+    /// Tailscale 상태를 1회 진단해 tailscaleResult에 반영한다(설정 진입 시 + 수동 새로고침).
+    /// diagnostics 미주입 시 no-op. 진단은 외부 CLI 호출이라 비동기다(seam 뒤 격리).
+    public func refreshTailscale() async {
+        guard let diagnostics = tailscaleDiagnostics else { return }
+        self.tailscaleResult = await diagnostics.diagnose()
     }
 
     /// 등록된 디바이스 목록을 다시 읽는다.
@@ -135,12 +203,5 @@ public final class PairingModel: ObservableObject {
         } else {
             self.secondsRemaining = remaining
         }
-    }
-
-    /// CLAUDE_ALARM_DEVICE_TOKEN_EXPIRY_DAYS(기본 30일). P6a는 스키마만 — 강제는 P6b.
-    private func deviceTokenLifetime() -> TimeInterval {
-        let days = ProcessInfo.processInfo.environment["CLAUDE_ALARM_DEVICE_TOKEN_EXPIRY_DAYS"]
-            .flatMap(Double.init) ?? 30
-        return days * 24 * 60 * 60
     }
 }

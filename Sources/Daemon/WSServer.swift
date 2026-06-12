@@ -41,17 +41,36 @@ public actor WSServer {
     /// (페어링이 활성화되지 않은 서버 구성).
     private let pairingSession: PairingSession?
 
+    /// 바인딩 전략(P6b Day 2 D-1). 기본 loopback(127.0.0.1)은 P6a 동작 그대로이고,
+    /// tailscaleIP(100.x)는 부트스트랩 opt-in으로 tailnet 인터페이스에만 바인딩한다(1차 경계).
+    /// makeListenerParameters의 requiredLocalEndpoint host만 분기하고 게이트 ① 핸드셰이크
+    /// 클로저는 무변경이다.
+    private let strategy: BindStrategy
+
+    /// deviceId → clientId 역인덱스(P6b Day 2 D-2). 게이트 ② 승격 시 verified.deviceId 집합에
+    /// clientId를 insert한다. 같은 deviceId가 동시 N연결(같은 Bearer 다중 연결)을 가질 수 있으므로
+    /// Set으로 보유한다 — 단일 매핑이면 두 번째 승격이 첫 clientId를 덮어써 revoke 시 첫 연결이
+    /// 살아남는다(누출 창 0 위반). disconnectDevice가 집합 전체를 순회 cancel한다.
+    private var deviceToClients: [UUID: Set<UUID>] = [:]
+
+    /// disconnectDevice가 실제로 끊은 연결 수의 누적 카운터(testable 단일 출처). disconnectDevice의
+    /// no-op 침묵(미연결 디바이스 revoke)을 가시화하고, "같은 Bearer 2연결 모두 끊김 == 2"를 측정한다.
+    /// WSServer actor 격리이므로 Coordinator에 중복 카운터를 두지 않는다(§5.4).
+    public private(set) var disconnectedCount = 0
+
     public init(
         registry: SessionBindRegistry,
         authGate: WSAuthGate,
         verifier: DeviceTokenVerifier,
         pairingSession: PairingSession? = nil,
+        strategy: BindStrategy = .loopback,
         pendingWindow: TimeInterval = WSServer.defaultPendingWindow()
     ) {
         self.registry = registry
         self.authGate = authGate
         self.verifier = verifier
         self.pairingSession = pairingSession
+        self.strategy = strategy
         self.pendingWindow = pendingWindow
     }
 
@@ -86,12 +105,14 @@ public actor WSServer {
         send(envelope, to: connection, clientId: clientId)
     }
 
-    /// Builds loopback-only WS parameters (127.0.0.1, OS-assigned port).
+    /// Builds WS parameters bound per `strategy` (loopback 127.0.0.1 by default, or a
+    /// Tailscale 100.x interface when opted in). 변경점은 host 한 곳뿐이다 — P6a 게이트 ①
+    /// 핸드셰이크 클로저는 무변경이라 인증 경로는 바인딩 인터페이스와 무관하게 동일하다.
     ///
     /// 게이트 ①(P6a): 핸드셰이크 클로저를 `authGate.queue`에 부착해 헤더 Bearer + nonce를
     /// 구조 검증하고 carry한다. 클로저는 actor 외부 @Sendable이라 `authGate`만 캡처한다.
     /// Keychain 조회·secret 대조는 여기서 하지 않는다(핸드셰이크 큐 블록 방지 — 게이트 ②로 지연).
-    private static func makeListenerParameters(authGate: WSAuthGate) -> NWParameters {
+    private static func makeListenerParameters(authGate: WSAuthGate, strategy: BindStrategy) -> NWParameters {
         let params = NWParameters.tcp
         let ws = NWProtocolWebSocket.Options()
         ws.autoReplyPing = true
@@ -119,14 +140,33 @@ public actor WSServer {
             return NWProtocolWebSocket.Response(status: .accept, subprotocol: nil)
         }
         params.defaultProtocolStack.applicationProtocols.insert(ws, at: 0)
-        params.requiredLocalEndpoint = NWEndpoint.hostPort(host: "127.0.0.1", port: .any)
+        // 핵심 변경(D-1): 고정 "127.0.0.1" → strategy.host. tailscaleIP면 그 인터페이스에만
+        // 바인딩되어 tailnet 밖(loopback 포함 다른 인터페이스)에서 도달 불가하다(Day 0 스파이크 실증).
+        params.requiredLocalEndpoint = NWEndpoint.hostPort(
+            host: NWEndpoint.Host(strategy.host), port: .any)
         return params
     }
 
-    /// Starts listening on a loopback OS-assigned port and returns it once ready.
+    /// requiredLocalEndpoint의 바인딩 host introspection(테스트 전용). BindStrategy 분기가
+    /// 실제 params host로 반영됐는지 actor 외부 관측 없이 검증하기 위한 seam이다.
+    public func boundHost() -> String {
+        strategy.host
+    }
+
+    /// listener가 `.waiting`(주소 획득 실패 등)에 갇혀 `.ready`에 도달하지 못한 경우의 명시적 실패.
+    /// tailscaleIP 바인딩 시 utun 인터페이스가 내려가 있으면(BackendState != Running) listener가
+    /// `.failed`가 아니라 `.waiting`에 무한 대기한다(Day 0 스파이크 함정). 표면화해 hang을 막는다.
+    public struct ListenerWaitingError: Error {
+        public let reason: String
+    }
+
+    /// Starts listening on a `strategy`-bound OS-assigned port and returns it once ready.
+    ///
+    /// `.waiting`도 실패로 표면화하고 5초 안전망 timeout을 둔다(Day 0 스파이크 함정 — tailscaleIP
+    /// 바인딩이 utun 미가용 시 `.waiting`에 영구 hang). loopback 기본 경로는 즉시 `.ready`라 무영향.
     @discardableResult
     public func start() async throws -> UInt16 {
-        let listener = try NWListener(using: Self.makeListenerParameters(authGate: authGate))
+        let listener = try NWListener(using: Self.makeListenerParameters(authGate: authGate, strategy: strategy))
         self.listener = listener
 
         let assignedPort: UInt16 = try await withCheckedThrowingContinuation { continuation in
@@ -145,6 +185,12 @@ public actor WSServer {
                     }
                 case .failed(let error):
                     if resumed.fire() { continuation.resume(throwing: error) }
+                case .waiting(let error):
+                    // 바인딩 주소가 가용하지 않으면 `.failed` 없이 `.waiting`에 갇힌다(Day 0 함정).
+                    // 영구 hang 대신 즉시 실패로 표면화한다. 실 IP/secret은 reason에 담지 않는다.
+                    if resumed.fire() {
+                        continuation.resume(throwing: ListenerWaitingError(reason: "\(error)"))
+                    }
                 default:
                     break
                 }
@@ -153,6 +199,12 @@ public actor WSServer {
                 Task { await self.accept(connection) }
             }
             listener.start(queue: queue)
+            // 5초 안전망: `.ready`/`.failed`/`.waiting` 어느 상태 전이도 5초 안에 안 오면 실패 처리.
+            self.queue.asyncAfter(deadline: .now() + 5) {
+                if resumed.fire() {
+                    continuation.resume(throwing: ListenerWaitingError(reason: "listener start timed out"))
+                }
+            }
         }
 
         self.port = assignedPort
@@ -170,6 +222,7 @@ public actor WSServer {
         connections.removeAll()
         outboundSeq.removeAll()
         authState.removeAll()
+        deviceToClients.removeAll()
         for clientId in clientIds { await registry.cleanup(clientId: clientId) }
 
         guard let listener = self.listener else { return }
@@ -239,11 +292,43 @@ public actor WSServer {
         return meta.opcode == .close
     }
 
+    /// 연결이 스스로 끊길 때(transport error/close/peer-FIN)의 정리. 역인덱스에서 해당 clientId만
+    /// 제거하고, 그 deviceId의 집합이 비면 키를 삭제한다(빈 Set 잔존 방지). 같은 deviceId의 다른
+    /// 연결은 보존된다(D-2). disconnectDevice와 멱등 정합 — cancel이 트리거한 이 콜백이 이미 정리된
+    /// clientId를 다시 봐도 nil 할당/no-op이라 무해하다.
     private func handleDisconnect(_ clientId: UUID) async {
+        if let verified = authState[clientId] {
+            deviceToClients[verified.deviceId]?.remove(clientId)
+            if deviceToClients[verified.deviceId]?.isEmpty == true {
+                deviceToClients[verified.deviceId] = nil
+            }
+        }
         connections[clientId] = nil
         outboundSeq[clientId] = nil
         authState[clientId] = nil
         await registry.cleanup(clientId: clientId)
+    }
+
+    // MARK: - P6b revoke 즉시 끊기 (D-2 옵션 A)
+
+    /// revoke 시 호출. 그 deviceId에 바인딩된 살아 있는 연결을 전부 능동 종료한다(누출 창 0).
+    /// 연결이 없으면(미연결 디바이스 revoke) no-op — store.revoke만으로 충분하다(재연결도 verifier
+    /// !revoked가 거부). 집합 전체를 순회 cancel하므로 같은 deviceId의 동시 N연결이 하나도 안 남는다
+    /// (단일 매핑 덮어쓰기로 한 연결이 살아남는 회귀 차단). cancel은 비동기 .cancelled 콜백으로
+    /// handleDisconnect를 트리거하지만, 즉시성을 위해 여기서도 상태를 정리한다(handleDisconnect는
+    /// 멱등이라 이중 정리 무해). 2회 연속 호출해도 첫 호출이 키를 지우므로 둘째는 guard에서 no-op이다.
+    public func disconnectDevice(deviceId: UUID) async {
+        guard let clientIds = deviceToClients[deviceId] else { return }   // 미연결 = no-op
+        for clientId in clientIds {
+            guard let connection = connections[clientId] else { continue }
+            connection.cancel()   // long-lived 연결이 envelope을 안 보내도 즉시 끊긴다.
+            connections[clientId] = nil
+            outboundSeq[clientId] = nil
+            authState[clientId] = nil
+            await registry.cleanup(clientId: clientId)
+            disconnectedCount += 1   // 실제 끊은 연결 수 — A5 측정용
+        }
+        deviceToClients[deviceId] = nil   // 그 deviceId의 전 연결 제거 후 키 삭제
     }
 
     // MARK: - Message handling
@@ -299,6 +384,9 @@ public actor WSServer {
             }
             // 승격: 이후 같은 clientId의 envelope은 재검증 없이 통과한다(carry-over 1회로 충분).
             authState[clientId] = verified
+            // 역인덱스 채움(D-2): 같은 deviceId 동시 N연결을 모두 보유하도록 Set에 insert(덮어쓰기
+            // 아님). revoke 시 disconnectDevice가 이 집합 전체를 순회 cancel해 누출 창을 0으로 만든다.
+            deviceToClients[verified.deviceId, default: []].insert(clientId)
         }
 
         do {

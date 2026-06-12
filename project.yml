@@ -303,6 +303,7 @@ targets:
           - "**/PushSettingsContent.swift"
       - path: Sources/Daemon
       - path: Sources/Pairing
+      - path: Sources/Push
       - path: Sources/DaemonDevCLI
     dependencies:
       - package: AnyCodable
