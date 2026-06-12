@@ -636,11 +636,11 @@
     <dt>종료 조건</dt>
     <dd>
       <ul class="exit-criteria">
-        <li><input type="checkbox" disabled> <code>xcodegen generate</code> 후 <code>xcodebuild test -scheme DaemonTests -only-testing:DaemonTests/TailscaleBindingSpikeTests</code> exit code 0</li>
-        <li><input type="checkbox" disabled> <code>tailscale status --json</code> 파싱 테스트: 고정 fixture JSON(설치/미로그인/오프라인 3종) → <code>TailscaleProbing</code> fake가 각각 구별되는 진단 상태 반환 <code>XCTAssertEqual</code> 3건</li>
-        <li><input type="checkbox" disabled> 비-loopback 바인딩 실측(Tailscale 가용 시): 100.x 바인딩 서버에 <code>ws://127.0.0.1:&lt;port&gt;/</code> 클라이언트 connect가 5초 내 <code>.failed</code>/타임아웃 <code>XCTAssertEqual</code>. CI(Tailscale 부재)에서는 <code>XCTSkip</code> + 사유 로그</li>
-        <li><input type="checkbox" disabled> 스파이크 결과를 <code>.omc/research/p6b-tailscale-spike.md</code>에 기록 — "옵션 A 확정" 또는 "옵션 C 폴백" 1개 명시 + CLI 출력 샘플(IP는 <code>100.x.x.x</code>로 마스킹)</li>
-        <li><input type="checkbox" disabled> <code>grep -rnE "deviceTokenSecret|Bearer [A-Za-z0-9]" .omc/research/p6b-tailscale-spike.md</code> 결과 0건 (토큰·실 IP 마스킹 확인)</li>
+        <li><input type="checkbox" disabled checked> <code>xcodegen generate</code> 후 <code>xcodebuild test -scheme DaemonTests -only-testing:DaemonTests/TailscaleBindingSpikeTests</code> exit code 0</li>
+        <li><input type="checkbox" disabled checked> <code>tailscale status --json</code> 파싱 테스트: 고정 fixture JSON(설치/미로그인/오프라인 3종) → <code>TailscaleProbing</code> fake가 각각 구별되는 진단 상태 반환 <code>XCTAssertEqual</code> 3건</li>
+        <li><input type="checkbox" disabled checked> 비-loopback 바인딩 실측(Tailscale 가용 시): 100.x 바인딩 서버에 <code>ws://127.0.0.1:&lt;port&gt;/</code> 클라이언트 connect가 5초 내 <code>.failed</code>/타임아웃 <code>XCTAssertEqual</code>. CI(Tailscale 부재)에서는 <code>XCTSkip</code> + 사유 로그</li>
+        <li><input type="checkbox" disabled checked> 스파이크 결과를 <code>.omc/research/p6b-tailscale-spike.md</code>에 기록 — "옵션 A 확정" 또는 "옵션 C 폴백" 1개 명시 + CLI 출력 샘플(IP는 <code>100.x.x.x</code>로 마스킹)</li>
+        <li><input type="checkbox" disabled checked> <code>grep -rnE "deviceTokenSecret|Bearer [A-Za-z0-9]" .omc/research/p6b-tailscale-spike.md</code> 결과 0건 (토큰·실 IP 마스킹 확인)</li>
       </ul>
     </dd>
   </dl>
@@ -662,15 +662,15 @@
     <dt>종료 조건</dt>
     <dd>
       <ul class="exit-criteria">
-        <li><input type="checkbox" disabled> <code>xcodegen generate &amp;&amp; xcodebuild test -scheme DaemonTests</code> exit code 0, 신규 <code>DeviceLifecycleTests</code> 함수 ≥ 8건 executed (0 executed 아님)</li>
-        <li><input type="checkbox" disabled> pending 발급 테스트: <code>issueNewCode</code> 후 store의 디바이스 <code>expiresAt</code>이 <code>now + ttl(5분)</code> 경계 ±2초 <code>XCTAssertEqual</code>(30일 아님)</li>
-        <li><input type="checkbox" disabled> claim 승격 <strong>데몬 경로 e2e</strong> 테스트: pending 디바이스를 <code>PairingClaimClient</code>(또는 <code>WSServer.handlePairingClaim</code> in-process)로 claim 성공시킨 뒤, <code>onClaimed</code>→<code>DevicePromotionCoordinator.promote</code> 경로를 거쳐 store의 해당 deviceId <code>expiresAt</code>이 <code>now + 30일</code>로 갱신됨을 <code>XCTAssertEqual</code> (승격기 <code>promote</code> 수동 직접 호출로 green 위장 금지 — claim 채널을 실제로 통과해야 함) + 미claim 디바이스는 5분 후 <code>verifier.verify == nil</code> <code>XCTAssertNil</code></li>
-        <li><input type="checkbox" disabled> 만료 임박 판정 테스트: <code>expiresAt</code> = now+6일/now+8일/now+0.5일 입력에서 <code>expiringWithin(days:7)</code>이 6일·0.5일만 포함 <code>XCTAssertEqual</code>(8일 제외, 이미 만료 제외)</li>
-        <li><input type="checkbox" disabled> 만료 거부 회귀: <code>expiresAt</code> 과거 디바이스가 <code>DeviceTokenVerifier.verify == nil</code> (P6a 거부 로직 비파괴) <code>XCTAssertNil</code></li>
-        <li><input type="checkbox" disabled> <strong>revoked 부활 차단 경쟁 테스트</strong>: pending 디바이스를 <code>store.revoke(id:)</code>로 폐기한 뒤 그 deviceId로 <code>store.promote(id:to: 30일)</code>(또는 Coordinator.promote) 호출 → <code>store.find(byTokenId:)?.revoked == true</code> 유지 + <code>expiresAt</code> 미갱신(여전히 pending 만료) <code>XCTAssertEqual</code> (revoke 직후 도착한 claim의 promote가 폐기 디바이스를 30일 active로 되살리지 않음 — store.promote의 revoked no-op 실증, Principle 2/3)</li>
-        <li><input type="checkbox" disabled> 승격 경쟁 경계: 만료 1초 전 claim → 승격 성공(30일), 만료 1초 후 claim → <code>PairingSession.claim == nil</code>이라 승격 트리거 미발생(pending 디바이스 5분 후 자연 거부) <code>XCTAssertEqual</code> (만료가 승격을 덮는 경쟁 부재 실증)</li>
-        <li><input type="checkbox" disabled> 승격기 actor 카운터 테스트: <code>onClaimed</code> 콜백이 <code>await coordinator.promote</code>를 호출한 뒤 <code>await coordinator.promotedCount &gt;= 1</code> <code>XCTAssertEqual</code> (struct mutating이면 복사본에 갇혀 측정 불가 — actor 격리 실증)</li>
-        <li><input type="checkbox" disabled> 기준선 비파괴: <code>SessionTests</code>+<code>WorkspaceTests</code>+<code>DaemonTests</code> = 383 + 신규 green, 기존 함수 실패 0건 (산식 <code>383 + 신규 M = K</code> 명시)</li>
+        <li><input type="checkbox" disabled checked> <code>xcodegen generate &amp;&amp; xcodebuild test -scheme DaemonTests</code> exit code 0, 신규 <code>DeviceLifecycleTests</code> 함수 ≥ 8건 executed (0 executed 아님)</li>
+        <li><input type="checkbox" disabled checked> pending 발급 테스트: <code>issueNewCode</code> 후 store의 디바이스 <code>expiresAt</code>이 <code>now + ttl(5분)</code> 경계 ±2초 <code>XCTAssertEqual</code>(30일 아님)</li>
+        <li><input type="checkbox" disabled checked> claim 승격 <strong>데몬 경로 e2e</strong> 테스트: pending 디바이스를 <code>PairingClaimClient</code>(또는 <code>WSServer.handlePairingClaim</code> in-process)로 claim 성공시킨 뒤, <code>onClaimed</code>→<code>DevicePromotionCoordinator.promote</code> 경로를 거쳐 store의 해당 deviceId <code>expiresAt</code>이 <code>now + 30일</code>로 갱신됨을 <code>XCTAssertEqual</code> (승격기 <code>promote</code> 수동 직접 호출로 green 위장 금지 — claim 채널을 실제로 통과해야 함) + 미claim 디바이스는 5분 후 <code>verifier.verify == nil</code> <code>XCTAssertNil</code></li>
+        <li><input type="checkbox" disabled checked> 만료 임박 판정 테스트: <code>expiresAt</code> = now+6일/now+8일/now+0.5일 입력에서 <code>expiringWithin(days:7)</code>이 6일·0.5일만 포함 <code>XCTAssertEqual</code>(8일 제외, 이미 만료 제외)</li>
+        <li><input type="checkbox" disabled checked> 만료 거부 회귀: <code>expiresAt</code> 과거 디바이스가 <code>DeviceTokenVerifier.verify == nil</code> (P6a 거부 로직 비파괴) <code>XCTAssertNil</code></li>
+        <li><input type="checkbox" disabled checked> <strong>revoked 부활 차단 경쟁 테스트</strong>: pending 디바이스를 <code>store.revoke(id:)</code>로 폐기한 뒤 그 deviceId로 <code>store.promote(id:to: 30일)</code>(또는 Coordinator.promote) 호출 → <code>store.find(byTokenId:)?.revoked == true</code> 유지 + <code>expiresAt</code> 미갱신(여전히 pending 만료) <code>XCTAssertEqual</code> (revoke 직후 도착한 claim의 promote가 폐기 디바이스를 30일 active로 되살리지 않음 — store.promote의 revoked no-op 실증, Principle 2/3)</li>
+        <li><input type="checkbox" disabled checked> 승격 경쟁 경계: 만료 1초 전 claim → 승격 성공(30일), 만료 1초 후 claim → <code>PairingSession.claim == nil</code>이라 승격 트리거 미발생(pending 디바이스 5분 후 자연 거부) <code>XCTAssertEqual</code> (만료가 승격을 덮는 경쟁 부재 실증)</li>
+        <li><input type="checkbox" disabled checked> 승격기 actor 카운터 테스트: <code>onClaimed</code> 콜백이 <code>await coordinator.promote</code>를 호출한 뒤 <code>await coordinator.promotedCount &gt;= 1</code> <code>XCTAssertEqual</code> (struct mutating이면 복사본에 갇혀 측정 불가 — actor 격리 실증)</li>
+        <li><input type="checkbox" disabled checked> 기준선 비파괴: <code>SessionTests</code>+<code>WorkspaceTests</code>+<code>DaemonTests</code> = 383 + 신규 green, 기존 함수 실패 0건 (산식 <code>383 + 신규 M = K</code> 명시)</li>
       </ul>
     </dd>
   </dl>
@@ -692,19 +692,19 @@
     <dt>종료 조건</dt>
     <dd>
       <ul class="exit-criteria">
-        <li><input type="checkbox" disabled> <code>xcodegen generate &amp;&amp; xcodebuild test -scheme DaemonTests</code> exit code 0, 기존 <code>RoundTripTests</code>+<code>SessionBindTests</code>+<code>DaemonBootstrapTests</code> 함수 전부 green (loopback 기본 비파괴)</li>
-        <li><input type="checkbox" disabled> <strong>revoke 즉시 끊기 테스트</strong>: 인증 연결 수립 후 <code>coordinator.revoke(deviceId:)</code> 호출 시 그 connection이 5초 내 <code>.cancelled</code> + <code>await registry.boundSession(clientId:) == nil</code> <code>XCTAssertEqual</code> (누출 창 0 실증)</li>
-        <li><input type="checkbox" disabled> revoke 후 재연결 거부: 같은 Bearer로 재connect → 게이트 ②에서 <code>UNAUTHORIZED</code>(verifier가 revoked 거부) + <code>.cancelled</code> 5초 내 <code>XCTAssertEqual</code></li>
-        <li><input type="checkbox" disabled> 역참조 정합 테스트: 2개 <strong>서로 다른</strong> 디바이스 동시 연결 후 1개만 revoke → 그 connection만 끊기고 다른 connection은 살아 session.start ack 수신 <code>XCTAssertEqual</code> (오끊김 0건)</li>
-        <li><input type="checkbox" disabled> <strong>다중 연결 revoke 테스트</strong>: 같은 Bearer(같은 deviceId)로 2연결 동시 수립 후 그 deviceId revoke → <strong>두 connection 모두</strong> 5초 내 <code>.cancelled</code> + <code>disconnectedCount == 2</code> <code>XCTAssertEqual</code> (단일 매핑 덮어쓰기로 한 연결이 살아남는 회귀 차단 — Principle 2 누출 창 0)</li>
-        <li><input type="checkbox" disabled> Coordinator 순서 보장 테스트: <code>revoke(deviceId:)</code> 후 (a) <code>store.find(byTokenId:)?.revoked == true</code>, (b) connection <code>.cancelled</code> 또는 미연결 시 no-op, (c) push seam 통지 카운터 +1 — 3건 + 연결이 있었으면 <code>disconnectedCount &gt;= 1</code> <code>XCTAssertEqual</code> (disconnectDevice no-op 침묵을 카운터로 가시화)</li>
-        <li><input type="checkbox" disabled> Coordinator 부분 실패 테스트: <code>store.revoke</code>가 throw하는 fake store로 <code>revoke</code> 호출 시 ②③ 미진입(<code>disconnectedCount</code> 불변, push 카운터 불변) — throw 전파 <code>XCTAssertThrowsError</code></li>
-        <li><input type="checkbox" disabled> <strong>init 기본값 인자 비파괴</strong>: <code>WSServer.init</code>에 <code>strategy: BindStrategy = .loopback</code> 기본값 추가로 기존 8개 호출부 무변경 — <code>grep -rn "WSServer(" Sources/ Tests/</code> 호출부가 <code>strategy</code> 인자 없이 컴파일됨(exit code 0)</li>
-        <li><input type="checkbox" disabled> BindStrategy 테스트: <code>loopback</code> 전략으로 띄운 서버가 <code>ws://127.0.0.1:&lt;port&gt;/</code> 라운드트립 성립(기존), <code>tailscaleIP("100.64.0.1")</code> fake 전략 주입 시 <code>requiredLocalEndpoint</code> host가 그 값으로 설정됨을 introspection으로 <code>XCTAssertEqual</code></li>
-        <li><input type="checkbox" disabled> Tailscale 진단 fake 테스트: <code>TailscaleProbing</code> fake가 미설치/미로그인/오프라인/정상(100.x) 4분기 반환 → <code>TailscaleDiagnostics</code>가 각 한국어 사유 + BindStrategy(정상=tailscaleIP, 그 외=loopback 폴백) <code>XCTAssertEqual</code> 4건</li>
-        <li><input type="checkbox" disabled> 동시성 멱등 테스트: 같은 deviceId에 <code>disconnectDevice</code>를 2회 연속 호출해도 crash·이중 cleanup 부작용 0건 (2회째는 no-op) <code>XCTAssertEqual</code> + <code>handleDisconnect</code>와 <code>disconnectDevice</code> 동시 트리거 시 역인덱스 잔존 0건</li>
-        <li><input type="checkbox" disabled> 미연결 디바이스 revoke 테스트: 연결된 적 없는 deviceId revoke 시 <code>disconnectDevice</code>가 no-op + <code>store.revoke</code>만 성립(이후 그 Bearer 첫 connect가 <code>UNAUTHORIZED</code>) <code>XCTAssertEqual</code></li>
-        <li><input type="checkbox" disabled> <code>grep -rnE "deviceTokenSecret|100\.[0-9]+\.[0-9]+\.[0-9]+" Sources/ | grep -iE "PushLog|os_log|print|FileHandle"</code> 결과 0건 (토큰·실 IP 로그 노출 없음)</li>
+        <li><input type="checkbox" disabled checked> <code>xcodegen generate &amp;&amp; xcodebuild test -scheme DaemonTests</code> exit code 0, 기존 <code>RoundTripTests</code>+<code>SessionBindTests</code>+<code>DaemonBootstrapTests</code> 함수 전부 green (loopback 기본 비파괴)</li>
+        <li><input type="checkbox" disabled checked> <strong>revoke 즉시 끊기 테스트</strong>: 인증 연결 수립 후 <code>coordinator.revoke(deviceId:)</code> 호출 시 그 connection이 5초 내 <code>.cancelled</code> + <code>await registry.boundSession(clientId:) == nil</code> <code>XCTAssertEqual</code> (누출 창 0 실증)</li>
+        <li><input type="checkbox" disabled checked> revoke 후 재연결 거부: 같은 Bearer로 재connect → 게이트 ②에서 <code>UNAUTHORIZED</code>(verifier가 revoked 거부) + <code>.cancelled</code> 5초 내 <code>XCTAssertEqual</code></li>
+        <li><input type="checkbox" disabled checked> 역참조 정합 테스트: 2개 <strong>서로 다른</strong> 디바이스 동시 연결 후 1개만 revoke → 그 connection만 끊기고 다른 connection은 살아 session.start ack 수신 <code>XCTAssertEqual</code> (오끊김 0건)</li>
+        <li><input type="checkbox" disabled checked> <strong>다중 연결 revoke 테스트</strong>: 같은 Bearer(같은 deviceId)로 2연결 동시 수립 후 그 deviceId revoke → <strong>두 connection 모두</strong> 5초 내 <code>.cancelled</code> + <code>disconnectedCount == 2</code> <code>XCTAssertEqual</code> (단일 매핑 덮어쓰기로 한 연결이 살아남는 회귀 차단 — Principle 2 누출 창 0)</li>
+        <li><input type="checkbox" disabled checked> Coordinator 순서 보장 테스트: <code>revoke(deviceId:)</code> 후 (a) <code>store.find(byTokenId:)?.revoked == true</code>, (b) connection <code>.cancelled</code> 또는 미연결 시 no-op, (c) push seam 통지 카운터 +1 — 3건 + 연결이 있었으면 <code>disconnectedCount &gt;= 1</code> <code>XCTAssertEqual</code> (disconnectDevice no-op 침묵을 카운터로 가시화)</li>
+        <li><input type="checkbox" disabled checked> Coordinator 부분 실패 테스트: <code>store.revoke</code>가 throw하는 fake store로 <code>revoke</code> 호출 시 ②③ 미진입(<code>disconnectedCount</code> 불변, push 카운터 불변) — throw 전파 <code>XCTAssertThrowsError</code></li>
+        <li><input type="checkbox" disabled checked> <strong>init 기본값 인자 비파괴</strong>: <code>WSServer.init</code>에 <code>strategy: BindStrategy = .loopback</code> 기본값 추가로 기존 8개 호출부 무변경 — <code>grep -rn "WSServer(" Sources/ Tests/</code> 호출부가 <code>strategy</code> 인자 없이 컴파일됨(exit code 0)</li>
+        <li><input type="checkbox" disabled checked> BindStrategy 테스트: <code>loopback</code> 전략으로 띄운 서버가 <code>ws://127.0.0.1:&lt;port&gt;/</code> 라운드트립 성립(기존), <code>tailscaleIP("100.64.0.1")</code> fake 전략 주입 시 <code>requiredLocalEndpoint</code> host가 그 값으로 설정됨을 introspection으로 <code>XCTAssertEqual</code></li>
+        <li><input type="checkbox" disabled checked> Tailscale 진단 fake 테스트: <code>TailscaleProbing</code> fake가 미설치/미로그인/오프라인/정상(100.x) 4분기 반환 → <code>TailscaleDiagnostics</code>가 각 한국어 사유 + BindStrategy(정상=tailscaleIP, 그 외=loopback 폴백) <code>XCTAssertEqual</code> 4건</li>
+        <li><input type="checkbox" disabled checked> 동시성 멱등 테스트: 같은 deviceId에 <code>disconnectDevice</code>를 2회 연속 호출해도 crash·이중 cleanup 부작용 0건 (2회째는 no-op) <code>XCTAssertEqual</code> + <code>handleDisconnect</code>와 <code>disconnectDevice</code> 동시 트리거 시 역인덱스 잔존 0건</li>
+        <li><input type="checkbox" disabled checked> 미연결 디바이스 revoke 테스트: 연결된 적 없는 deviceId revoke 시 <code>disconnectDevice</code>가 no-op + <code>store.revoke</code>만 성립(이후 그 Bearer 첫 connect가 <code>UNAUTHORIZED</code>) <code>XCTAssertEqual</code></li>
+        <li><input type="checkbox" disabled checked> <code>grep -rnE "deviceTokenSecret|100\.[0-9]+\.[0-9]+\.[0-9]+" Sources/ | grep -iE "PushLog|os_log|print|FileHandle"</code> 결과 0건 (토큰·실 IP 로그 노출 없음)</li>
       </ul>
     </dd>
   </dl>
@@ -726,11 +726,11 @@
     <dt>종료 조건</dt>
     <dd>
       <ul class="exit-criteria">
-        <li><input type="checkbox" disabled> <code>xcodegen generate &amp;&amp; xcodebuild build -scheme ClaudeAlarmTerminal</code> exit code 0 (UI 컴파일)</li>
-        <li><input type="checkbox" disabled> <code>xcodebuild build -scheme SessionVerifier &amp;&amp; xcodebuild build -scheme WorkspaceTests</code> exit code 0 (exclude 갱신으로 non-app 타겟 비파괴)</li>
-        <li><input type="checkbox" disabled> GUI walkthrough: 앱 실행 → 설정 → 페어링 → (a) 만료 임박 디바이스에 "N일 후 만료" 뱃지, (b) "폐기" 버튼 클릭 → 디바이스 revoked 뱃지 전환, (c) Tailscale 상태 카드 표시. 절차/스크린샷을 <code>docs/plans/p6b/walkthrough.md</code>에 기록</li>
-        <li><input type="checkbox" disabled> 폐기 왕복: GUI에서 디바이스 1건 폐기 → <code>store.find</code>의 <code>revoked == true</code> + (연결돼 있었다면) 끊김 확인. secret 본문은 출력하지 않음</li>
-        <li><input type="checkbox" disabled> <code>grep -rn "deviceTokenSecret" Sources/UI/</code> 결과 0건 (UI에 secret 노출 없음 — tokenId 마스킹·만료일·상태만)</li>
+        <li><input type="checkbox" disabled checked> <code>xcodegen generate &amp;&amp; xcodebuild build -scheme ClaudeAlarmTerminal</code> exit code 0 (UI 컴파일)</li>
+        <li><input type="checkbox" disabled checked> <code>xcodebuild build -scheme SessionVerifier &amp;&amp; xcodebuild build -scheme WorkspaceTests</code> exit code 0 (exclude 갱신으로 non-app 타겟 비파괴)</li>
+        <li><input type="checkbox" disabled checked> GUI walkthrough: 앱 실행 → 설정 → 페어링 → (a) 만료 임박 디바이스에 "N일 후 만료" 뱃지, (b) "폐기" 버튼 클릭 → 디바이스 revoked 뱃지 전환, (c) Tailscale 상태 카드 표시. 절차/스크린샷을 <code>docs/plans/p6b/walkthrough.md</code>에 기록</li>
+        <li><input type="checkbox" disabled checked> 폐기 왕복: GUI에서 디바이스 1건 폐기 → <code>store.find</code>의 <code>revoked == true</code> + (연결돼 있었다면) 끊김 확인. secret 본문은 출력하지 않음</li>
+        <li><input type="checkbox" disabled checked> <code>grep -rn "deviceTokenSecret" Sources/UI/</code> 결과 0건 (UI에 secret 노출 없음 — tokenId 마스킹·만료일·상태만)</li>
       </ul>
     </dd>
   </dl>
@@ -752,14 +752,14 @@
     <dt>종료 조건</dt>
     <dd>
       <ul class="exit-criteria">
-        <li><input type="checkbox" disabled> <code>./daemon-dev-cli --lifecycle</code> exit code 0, stdout에 "REVOKE_DISCONNECTED"/"EXPIRED_REJECTED"/"PUSH_REJECTED_REVOKED" 3 신호 + secret 평문 0건</li>
-        <li><input type="checkbox" disabled> revoked WS 거부 e2e: revoke 후 살아 있던 연결 <code>.cancelled</code> + 재connect <code>UNAUTHORIZED</code> 2건 <code>XCTAssertEqual</code></li>
-        <li><input type="checkbox" disabled> 만료 WS 거부 e2e: <code>expiresAt</code> 과거 디바이스 Bearer connect → 게이트 ② <code>UNAUTHORIZED</code> + close <code>XCTAssertEqual</code></li>
-        <li><input type="checkbox" disabled> revoked push 거부 e2e: revoked 디바이스 target이 발신 필터에서 제외됨(transport 미호출, 제외 카운터 +1) <code>XCTAssertEqual</code></li>
-        <li><input type="checkbox" disabled> <code>LifecycleE2ETests</code> exit code 0, 만료·revoke(WS+push) 전 경로 측정</li>
-        <li><input type="checkbox" disabled> <code>docs/adr/F-tailscale-prerequisite-ux.md</code> 존재 + Decision/Drivers/Alternatives/Why/Consequences/Follow-ups 6 섹션 전부 채움</li>
-        <li><input type="checkbox" disabled> §8 fetchHint 명세에 <code>kind=fetch</code> payload 스키마(<code>{messageId}</code>) + "P7 v1.0 freeze 대상" 문구 존재 + <code>grep -rn "case fetch" Sources/Daemon/WSEnvelope.swift</code> 0건(코드 미배선 확인)</li>
-        <li><input type="checkbox" disabled> 최종 회귀: 전체 3 테스트 타겟 green, 토큰·실 IP 노출 grep 0건, Exit Gate(§11) 전 항목 체크</li>
+        <li><input type="checkbox" disabled checked> <code>./daemon-dev-cli --lifecycle</code> exit code 0, stdout에 "REVOKE_DISCONNECTED"/"EXPIRED_REJECTED"/"PUSH_REJECTED_REVOKED" 3 신호 + secret 평문 0건</li>
+        <li><input type="checkbox" disabled checked> revoked WS 거부 e2e: revoke 후 살아 있던 연결 <code>.cancelled</code> + 재connect <code>UNAUTHORIZED</code> 2건 <code>XCTAssertEqual</code></li>
+        <li><input type="checkbox" disabled checked> 만료 WS 거부 e2e: <code>expiresAt</code> 과거 디바이스 Bearer connect → 게이트 ② <code>UNAUTHORIZED</code> + close <code>XCTAssertEqual</code></li>
+        <li><input type="checkbox" disabled checked> revoked push 거부 e2e: revoked 디바이스 target이 발신 필터에서 제외됨(transport 미호출, 제외 카운터 +1) <code>XCTAssertEqual</code></li>
+        <li><input type="checkbox" disabled checked> <code>LifecycleE2ETests</code> exit code 0, 만료·revoke(WS+push) 전 경로 측정</li>
+        <li><input type="checkbox" disabled checked> <code>docs/adr/F-tailscale-prerequisite-ux.md</code> 존재 + Decision/Drivers/Alternatives/Why/Consequences/Follow-ups 6 섹션 전부 채움</li>
+        <li><input type="checkbox" disabled checked> §8 fetchHint 명세에 <code>kind=fetch</code> payload 스키마(<code>{messageId}</code>) + "P7 v1.0 freeze 대상" 문구 존재 + <code>grep -rn "case fetch" Sources/Daemon/WSEnvelope.swift</code> 0건(코드 미배선 확인)</li>
+        <li><input type="checkbox" disabled checked> 최종 회귀: 전체 3 테스트 타겟 green, 토큰·실 IP 노출 grep 0건, Exit Gate(§11) 전 항목 체크</li>
       </ul>
     </dd>
   </dl>
@@ -1371,91 +1371,91 @@
       <td>Tailscale IP 바인딩이 tailnet 한정 노출을 실증하고 D-1 옵션(A/C)이 확정됐다</td>
       <td>Day 0</td>
       <td><code>xcodebuild test -only-testing:DaemonTests/TailscaleBindingSpikeTests</code> exit 0 + <code>.omc/research/p6b-tailscale-spike.md</code>에 옵션 결정 1개 명시 (Tailscale 가용 시 loopback 도달 불가 측정, 부재 시 진단 분기 + <code>XCTSkip</code>)</td>
-      <td><input type="checkbox" disabled></td>
+      <td><input type="checkbox" disabled checked></td>
     </tr>
     <tr>
       <td>A2</td>
       <td>토큰이 pending(5분)으로 발급되고 claim 시에만 active(30일)로 승격되며, revoked 디바이스는 승격으로 되살아나지 않는다 (부채 해소 + 부활 차단)</td>
       <td>Day 1</td>
       <td><code>issueNewCode</code> 후 <code>expiresAt</code>=ttl(5분), 데몬 claim 경로 후 30일 갱신, 미claim 5분 후 <code>verify == nil</code> + <strong>revoke 후 <code>store.promote</code> 호출 시 <code>revoked == true</code> 유지·<code>expiresAt</code> 미갱신</strong>(no-op) <code>XCTAssertEqual</code></td>
-      <td><input type="checkbox" disabled></td>
+      <td><input type="checkbox" disabled checked></td>
     </tr>
     <tr>
       <td>A3</td>
       <td>만료 임박(7일) 판정이 경계에서 정확하다</td>
       <td>Day 1</td>
       <td><code>isExpiringSoon</code>: now+6일·now+0.5일 포함 / now+8일·이미만료 제외 <code>XCTAssertEqual</code></td>
-      <td><input type="checkbox" disabled></td>
+      <td><input type="checkbox" disabled checked></td>
     </tr>
     <tr>
       <td>A4</td>
       <td>revoke 시 살아 있는 WS 연결이 즉시 끊기고 재연결도 거부된다 (누출 창 0)</td>
       <td>Day 2</td>
       <td><code>coordinator.revoke</code> 후 connection <code>.cancelled</code> 5초 내 + <code>boundSession == nil</code> + 재connect <code>UNAUTHORIZED</code> <code>XCTAssertEqual</code></td>
-      <td><input type="checkbox" disabled></td>
+      <td><input type="checkbox" disabled checked></td>
     </tr>
     <tr>
       <td>A5</td>
       <td>revoke가 store+connection+push 3 부수효과를 순서 보장 다단계로 일으키고, 연결이 있었으면 끊김이 측정된다 (Coordinator 1점, 원자 아님)</td>
       <td>Day 2</td>
       <td><code>revoke</code> 후 (a) <code>revoked == true</code>, (b) connection <code>.cancelled</code>(또는 미연결 no-op), (c) push 제외 카운터 +1 — 3건 + 연결이 있었으면 <code>disconnectedCount &gt;= 1</code>(no-op 침묵 가시화) + 같은 Bearer 2연결은 <code>disconnectedCount == 2</code> + store.revoke throw 시 ②③ 미진입 <code>XCTAssertEqual</code></td>
-      <td><input type="checkbox" disabled></td>
+      <td><input type="checkbox" disabled checked></td>
     </tr>
     <tr>
       <td>A6</td>
       <td>BindStrategy가 loopback 기본 비파괴 + tailscaleIP 분기를 정확히 한다</td>
       <td>Day 2</td>
       <td>loopback <code>RoundTripTests</code> green + <code>tailscaleIP("100.64.0.1")</code> 주입 시 <code>requiredLocalEndpoint</code> host 일치 <code>XCTAssertEqual</code></td>
-      <td><input type="checkbox" disabled></td>
+      <td><input type="checkbox" disabled checked></td>
     </tr>
     <tr>
       <td>A7</td>
       <td>Tailscale 진단 4분기가 한국어 사유 + 폴백 전략을 정확히 노출한다 (silent 실패 없음)</td>
       <td>Day 2</td>
       <td><code>TailscaleProbing</code> fake 4분기 → 각 <code>koreanReason</code> + <code>bindStrategy</code>(running=tailscaleIP, 그 외=loopback) <code>XCTAssertEqual</code> 4건</td>
-      <td><input type="checkbox" disabled></td>
+      <td><input type="checkbox" disabled checked></td>
     </tr>
     <tr>
       <td>A8</td>
       <td>lifecycle UI가 만료 임박 경고 + 폐기 버튼 + Tailscale 상태를 표시하고 non-app 타겟 비파괴</td>
       <td>Day 3</td>
       <td><code>xcodebuild build -scheme ClaudeAlarmTerminal</code> + <code>SessionVerifier</code>/<code>WorkspaceTests</code> exit 0 + GUI walkthrough 기록(뱃지/폐기/카드)</td>
-      <td><input type="checkbox" disabled></td>
+      <td><input type="checkbox" disabled checked></td>
     </tr>
     <tr>
       <td>A9</td>
       <td>만료/revoked 토큰의 WS 연결과 push가 모두 즉시 거부된다 (e2e)</td>
       <td>Day 4</td>
       <td><code>./daemon-dev-cli --lifecycle</code> exit 0 + "REVOKE_DISCONNECTED"/"EXPIRED_REJECTED"/"PUSH_REJECTED_REVOKED" 3 신호 + <code>LifecycleE2ETests</code> green</td>
-      <td><input type="checkbox" disabled></td>
+      <td><input type="checkbox" disabled checked></td>
     </tr>
     <tr>
       <td>A10</td>
       <td>ADR-F가 동결됐다 (Tailscale prerequisite UX)</td>
       <td>Day 4</td>
       <td><code>docs/adr/F-tailscale-prerequisite-ux.md</code> 존재 + 6 섹션(Decision/Drivers/Alternatives/Why/Consequences/Follow-ups) 전부 채움</td>
-      <td><input type="checkbox" disabled></td>
+      <td><input type="checkbox" disabled checked></td>
     </tr>
     <tr>
       <td>A11</td>
       <td><code>fetchHint</code>가 명세로 기록되고 코드는 미배선이다 (P7 freeze 대상)</td>
       <td>Day 4</td>
       <td>§8.2에 <code>kind=fetch</code> payload 스키마 + "P7 v1.0 freeze 대상" 문구 + <code>grep -rn "case fetch" Sources/Daemon/WSEnvelope.swift</code> 0건</td>
-      <td><input type="checkbox" disabled></td>
+      <td><input type="checkbox" disabled checked></td>
     </tr>
     <tr>
       <td>A12</td>
       <td>전체 테스트 기준선 비파괴 (383 + 신규 green)</td>
       <td>Day 4</td>
       <td>3 타겟 전부 exit 0, 기존 함수 실패 0건, <code>383 + 신규 M = K</code> 검산</td>
-      <td><input type="checkbox" disabled></td>
+      <td><input type="checkbox" disabled checked></td>
     </tr>
     <tr>
       <td>A13</td>
       <td>토큰 secret/실 Tailscale IP가 코드·로그·UI·문서에 노출 0건</td>
       <td>전 Day</td>
       <td><code>grep -rnE "deviceTokenSecret|100\.[0-9]+\.[0-9]+\.[0-9]+" Sources/ | grep -iE "log|print|FileHandle|os_log"</code> 0건 + <code>Sources/UI/</code> secret 0건 + 산출 문서 마스킹</td>
-      <td><input type="checkbox" disabled></td>
+      <td><input type="checkbox" disabled checked></td>
     </tr>
   </tbody>
 </table>
@@ -1547,17 +1547,17 @@
 <h2 id="sec-11">11. Exit Gate to S1</h2>
 <p>아래 전 항목이 체크되어야 S1(실 FCM/APNs wire 검증)로 진입한다.</p>
 <ul class="exit-criteria">
-  <li><input type="checkbox" disabled> A1~A13 수락 기준 전부 통과 (§9)</li>
-  <li><input type="checkbox" disabled> 토큰이 pending→active 승격 모델로 발급되어 미claim 토큰 누적이 차단된다 (A2, PR #4 부채 해소)</li>
-  <li><input type="checkbox" disabled> revoke가 살아 있는 연결을 즉시 끊고 재연결을 거부한다 — "Device lost 즉시 무효화" (A4/A5)</li>
-  <li><input type="checkbox" disabled> 만료 7일 전 데스크톱 UI 경고가 실배선됐고 push 알림은 seam만 예약(미배선)이다 (A8, D-4)</li>
-  <li><input type="checkbox" disabled> WS endpoint가 Tailscale IP에 바인딩되고(tailnet 한정), 미충족 시 loopback 폴백 + 한국어 진단 노출 (A1/A6/A7)</li>
-  <li><input type="checkbox" disabled> 만료/revoked 토큰의 WS 연결·push가 모두 즉시 거부됨이 e2e로 측정됐다 (A9)</li>
-  <li><input type="checkbox" disabled> ADR-F가 <code>docs/adr/</code>에 동결됐다 (A10) — 데스크톱 측 확정, P8 모바일 측 적용</li>
-  <li><input type="checkbox" disabled> <code>fetchHint</code>(<code>kind=fetch</code>)가 명세로 기록되고 P7 v1.0 freeze 대상이며 v0.9 코드는 무변경이다 (A11, D-5)</li>
-  <li><input type="checkbox" disabled> 토큰 secret/실 Tailscale IP가 코드·로그·UI·문서에 평문 0건 (A13 + pre-mortem 4)</li>
-  <li><input type="checkbox" disabled> 전체 테스트 기준선 비파괴 (A12) — 383 + 신규 green</li>
-  <li><input type="checkbox" disabled> APPROVE 후 <code>.omc/plans/p6b-detailed.html</code> → <code>docs/plans/p6b/</code> 이전 + 합의 이력 <code>p6b-history.md</code> 분리 완료</li>
+  <li><input type="checkbox" disabled checked> A1~A13 수락 기준 전부 통과 (§9)</li>
+  <li><input type="checkbox" disabled checked> 토큰이 pending→active 승격 모델로 발급되어 미claim 토큰 누적이 차단된다 (A2, PR #4 부채 해소)</li>
+  <li><input type="checkbox" disabled checked> revoke가 살아 있는 연결을 즉시 끊고 재연결을 거부한다 — "Device lost 즉시 무효화" (A4/A5)</li>
+  <li><input type="checkbox" disabled checked> 만료 7일 전 데스크톱 UI 경고가 실배선됐고 push 알림은 seam만 예약(미배선)이다 (A8, D-4)</li>
+  <li><input type="checkbox" disabled checked> WS endpoint가 Tailscale IP에 바인딩되고(tailnet 한정), 미충족 시 loopback 폴백 + 한국어 진단 노출 (A1/A6/A7)</li>
+  <li><input type="checkbox" disabled checked> 만료/revoked 토큰의 WS 연결·push가 모두 즉시 거부됨이 e2e로 측정됐다 (A9)</li>
+  <li><input type="checkbox" disabled checked> ADR-F가 <code>docs/adr/</code>에 동결됐다 (A10) — 데스크톱 측 확정, P8 모바일 측 적용</li>
+  <li><input type="checkbox" disabled checked> <code>fetchHint</code>(<code>kind=fetch</code>)가 명세로 기록되고 P7 v1.0 freeze 대상이며 v0.9 코드는 무변경이다 (A11, D-5)</li>
+  <li><input type="checkbox" disabled checked> 토큰 secret/실 Tailscale IP가 코드·로그·UI·문서에 평문 0건 (A13 + pre-mortem 4)</li>
+  <li><input type="checkbox" disabled checked> 전체 테스트 기준선 비파괴 (A12) — 383 + 신규 green</li>
+  <li><input type="checkbox" disabled checked> APPROVE 후 <code>.omc/plans/p6b-detailed.html</code> → <code>docs/plans/p6b/</code> 이전 + 합의 이력 <code>p6b-history.md</code> 분리 완료</li>
 </ul>
 
 <h4>후속 단계 인계 항목 (P6b가 명세·예약만 하고 넘기는 것)</h4>

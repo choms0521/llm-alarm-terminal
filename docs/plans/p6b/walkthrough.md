@@ -83,28 +83,35 @@ APP="/Users/mscho/Library/Developer/Xcode/DerivedData/ClaudeAlarmTerminal-*/Buil
 open "$APP"
 ```
 
-- [ ] **(1) 설정 페이지 진입:** 메인 창 좌측 사이드바 하단의 "설정" 버튼을 클릭한다. 본 창 전체가
+- [x] **(1) 설정 페이지 진입:** 메인 창 좌측 사이드바 하단의 "설정" 버튼을 클릭한다. 본 창 전체가
       설정 페이지로 전환되고 좌측 nav에 "디바이스 페어링"이 기본 선택된다. (보조: Cmd+,)
-- [ ] **(2) Tailscale 상태 카드:** 페어링 콘텐츠 상단(데몬 실행 중 callout 아래)에 "원격 접속
+- [x] **(2) Tailscale 상태 카드:** 페어링 콘텐츠 상단(데몬 실행 중 callout 아래)에 "원격 접속
       (Tailscale)" 카드가 표시된다. 이 머신은 Tailscale이 Stopped/미설치이므로 **주황** 인디케이터 +
       한국어 사유("...오프라인 상태입니다. 로컬 연결만 사용합니다." 또는 "...설치되어 있지 않습니다...")가
       표시된다. 우측 새로고침(arrow.clockwise) 버튼을 누르면 재진단된다.
-- [ ] **(3) secret/실 IP 미노출:** Tailscale 카드에 100.x 실 IP나 base64url secret이 어떤 라벨로도
+- [x] **(3) secret/실 IP 미노출:** Tailscale 카드에 100.x 실 IP나 base64url secret이 어떤 라벨로도
       노출되지 않음을 확인한다(한국어 사유 문구만 표시).
-- [ ] **(4) 디바이스 폐기:** "등록된 디바이스" 카드의 디바이스 행에서 폐기 버튼(nosign 아이콘)을
+- [x] **(4) 디바이스 폐기:** "등록된 디바이스" 카드의 디바이스 행에서 폐기 버튼(nosign 아이콘)을
       누른다. "이 디바이스를 폐기할까요?" 파괴적 확인 다이얼로그가 뜬다. "폐기"를 누르면 행에
       **"폐기됨" 빨강 뱃지**가 나타나고 아이콘이 빨강 xmark로 바뀐다. 폐기 버튼은 사라지고 삭제(휴지통)
       버튼만 남는다.
-- [ ] **(5) 만료 임박 뱃지(선택):** 만료가 7일 이내로 임박한 디바이스가 있으면 행에 **"N일 후 만료"
+- [x] **(5) 만료 임박 뱃지(선택):** 만료가 7일 이내로 임박한 디바이스가 있으면 행에 **"N일 후 만료"
       주황 뱃지**가 표시된다. 이미 만료된 디바이스는 **"만료됨" 빨강 뱃지**가 표시된다. (현행 부트스트랩
       디바이스는 1시간 만료라 임박 뱃지를 즉시 보긴 어렵다 — 만료 후 재진입 시 "만료됨" 관측 가능.)
-- [ ] **(6) 삭제 동작 구분 유지:** 휴지통(삭제) 버튼은 별도로 "이 디바이스를 삭제할까요?" 다이얼로그를
+- [x] **(6) 삭제 동작 구분 유지:** 휴지통(삭제) 버튼은 별도로 "이 디바이스를 삭제할까요?" 다이얼로그를
       띄우고, 삭제 시 행 자체가 목록에서 사라진다(폐기됨 뱃지와 구분).
-- [ ] **(7) 돌아가기:** 좌측 nav 하단의 "← 돌아가기" 버튼으로 메인 화면(HSplitView)에 복귀된다.
+- [x] **(7) 돌아가기:** 좌측 nav 하단의 "← 돌아가기" 버튼으로 메인 화면(HSplitView)에 복귀된다.
 
 ### 친람 결과
 
-(사용자 친람 후 기록)
+2026-06-12 사용자 육안 확인 완료. 위 7개 항목 전부 통과.
+
+추가 실측 (사용자 수행): 친람 중 Tailscale을 직접 켜서도 확인 — 진단 카드가 문제없이
+동작함을 사용자가 확인했다 (Stopped 분기와 Running 환경 양쪽 관측).
+
+확인 문답: 디바이스 행의 "1일 후 만료" 표기는 pending(5분 수명) 토큰의 일 단위 올림
+표시다 — 발급=pending 5분, claim(페어링 완료) 시 30일 승격이라는 D-3 설계의 의도된
+동작. pending 디바이스의 분 단위 표기 개선은 후속 과제로 남긴다.
 
 ---
 
@@ -142,7 +149,7 @@ Exit Gate 측정을 수행한다. secret/실 IP 평문은 어떤 절차에서도
 | 5 | LifecycleE2ETests green | `xcodebuild test -only-testing:DaemonTests/LifecycleE2ETests` | 4 tests, 0 failures (TEST SUCCEEDED) |
 | 6 | ADR-F 6 섹션 | `grep -cE "^## (Decision\|Drivers\|Alternatives\|Why\|Consequences\|Follow-ups)" docs/adr/F-*.md` | 6 |
 | 7 | fetchHint 미배선 | `grep -rn "case fetch" Sources/Daemon/WSEnvelope.swift` | 0건 (grep exit 1) |
-| 8 | 최종 회귀 | DaemonTests + WorkspaceTests + SessionTests | 152 + 83 + 183 = 418 green (414 기준 + 신규 4) |
+| 8 | 최종 회귀 | DaemonTests + WorkspaceTests + SessionTests | 155 + 83 + 183 = 421 green (414 기준 + 신규 7) |
 | - | 앱 빌드 | `xcodebuild build -scheme ClaudeAlarmTerminal` | BUILD SUCCEEDED |
 | - | CLI 빌드 | `xcodebuild build -scheme DaemonDevCLI` | BUILD SUCCEEDED |
 | - | secret/실IP 로그 노출 | `grep -rnE "deviceTokenSecret\|100\..." Sources/ \| grep -iE "log\|print\|FileHandle\|os_log"` | 0건 |
