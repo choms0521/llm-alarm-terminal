@@ -80,6 +80,18 @@ public final class PairingModel: ObservableObject {
         }
     }
 
+    /// 디바이스를 저장소에서 삭제하고 목록을 다시 읽는다. 삭제되면 해당 tokenId의 secret이
+    /// 사라져 그 Bearer는 즉시 WS 인증에 실패한다.
+    public func removeDevice(id: UUID) async {
+        do {
+            try await store.remove(id: id)
+            self.errorMessage = nil
+            await refreshDevices()
+        } catch {
+            self.errorMessage = "디바이스 삭제에 실패했습니다."
+        }
+    }
+
     /// 등록된 디바이스 목록을 다시 읽는다.
     public func refreshDevices() async {
         do {

@@ -218,6 +218,62 @@ final class PairingCoreTests: XCTestCase {
         XCTAssertEqual(listed.count, 1)
     }
 
+    // MARK: - InMemoryDeviceStore remove (영구 삭제 + Bearer 즉시 무효화)
+
+    func testDeviceStoreRemoveDeletesEntryAndSecret() async throws {
+        // remove 후 list에서 사라지고 find/secret 조회가 nil이 된다.
+        let store = InMemoryDeviceStore()
+        let secret = Data(repeating: 0x55, count: 32)
+        let device = Device(id: UUID(), name: "rm", tokenId: "tok-rm",
+                            expiresAt: Date().addingTimeInterval(3600))
+        try await store.upsert(device, secret: secret)
+
+        try await store.remove(id: device.id)
+
+        let listed = try await store.list()
+        XCTAssertTrue(listed.isEmpty, "remove 후 list는 비어야 한다")
+        let found = try await store.find(byTokenId: "tok-rm")
+        XCTAssertNil(found, "remove된 디바이스는 find로 조회되면 안 된다")
+        let storedSecret = try await store.secret(forTokenId: "tok-rm")
+        XCTAssertNil(storedSecret, "remove된 디바이스의 secret은 조회되면 안 된다")
+    }
+
+    func testDeviceStoreRemoveUnknownIdIsNoOp() async throws {
+        // 존재하지 않는 id remove는 멱등 no-op — 다른 디바이스는 보존된다.
+        let store = InMemoryDeviceStore()
+        let secret = Data(repeating: 0x66, count: 32)
+        let device = Device(id: UUID(), name: "keep", tokenId: "tok-keep",
+                            expiresAt: Date().addingTimeInterval(3600))
+        try await store.upsert(device, secret: secret)
+
+        try await store.remove(id: UUID())   // 미등록 id
+
+        let listed = try await store.list()
+        XCTAssertEqual(listed.count, 1, "미등록 id remove는 기존 디바이스를 건드리면 안 된다")
+        XCTAssertEqual(listed.first, device)
+    }
+
+    func testRemovedDeviceBearerFailsVerification() async throws {
+        // remove된 디바이스의 Bearer(tokenId+secret)로 verify 시도 → secret이 사라져 인증 실패.
+        // WS 인증은 verifier가 store.secret/find를 거치므로 store 삭제가 곧 Bearer 무효화다.
+        let issued = try DeviceTokenIssuer.issue()
+        let store = InMemoryDeviceStore()
+        let device = Device(id: UUID(), name: "auth-rm", tokenId: issued.tokenId,
+                            expiresAt: Date().addingTimeInterval(3600))
+        try await store.upsert(device, secret: issued.secret)
+
+        let verifier = DeviceTokenVerifier(store: store)
+        // 삭제 전: 정상 승격.
+        let before = await verifier.verify(tokenId: issued.tokenId, presentedSecret: issued.secret)
+        XCTAssertEqual(before?.deviceId, device.id)
+
+        try await store.remove(id: device.id)
+
+        // 삭제 후: 동일 Bearer로 verify 실패(nil).
+        let after = await verifier.verify(tokenId: issued.tokenId, presentedSecret: issued.secret)
+        XCTAssertNil(after, "remove된 디바이스의 Bearer는 인증에 실패해야 한다")
+    }
+
     // MARK: - rate-limit (5회 오claim 후 6회째 거부)
 
     func testPairingSessionRateLimit() async throws {

@@ -183,6 +183,16 @@ public struct KeychainDeviceStore: DeviceStore {
         }
     }
 
+    public func remove(id: UUID) async throws {
+        // deviceId → tokenId 역참조 후 해당 item을 통째로 삭제한다(메타+secret 동시 폐기).
+        // id가 없으면(이미 삭제됨) no-op로 멱등 처리한다. deleteItem은 errSecItemNotFound를
+        // 흡수하므로 역참조와 삭제 사이의 경쟁으로 item이 사라져도 에러로 보지 않는다.
+        guard let tokenId = try tokenId(forDeviceId: id) else {
+            return
+        }
+        try deleteItem(tokenId: tokenId)
+    }
+
     // MARK: - 내부 헬퍼
 
     /// deviceId(UUID)로 해당 디바이스의 tokenId를 역참조한다. account는 tokenId라 직접

@@ -17,6 +17,10 @@ public protocol DeviceStore: Sendable {
     func secret(forTokenId tokenId: String) async throws -> Data?
     /// 디바이스를 폐기 표시한다(미배선 seam — P6b가 UI를 연결).
     func revoke(id: UUID) async throws
+    /// 디바이스를 저장소에서 완전히 삭제한다. revoke와 달리 메타·secret을 모두 제거해
+    /// 해당 tokenId로는 더 이상 secret/Device 조회가 되지 않으므로 Bearer가 즉시 무효화된다.
+    /// 존재하지 않는 id는 no-op로 처리한다(이미 삭제된 상태와 멱등).
+    func remove(id: UUID) async throws
 }
 
 /// 테스트·개발용 in-memory DeviceStore. 실 Keychain conformer는 P6a Day 3에서
@@ -71,5 +75,14 @@ public actor InMemoryDeviceStore: DeviceStore {
             expiresAt: device.expiresAt,
             revoked: true
         )
+    }
+
+    public func remove(id: UUID) async throws {
+        // id→tokenId 역참조로 세 맵에서 모두 제거한다. 없으면 멱등 no-op.
+        guard let tokenId = tokenIdByDeviceId.removeValue(forKey: id) else {
+            return
+        }
+        devicesByTokenId.removeValue(forKey: tokenId)
+        secretsByTokenId.removeValue(forKey: tokenId)
     }
 }

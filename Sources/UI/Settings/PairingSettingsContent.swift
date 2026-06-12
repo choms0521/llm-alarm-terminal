@@ -82,6 +82,9 @@ struct PairingSettingsContent: View {
 private struct ReadyContent: View {
     @ObservedObject var model: PairingModel
 
+    /// 삭제 확인 다이얼로그의 대상 디바이스. nil이면 다이얼로그를 닫는다.
+    @State private var deviceToDelete: Device?
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // 상태 callout — 데몬 실행 중
@@ -117,6 +120,26 @@ private struct ReadyContent: View {
         }
         .onDisappear {
             model.stop()
+        }
+        .alert(
+            "이 디바이스를 삭제할까요?",
+            isPresented: Binding(
+                get: { deviceToDelete != nil },
+                set: { presented in if !presented { deviceToDelete = nil } }
+            ),
+            presenting: deviceToDelete
+        ) { device in
+            Button("삭제", role: .destructive) {
+                Task {
+                    await model.removeDevice(id: device.id)
+                    deviceToDelete = nil
+                }
+            }
+            Button("취소", role: .cancel) {
+                deviceToDelete = nil
+            }
+        } message: { _ in
+            Text("삭제하면 이 디바이스의 토큰은 즉시 무효화됩니다.")
         }
     }
 
@@ -279,6 +302,17 @@ private struct ReadyContent: View {
                     .background(Color.red.opacity(0.12))
                     .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
             }
+
+            Button {
+                deviceToDelete = device
+            } label: {
+                Image(systemName: "trash")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.borderless)
+            .help("이 디바이스를 삭제합니다.")
+            .accessibilityLabel("디바이스 삭제")
         }
     }
 
