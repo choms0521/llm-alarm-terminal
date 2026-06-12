@@ -37,7 +37,8 @@ struct QRImageView: View {
             return nil
         }
         // 모듈당 1px 출력을 표시 크기에 맞춰 정수 배율로 확대해 픽셀 경계를 또렷하게 한다.
-        let scale = max(1, side / baseImage.extent.width)
+        // floor로 정수 배율을 보장한다 — 실수 배율이면 모듈 경계가 다시 흐려진다.
+        let scale = max(1, floor(side / baseImage.extent.width))
         let scaled = baseImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
 
         let context = CIContext()

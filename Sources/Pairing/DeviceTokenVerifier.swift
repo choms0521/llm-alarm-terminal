@@ -47,7 +47,14 @@ public struct DeviceTokenVerifier: Sendable {
     static func constantTimeEqual(_ a: Data, _ b: Data) -> Bool {
         let aBytes = [UInt8](a)
         let bBytes = [UInt8](b)
-        var diff = UInt8(truncatingIfNeeded: aBytes.count ^ bBytes.count)
+        // 길이 XOR은 전 비트를 1바이트로 fold해 합류시킨다. low byte만 취하면
+        // 차이가 256의 배수일 때(예: 0 vs 256) 0이 되어 길이 불일치를 놓친다.
+        var lengthXor = aBytes.count ^ bBytes.count
+        var diff: UInt8 = 0
+        while lengthXor != 0 {
+            diff |= UInt8(truncatingIfNeeded: lengthXor)
+            lengthXor >>= 8
+        }
         let n = max(aBytes.count, bBytes.count)
         var i = 0
         while i < n {

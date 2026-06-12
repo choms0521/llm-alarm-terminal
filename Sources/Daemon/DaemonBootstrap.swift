@@ -24,6 +24,10 @@ public struct DaemonHandle: Sendable {
 /// 인증 게이트와 함께 WSServer를 만든다. 기본 store는 InMemoryDeviceStore이며, 디바이스
 /// 1개를 등록해 그 Bearer를 핸들로 노출한다(Keychain 실 store 배선은 Day 3).
 public struct DaemonBootstrap {
+    /// bootstrap 디바이스의 고정 id. 매 부팅 같은 항목을 교체(upsert replace)하게 해
+    /// Keychain/스토어에 만료된 bootstrap 토큰이 누적되지 않게 한다.
+    private static let bootstrapDeviceId = UUID(uuidString: "B0075D0E-0000-4000-8000-DAE0B00757A9")!
+
     private let store: any DeviceStore
 
     /// 기본 InMemoryDeviceStore로 부트스트랩한다.
@@ -44,7 +48,7 @@ public struct DaemonBootstrap {
         // 인증 connect를 맺게 한다.
         let issued = try DeviceTokenIssuer.issue()
         let device = Device(
-            id: UUID(),
+            id: Self.bootstrapDeviceId,
             name: "daemon-bootstrap",
             tokenId: issued.tokenId,
             expiresAt: Date().addingTimeInterval(3600)

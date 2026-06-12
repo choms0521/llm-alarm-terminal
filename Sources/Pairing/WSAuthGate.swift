@@ -142,8 +142,12 @@ private final class PendingStore: @unchecked Sendable {
     /// nonce 일치 항목을 1회 소비한다. 시간창 초과 항목은 삭제·미소비. 매 호출 stale 청소.
     func consume(nonce: String, within: TimeInterval, now: Date) -> (tokenId: String, secret: Data)? {
         lock.lock(); defer { lock.unlock() }
-        // stale 항목 일괄 제거(만료 secret 참조 폐기).
-        for (key, entry) in pendingAuth where now.timeIntervalSince(entry.registeredAt) > within {
+        // stale 항목 일괄 제거(만료 secret 참조 폐기). 제거 대상 키를 먼저 모은 뒤
+        // 별도 루프에서 삭제해 순회 중 변형(CoW 복사 유발)을 피한다.
+        let staleKeys = pendingAuth.compactMap { key, entry in
+            now.timeIntervalSince(entry.registeredAt) > within ? key : nil
+        }
+        for key in staleKeys {
             pendingAuth.removeValue(forKey: key)
         }
         // 1회 소비: 꺼내면서 제거. 같은 nonce 재사용 시 항목 없음 → nil(replay 방지).

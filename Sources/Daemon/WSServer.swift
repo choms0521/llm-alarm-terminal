@@ -431,9 +431,12 @@ public actor WSServer {
     }
 
     /// pairing.claim payload `{"code":"123456"}`에서 6자리 코드를 추출한다. 형식 위반은 nil.
+    /// 정확히 6자리 ASCII 숫자만 통과시켜 비정상 payload(긴 문자열 등)를 조기 차단한다.
     private static func claimCode(_ payload: Data) -> String? {
         guard let object = try? JSONSerialization.jsonObject(with: payload) as? [String: Any],
-              let code = object["code"] as? String, !code.isEmpty else { return nil }
+              let code = object["code"] as? String,
+              code.count == 6,
+              code.allSatisfy({ $0.isASCII && $0.isNumber }) else { return nil }
         return code
     }
 
