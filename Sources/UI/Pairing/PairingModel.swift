@@ -58,7 +58,9 @@ public final class PairingModel: ObservableObject {
             )
             try await store.upsert(device, secret: issued.secret)
 
-            let codeExpiry = Date().addingTimeInterval(PairingSession.defaultTTL())
+            // 세션에 주입된 실제 ttl로 계산해 UI 카운트다운/payload expiresAt이
+            // PairingSession.issue의 만료 판정과 항상 일치하게 한다.
+            let codeExpiry = Date().addingTimeInterval(session.ttl)
             let payload = PairingPayload(
                 pairingId: pairingId,
                 deviceTokenSecret: issued.secretBase64url,

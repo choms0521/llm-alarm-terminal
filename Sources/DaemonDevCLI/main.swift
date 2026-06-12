@@ -319,7 +319,10 @@ if arguments.contains("--pair") {
     // 자체 발급 토큰으로 핸드셰이크 구조 검증만 통과한다(게이트 ②는 store 불일치로 막힘).
     // 연결성/상태 전이 진단이 목적이라 ack까지 요구하지 않는다.
     let issued = try? DeviceTokenIssuer.issue()
-    let client = WSClient(port: port, bearerToken: issued?.bearer ?? "tok.\(UUID().uuidString)")
+    // 발급 실패 fallback도 구조 검증(secret이 base64url로 디코드 가능)을 확실히 통과하는
+    // 형식으로 만든다. 내용은 무의미해도 된다 — 이 probe는 핸드셰이크 구조 검증까지만 본다.
+    let fallbackBearer = "tok.\(Base64URL.encode(Data(repeating: 0, count: 32)))"
+    let client = WSClient(port: port, bearerToken: issued?.bearer ?? fallbackBearer)
     Task {
         do {
             try await client.connect(onState: { emit("STATE \($0)") })

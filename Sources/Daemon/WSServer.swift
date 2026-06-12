@@ -1,6 +1,10 @@
 import Foundation
 import Network
 
+/// listener가 `.ready`에 도달했는데도 포트를 얻지 못한 경우의 명시적 실패.
+/// 포트 0을 반환하면 호출자의 후속 접속 실패 원인이 가려지므로 throw로 표면화한다.
+public struct ListenerPortUnavailableError: Error {}
+
 /// In-process WebSocket server bound to loopback only (127.0.0.1, OS-assigned
 /// port). Accepts WS clients, binds them to sessions on `session.start`, and
 /// rejects out-of-order inbound `seq` with a NON_MONOTONIC_SEQ error envelope.
@@ -130,8 +134,15 @@ public actor WSServer {
             listener.stateUpdateHandler = { state in
                 switch state {
                 case .ready:
-                    let value = listener.port?.rawValue ?? 0
-                    if resumed.fire() { continuation.resume(returning: value) }
+                    if resumed.fire() {
+                        if let value = listener.port?.rawValue {
+                            continuation.resume(returning: value)
+                        } else {
+                            // 포트 0을 돌려주면 호출자가 0번 포트로 접속을 시도해
+                            // 원인 파악이 어려우므로 명시적으로 실패시킨다.
+                            continuation.resume(throwing: ListenerPortUnavailableError())
+                        }
+                    }
                 case .failed(let error):
                     if resumed.fire() { continuation.resume(throwing: error) }
                 default:

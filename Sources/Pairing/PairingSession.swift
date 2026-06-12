@@ -26,7 +26,9 @@ public actor PairingSession {
         var failedAttempts: Int
     }
 
-    private let ttl: TimeInterval
+    /// 코드 만료 ttl. UI(PairingModel)가 payload expiresAt/카운트다운을 세션의 실제 만료
+    /// 판정과 같은 값으로 계산할 수 있도록 노출한다(불변 Sendable이라 nonisolated 안전).
+    public nonisolated let ttl: TimeInterval
     private let maxClaimAttempts: Int
     private let now: @Sendable () -> Date
 

@@ -16,7 +16,7 @@ public final class WSClient {
 
     /// Bearer 토큰을 첨부해 인증 WS 연결을 만든다. nonce는 연결마다 새로 생성한다.
     public init(host: String = "127.0.0.1", port: UInt16, bearerToken: String) {
-        let nonce = WSAuthGate.makeNonce() ?? UUID().uuidString
+        let nonce = WSAuthGate.makeNonce() ?? Self.fallbackNonce()
         self.nonce = nonce
 
         let params = NWParameters.tcp
@@ -37,6 +37,14 @@ public final class WSClient {
 
     /// 이 연결의 nonce. 테스트가 첫 envelope의 echo를 검증할 때 참조한다.
     public var pairNonce: String { nonce }
+
+    /// SecRandomCopyBytes 실패 시에도 서버의 nonce 형식 검증(base64url 디코드 16바이트)을
+    /// 통과하는 fallback. UUID는 정확히 16바이트 무작위 값이라 isValidNonce를 만족한다.
+    private static func fallbackNonce() -> String {
+        var uuid = UUID().uuid
+        let data = withUnsafeBytes(of: &uuid) { Data($0) }
+        return Base64URL.encode(data)
+    }
 
     /// 첫 송신 envelope에 쓸 session.start payload를 만든다. 이 연결의 nonce를 합류한다.
     /// 서버 parseSessionId는 여분 키(nonce)에 관대하고, echoedNonce가 nonce 필드를 읽는다.

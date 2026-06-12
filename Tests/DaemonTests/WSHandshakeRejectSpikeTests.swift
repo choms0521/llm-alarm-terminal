@@ -87,6 +87,10 @@ private enum SpikeOutcome: Equatable {
 /// 기존 WSServer를 건드리지 않는 스파이크 전용 loopback WS 서버.
 /// 핸드셰이크 클로저에서 Bearer 헤더의 존재 + `tokenId.secret` 구조만 검사하고,
 /// 통과 시 accept, 위반 시 reject를 반환한다.
+/// listener가 `.ready`인데 포트를 얻지 못한 경우의 명시적 실패. 포트 0으로 클라이언트를
+/// 만들면 이후 실패가 포트 바인딩 문제인지 분간하기 어려워 throw로 표면화한다.
+private struct SpikePortUnavailableError: Error {}
+
 private final class SpikeServer: @unchecked Sendable {
     private let listener: NWListener
     let port: UInt16
@@ -120,7 +124,13 @@ private final class SpikeServer: @unchecked Sendable {
             listener.stateUpdateHandler = { state in
                 switch state {
                 case .ready:
-                    if resumed.fire() { cont.resume(returning: listener.port?.rawValue ?? 0) }
+                    if resumed.fire() {
+                        if let port = listener.port?.rawValue {
+                            cont.resume(returning: port)
+                        } else {
+                            cont.resume(throwing: SpikePortUnavailableError())
+                        }
+                    }
                 case .failed(let error):
                     if resumed.fire() { cont.resume(throwing: error) }
                 default:
