@@ -33,23 +33,32 @@ public struct DaemonBootstrap {
     /// 호환 — 테스트는 페어링 없이 인증 라운드트립만 검증한다). 주입되면 claim 성공 시
     /// DevicePromotionCoordinator를 통한 pending → active 승격이 배선된다(D-3).
     private let pairingSession: PairingSession?
+    /// tailnet opt-in 바인딩 진단용 probe(§5.5b, ADR-F). nil이면 부트스트랩이 명시 opt-in일 때
+    /// ProcessTailscaleProbe를 기본 사용한다(테스트는 fake probe를 주입해 결정론적으로 검증).
+    private let tailscaleProbe: (any TailscaleProbing)?
 
     /// 기본 InMemoryDeviceStore로 부트스트랩한다(페어링 미배선).
     public init() {
         self.store = InMemoryDeviceStore()
         self.pairingSession = nil
+        self.tailscaleProbe = nil
     }
 
     /// store를 주입해 부트스트랩한다(Day 3 Keychain store 배선 지점). 페어링 세션은 미배선.
     public init(store: any DeviceStore) {
         self.store = store
         self.pairingSession = nil
+        self.tailscaleProbe = nil
     }
 
     /// store + 공유 페어링 세션을 주입해 부트스트랩한다(앱 부팅 경로). claim 승격이 배선된다(D-3).
-    public init(store: any DeviceStore, pairingSession: PairingSession) {
+    /// tailscaleProbe를 주입하면 tailnet opt-in 진단이 그 probe를 쓴다(미주입 시 명시 opt-in일 때만
+    /// ProcessTailscaleProbe 기본 사용 — 기본 동작은 loopback 유지로 무변경).
+    public init(store: any DeviceStore, pairingSession: PairingSession,
+                tailscaleProbe: (any TailscaleProbing)? = nil) {
         self.store = store
         self.pairingSession = pairingSession
+        self.tailscaleProbe = tailscaleProbe
     }
 
     public func start() async throws -> DaemonHandle {
@@ -77,8 +86,11 @@ public struct DaemonBootstrap {
                 await coordinator.promote(deviceId: deviceId)
             }
         }
+        // tailnet opt-in 바인딩(§5.5b, ADR-F). 기본은 loopback 유지(383/414 비파괴) — 명시 opt-in일
+        // 때만 진단을 실행해 running이면 tailscaleIP로 바인딩하고, 그 외 분기는 loopback 폴백한다.
+        let strategy = await resolveBindStrategy()
         let server = WSServer(registry: registry, authGate: authGate, verifier: verifier,
-                              pairingSession: pairingSession)
+                              pairingSession: pairingSession, strategy: strategy)
         // Inbound WS input must reach the daemon's serial queue in the app-boot
         // path too; without this handler, .input envelopes after a successful
         // session.start are silently ignored.
@@ -88,5 +100,26 @@ public struct DaemonBootstrap {
         let port = try await server.start()
         return DaemonHandle(server: server, daemon: daemon, registry: registry,
                             port: port, bearerToken: issued.bearer)
+    }
+
+    /// 바인딩 전략을 결정한다(§5.5b, ADR-F). 기본은 loopback 유지로 무변경이다 — 진단(외부 CLI
+    /// 호출)은 명시 opt-in일 때만 실행해, opt-in이 없으면 부팅이 Tailscale 상태와 무관하게 즉시
+    /// loopback으로 진행된다(383/414 비파괴 + Stopped 환경 부팅 지연 회피).
+    ///
+    /// env CLAUDE_ALARM_BIND_STRATEGY 정책(부록 A):
+    ///   - 미설정 또는 "loopback" → loopback(진단 우회 — 기본 비파괴)
+    ///   - "tailscale" → 명시 opt-in. 진단 실행 후 running이면 tailscaleIP, 그 외 분기는 loopback 폴백.
+    private func resolveBindStrategy() async -> BindStrategy {
+        let raw = ProcessInfo.processInfo.environment["CLAUDE_ALARM_BIND_STRATEGY"]?
+            .lowercased()
+            .trimmingCharacters(in: .whitespaces)
+        guard raw == "tailscale" else {
+            return .loopback   // 미설정/loopback/그 외 = 기본 비파괴(진단 미실행)
+        }
+        // 명시 opt-in: 진단 실행. probe 미주입 시 ProcessTailscaleProbe(표준 경로 탐색)를 쓴다.
+        let cliPath = ProcessInfo.processInfo.environment["CLAUDE_ALARM_TAILSCALE_CLI_PATH"]
+        let probe = tailscaleProbe ?? ProcessTailscaleProbe(cliPath: cliPath)
+        let result = await TailscaleDiagnostics(probe: probe).diagnose()
+        return result.strategy   // running → tailscaleIP, 그 외 → loopback 폴백(diagnose가 환원)
     }
 }

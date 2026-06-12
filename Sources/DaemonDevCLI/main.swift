@@ -18,6 +18,11 @@ import Network
 //                    claim it over loopback WS, register the device, then run the
 //                    authenticated round-trip with the received secret. Prints
 //                    "PAIRED <deviceId>" and exits 0. No secret is printed.
+//   --lifecycle    : P6b Day 4 토큰 lifecycle 무효화 e2e. 데몬 1개 위에서 (a) 디바이스 A 인증
+//                    연결 → revoke → 끊김 + 재connect UNAUTHORIZED, (b) 만료 디바이스 B Bearer
+//                    connect → 게이트 ② UNAUTHORIZED, (c) revoked A push 발신 제외(transport
+//                    미호출)를 순차 측정한다. stdout에 "REVOKE_DISCONNECTED"/"EXPIRED_REJECTED"/
+//                    "PUSH_REJECTED_REVOKED" 3 신호를 내보내고 exit 0. secret 평문은 출력하지 않는다.
 //
 // P6a: 모든 운영 WS 연결은 Bearer 토큰을 첨부해야 한다. 각 모드는 시작 시 InMemoryDeviceStore에
 // 디바이스 1개를 등록하고 토큰을 발급해 그 Bearer로 연결한다. pairing.claim 연결만 pre-auth다.
@@ -315,7 +320,131 @@ func runPair() async -> Int32 {
     return 0
 }
 
-if arguments.contains("--pair") {
+/// P6b Day 4: 토큰 lifecycle 무효화 e2e. 데몬 1개 위에서 revoke 끊기 + 만료 거부 + revoked push
+/// 제외를 순차 측정하고 3 신호를 stdout으로 내보낸다. 모바일 없이 시뮬레이션 디바이스로 전 경로를
+/// 통과시킨다(LifecycleE2ETests의 in-process 검증과 동형 경로). secret/실 IP 평문은 출력하지 않는다.
+func runLifecycle() async -> Int32 {
+    let registry = SessionBindRegistry()
+    let store = InMemoryDeviceStore()
+    let server = WSServer(registry: registry, authGate: WSAuthGate(),
+                          verifier: DeviceTokenVerifier(store: store))
+    let pushSink = InMemoryPushRevocationSink()
+    let coordinator = DeviceRevocationCoordinator(store: store, server: server, pushRevocation: pushSink)
+
+    // 디바이스 A(유효 — revoke 대상)와 B(만료 — expiresAt 과거)를 등록한다.
+    let issuedA: DeviceTokenIssuer.IssuedToken
+    let issuedB: DeviceTokenIssuer.IssuedToken
+    do {
+        issuedA = try DeviceTokenIssuer.issue()
+        issuedB = try DeviceTokenIssuer.issue()
+    } catch {
+        FileHandle.standardError.write(Data("token issue failed: \(error)\n".utf8)); return 7
+    }
+    let deviceIdA = UUID()
+    let deviceIdB = UUID()
+    do {
+        try await store.upsert(
+            Device(id: deviceIdA, name: "lifecycle-A", tokenId: issuedA.tokenId,
+                   expiresAt: Date().addingTimeInterval(3600)),
+            secret: issuedA.secret)
+        try await store.upsert(
+            Device(id: deviceIdB, name: "lifecycle-B", tokenId: issuedB.tokenId,
+                   expiresAt: Date().addingTimeInterval(-3600)),
+            secret: issuedB.secret)
+    } catch {
+        FileHandle.standardError.write(Data("device upsert failed: \(error)\n".utf8)); return 8
+    }
+
+    let port: UInt16
+    do { port = try await server.start() } catch {
+        FileHandle.standardError.write(Data("server start failed: \(error)\n".utf8)); return 3
+    }
+
+    // 신호 ① REVOKE_DISCONNECTED: A 인증 연결 → revoke → 끊김.
+    let aState = Collector()
+    let aRecv = Collector()
+    let clientA = WSClient(port: port, bearerToken: issuedA.bearer)
+    do {
+        try await clientA.connect(onState: { aState.append($0) })
+    } catch {
+        FileHandle.standardError.write(Data("A connect failed: \(error)\n".utf8)); return 4
+    }
+    clientA.receiveLoop { env in
+        if env.kind == .ack { aRecv.append("ack") }
+    }
+    clientA.send(WSEnvelope(seq: 1, actor: cliActor, kind: .sessionStart,
+                            text: clientA.firstSessionStartPayload(sessionId: UUID())))
+    guard await poll(timeout: 5, { aRecv.contains("ack") }) else {
+        FileHandle.standardError.write(Data("A no ack\n".utf8)); return 5
+    }
+    do { try await coordinator.revoke(deviceId: deviceIdA) } catch {
+        FileHandle.standardError.write(Data("revoke failed: \(error)\n".utf8)); return 12
+    }
+    // revoke 후 살아 있던 연결이 끊긴다 — 상태 전이가 cancelled/failed로 흐른다.
+    let aDisconnected = await poll(timeout: 5, {
+        aState.contains("cancelled") || aState.contains("failed")
+    })
+    let aDisconnectedCount = await server.disconnectedCount
+    guard aDisconnected || aDisconnectedCount >= 1 else {
+        FileHandle.standardError.write(Data("A not disconnected after revoke\n".utf8)); return 13
+    }
+    clientA.close()
+    emit("REVOKE_DISCONNECTED")
+
+    // 신호 ② EXPIRED_REJECTED: B(만료) connect → 게이트 ② UNAUTHORIZED.
+    let bRecv = Collector()
+    let clientB = WSClient(port: port, bearerToken: issuedB.bearer)
+    do {
+        try await clientB.connect()
+    } catch {
+        FileHandle.standardError.write(Data("B connect failed: \(error)\n".utf8)); return 4
+    }
+    clientB.receiveLoop { env in
+        if env.kind == .error, env.code == "UNAUTHORIZED" { bRecv.append("unauthorized") }
+    }
+    clientB.send(WSEnvelope(seq: 1, actor: cliActor, kind: .sessionStart,
+                            text: clientB.firstSessionStartPayload(sessionId: UUID())))
+    guard await poll(timeout: 5, { bRecv.contains("unauthorized") }) else {
+        FileHandle.standardError.write(Data("B not rejected (expected UNAUTHORIZED)\n".utf8)); return 14
+    }
+    clientB.close()
+    emit("EXPIRED_REJECTED")
+
+    // 신호 ③ PUSH_REJECTED_REVOKED: revoked A로의 push 발신이 필터에서 제외(transport 미호출).
+    let transport = MockPushTransport()
+    let sender = PushSender(
+        transport: transport,
+        attachment: LifecycleDetachedAttachment(),
+        config: PushPolicyConfig(skipWhenAttached: true),
+        revocationSink: pushSink
+    )
+    let pushEnvelope = PushEnvelope(
+        sessionId: UUID(), messageId: UUID(), preview: "lifecycle",
+        chatRoomId: UUID().uuidString, timestamp: Date(timeIntervalSince1970: 1_700_000_000),
+        fetchHint: nil)
+    await sender.sendIfNotRevoked(pushEnvelope, target: .fcm, deviceId: deviceIdA)
+    let sentCount = await transport.sentCount
+    let excludedCount = await sender.excludedCount
+    guard sentCount == 0, excludedCount == 1 else {
+        FileHandle.standardError.write(
+            Data("push not excluded (sent=\(sentCount) excluded=\(excludedCount))\n".utf8)); return 15
+    }
+    emit("PUSH_REJECTED_REVOKED")
+
+    await server.stop()
+    return 0
+}
+
+/// push 발신 필터 측정 시 WS-attached skip이 가로채지 않도록 항상 detached를 반환한다(deviceId
+/// 필터 경로만 격리). LifecycleE2ETests의 AlwaysDetachedAttachment와 동형.
+private struct LifecycleDetachedAttachment: AttachmentQuerying {
+    func isAttached(_ sessionId: UUID) async -> Bool { false }
+}
+
+if arguments.contains("--lifecycle") {
+    Task { exit(await runLifecycle()) }
+    RunLoop.main.run()
+} else if arguments.contains("--pair") {
     Task { exit(await runPair()) }
     RunLoop.main.run()
 } else if arguments.contains("--roundtrip") {
@@ -367,7 +496,7 @@ if arguments.contains("--pair") {
     RunLoop.main.run()
 } else {
     FileHandle.standardError.write(
-        Data("usage: daemon-dev-cli [--pair|--roundtrip|--flood|--serve-probe|--connect <port>|--connect-auth]\n".utf8)
+        Data("usage: daemon-dev-cli [--pair|--lifecycle|--roundtrip|--flood|--serve-probe|--connect <port>|--connect-auth]\n".utf8)
     )
     exit(0)
 }

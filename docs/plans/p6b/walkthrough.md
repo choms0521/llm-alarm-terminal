@@ -105,3 +105,87 @@ open "$APP"
 ### 친람 결과
 
 (사용자 친람 후 기록)
+
+---
+
+## Day 4 — e2e 무효화 검증 + ADR-F + Exit Gate
+
+본 절은 Day 4 자동 검증 결과를 기록한다. Day 4는 모바일 없이 `DaemonDevCLI --lifecycle` + in-process
+e2e 테스트로 만료/revoked 토큰의 WS 연결·push 거부를 측정하고, ADR-F 동결 + fetchHint 명세 게이트 +
+Exit Gate 측정을 수행한다. secret/실 IP 평문은 어떤 절차에서도 출력하지 않는다.
+
+### 산출물
+
+- `Sources/DaemonDevCLI/main.swift` — `--lifecycle` 모드. 데몬 1개 위에서 (a) 디바이스 A 인증 연결
+  → revoke → 끊김, (b) 만료 디바이스 B Bearer connect → 게이트 ② UNAUTHORIZED, (c) revoked A push
+  발신 제외를 순차 측정하고 "REVOKE_DISCONNECTED"/"EXPIRED_REJECTED"/"PUSH_REJECTED_REVOKED" 3 신호를
+  stdout으로 내보낸다. secret 평문 미출력.
+- `Tests/DaemonTests/LifecycleE2ETests.swift` — 만료/revoke(WS+push) 전 경로 in-process e2e 4건.
+- `docs/adr/F-tailscale-prerequisite-ux.md` — ADR-F 동결(6 섹션 전부 + Day 0 스파이크 실측 반영).
+- `Sources/Daemon/DaemonBootstrap.swift` — tailnet opt-in 바인딩 배선(`resolveBindStrategy()` +
+  `tailscaleProbe` 주입). env `CLAUDE_ALARM_BIND_STRATEGY=tailscale`일 때만 진단 → tailscaleIP,
+  기본은 loopback 유지(무변경).
+- `Tests/DaemonTests/DaemonBootstrapTests.swift` — opt-in 게이트 3건(기본 loopback/opt-in running/
+  opt-in offline 폴백).
+- `project.yml` — DaemonDevCLI 타겟에 `Sources/Push` 추가(`--lifecycle`이 PushSender/MockPushTransport를
+  사용하므로). 신규 UI 파일 없음 — non-app excludes 갱신 불필요.
+
+### 자동 검증 결과 (executor 직접 수행)
+
+| # | 종료 조건 | 명령 | 결과 |
+|---|---|---|---|
+| 1 | `--lifecycle` exit 0 + 3 신호 | `./daemon-dev-cli --lifecycle` | exit 0, 3 신호 출력(REVOKE_DISCONNECTED/EXPIRED_REJECTED/PUSH_REJECTED_REVOKED) |
+| 1b | secret 평문 0건 | `--lifecycle` stdout grep `secret/IP/Bearer/tok.` | 0건 |
+| 2 | revoked WS 거부 e2e | `testRevokedConnectionCancelledAndReconnectUnauthorized` | passed (cancelled + 재connect UNAUTHORIZED) |
+| 3 | 만료 WS 거부 e2e | `testExpiredDeviceRejectedAtGateTwo` | passed (게이트 ② UNAUTHORIZED + close) |
+| 4 | revoked push 거부 e2e | `testRevokedDevicePushExcludedFromSend` | passed (transport 미호출, excludedCount +1) |
+| 5 | LifecycleE2ETests green | `xcodebuild test -only-testing:DaemonTests/LifecycleE2ETests` | 4 tests, 0 failures (TEST SUCCEEDED) |
+| 6 | ADR-F 6 섹션 | `grep -cE "^## (Decision\|Drivers\|Alternatives\|Why\|Consequences\|Follow-ups)" docs/adr/F-*.md` | 6 |
+| 7 | fetchHint 미배선 | `grep -rn "case fetch" Sources/Daemon/WSEnvelope.swift` | 0건 (grep exit 1) |
+| 8 | 최종 회귀 | DaemonTests + WorkspaceTests + SessionTests | 152 + 83 + 183 = 418 green (414 기준 + 신규 4) |
+| - | 앱 빌드 | `xcodebuild build -scheme ClaudeAlarmTerminal` | BUILD SUCCEEDED |
+| - | CLI 빌드 | `xcodebuild build -scheme DaemonDevCLI` | BUILD SUCCEEDED |
+| - | secret/실IP 로그 노출 | `grep -rnE "deviceTokenSecret\|100\..." Sources/ \| grep -iE "log\|print\|FileHandle\|os_log"` | 0건 |
+
+#### 종료 조건 1 — `--lifecycle` 3 신호 상세
+
+`daemon-dev-cli --lifecycle` 실행 시 stdout은 정확히 3줄이다:
+
+```
+REVOKE_DISCONNECTED
+EXPIRED_REJECTED
+PUSH_REJECTED_REVOKED
+```
+
+exit code 0. 각 신호는 in-process 데몬 위에서 실 경로를 통과한 뒤에만 emit된다 — 신호 ①은
+`DeviceRevocationCoordinator.revoke` 후 연결 끊김(상태 전이 cancelled/failed 또는 disconnectedCount
+>= 1)을 관측하고, 신호 ②는 만료 디바이스 connect 후 envelope kind=error code=UNAUTHORIZED 수신을
+관측하며, 신호 ③은 `PushSender.sendIfNotRevoked`가 revoked 디바이스를 제외(sentCount == 0,
+excludedCount == 1)함을 관측한 뒤 emit한다. 어느 단계라도 실패하면 비-0 exit code로 종료한다.
+
+#### 종료 조건 7 — fetchHint 미배선(P7 freeze 대상)
+
+`grep -rn "case fetch" Sources/Daemon/WSEnvelope.swift`는 0건이다(grep exit 1). EnvelopeKind에
+`fetch` kind는 P6b에서 추가하지 않는다 — v0.9 스키마를 P7 freeze 전에 흔들지 않기 위함이다(D-5).
+스키마·의미는 계획서 §8.2에 "kind=fetch payload `{messageId}` + P7 v1.0 freeze 대상"으로 명세되어
+있으며, 코드 배선(kind 추가·핸들러·ring 재조회)은 P7(freeze) + P10b(모바일 송수신)가 맡는다.
+참고로 `PushEnvelope.fetchHint: String?`(P5 산출물)은 별개 필드이며, §8의 WS `kind=fetch`와 무관하다.
+
+#### tailnet opt-in 바인딩 — Day 4 부트스트랩 배선
+
+계획서 Day 4 항목 "tailnet opt-in 바인딩 배선"을 `DaemonBootstrap`에 추가했다. `WSServer`의
+`BindStrategy`(loopback/tailscaleIP) 분기는 Day 2에 도입됐고, Day 4는 그 분기를 데몬 부트스트랩에서
+**진단 결과로 결정하는 opt-in 경로**를 잇는다.
+
+- `DaemonBootstrap.resolveBindStrategy()` — env `CLAUDE_ALARM_BIND_STRATEGY` 게이트:
+  - 미설정 또는 `loopback` → loopback(진단 미실행 — 기본 비파괴, Stopped 환경 부팅 지연 회피)
+  - `tailscale`(명시 opt-in) → `TailscaleDiagnostics.diagnose()` 실행 → running이면 tailscaleIP,
+    그 외 분기는 loopback 폴백
+- `DaemonBootstrap`에 `tailscaleProbe` 옵셔널 주입 추가(테스트는 fake probe로 결정론 검증, 미주입 시
+  명시 opt-in일 때만 `ProcessTailscaleProbe` 기본 사용).
+- 검증: `DaemonBootstrapTests` 3건 추가 — (a) opt-in 없으면 loopback + probe 미호출(진단 미실행),
+  (b) opt-in+running → probe 1회 호출 + 진단 IP 바인딩, (c) opt-in+offline → loopback 폴백.
+
+기본 동작은 완전 무변경이다(383/414 비파괴) — env 미설정 시 진단을 돌리지 않고 즉시 loopback으로
+진행한다. 이 머신은 Tailscale Stopped이므로 실 100.x 바인딩은 측정 불가하고, Day 0 스파이크가
+en0 인터페이스 격리로 메커니즘을 실증했다(`.omc/research/p6b-tailscale-spike.md`).
