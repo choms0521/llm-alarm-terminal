@@ -17,6 +17,13 @@ public actor DevicePromotionCoordinator {
     /// 정책이 판정하므로, 이 카운터는 "promote가 트리거된 횟수"를 의미한다.
     public private(set) var promotedCount = 0
 
+    /// store.promote가 throw한 실패 횟수(테스트/운영 관측용). 실패를 조용히 삼키면 claim은
+    /// 성공했는데 승격이 누락되어 정상 디바이스가 pending(5분) 만료로 거부되는 상태가
+    /// 침묵하므로, 카운터와 마지막 실패 설명으로 표면화한다.
+    public private(set) var promotionFailureCount = 0
+    /// 마지막 승격 실패의 에러 타입명. secret·실 IP를 포함하지 않는다(타입명만 기록).
+    public private(set) var lastPromotionFailure: String?
+
     public init(store: any DeviceStore, lifecycle: DeviceLifecyclePolicy = DeviceLifecyclePolicy()) {
         self.store = store
         self.lifecycle = lifecycle
@@ -27,7 +34,12 @@ public actor DevicePromotionCoordinator {
     /// no-op이라 폐기 디바이스가 30일 active로 부활하지 않는다(read-check-write가 store actor
     /// 메서드 안에 묶여 revoke와 직렬화).
     public func promote(deviceId: UUID) async {
-        try? await store.promote(id: deviceId, to: lifecycle.activeExpiry(now: Date()))
         promotedCount += 1
+        do {
+            try await store.promote(id: deviceId, to: lifecycle.activeExpiry(now: Date()))
+        } catch {
+            promotionFailureCount += 1
+            lastPromotionFailure = String(describing: type(of: error))
+        }
     }
 }
