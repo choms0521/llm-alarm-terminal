@@ -1,9 +1,8 @@
 import Foundation
 
-/// Tailscale 진단 seam. 실 구현은 `Process`로 `tailscale status --json` / `tailscale ip -4`를
-/// 호출하지만, 이 protocol 뒤에 격리해 테스트는 fake conformer로 4분기를 전부 검증한다
-/// (Tailscale 미설치 CI에서도 결정론적). 본 파일은 P6b Day 0 골격(시그니처 + 진단 모델)이며,
-/// 실 `Process` 구현은 Day 2/3에 추가한다.
+/// Tailscale 진단 seam. 실 구현 `ProcessTailscaleProbe`는 `Process`로 `tailscale status --json` /
+/// `tailscale ip -4`를 호출하지만, 이 protocol 뒤에 격리해 테스트는 fake conformer로 4분기를
+/// 전부 검증한다 (Tailscale 미설치 CI에서도 결정론적).
 public protocol TailscaleProbing: Sendable {
     /// 외부 Tailscale 상태를 진단해 4분기 중 하나로 환원한다.
     func probe() async -> TailscaleState

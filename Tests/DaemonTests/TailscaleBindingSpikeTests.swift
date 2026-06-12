@@ -94,6 +94,11 @@ final class TailscaleBindingSpikeTests: XCTestCase {
         guard let bindHost = Self.resolveNonLoopbackBindHost() else {
             throw XCTSkip("비-loopback 인터페이스 IP를 찾지 못함 — 대조군 생략(진단 파싱 테스트만 유효).")
         }
+        if bindHost.hasPrefix("100.") {
+            // 자기 자신의 tailscale IP self-dial은 utun hairpin EADDRINUSE로 실패한다(실측 —
+            // LAN 인터페이스가 전무한 환경에서만 이 분기에 도달). 대조군만 생략한다.
+            throw XCTSkip("tailscale 100.x self-dial은 대조군 측정에 대표성이 없어 생략.")
+        }
 
         let server = try await SpikeBindServer.start(bindHost: bindHost)
         defer { server.stop() }
@@ -106,20 +111,25 @@ final class TailscaleBindingSpikeTests: XCTestCase {
 
     // MARK: - 비-loopback host 결정
 
-    /// 실측에 쓸 비-loopback 바인딩 host를 결정한다. Tailscale이 **Running일 때만** 100.x를
-    /// 쓰고, 아니면 `en0`/`en1`의 IPv4를, 그것도 없으면 nil(→ XCTSkip)을 반환한다.
+    /// 실측에 쓸 비-loopback 바인딩 host를 결정한다. `en0`/`en1`(LAN IPv4)을 우선하고,
+    /// 없으면 Tailscale **Running일 때만** 100.x를, 그것도 없으면 nil(→ XCTSkip)을 반환한다.
+    ///
+    /// LAN 우선인 이유(실측): 자기 자신의 Tailscale 100.x로의 self-dial은 utun 경유
+    /// hairpin이 `EADDRINUSE`로 반복 실패해 대조군(.ready) 측정에 대표성이 없다 — 실 운용은
+    /// 다른 기기가 tailnet 너머에서 접속하는 형태라 self-dial 경로 자체가 없다. 인터페이스
+    /// 격리 메커니즘(`requiredLocalEndpoint`)은 어느 비-loopback 인터페이스든 동일하다.
     ///
     /// Running 게이트가 필수인 이유(실측): Tailscale이 Stopped여도 `ip -4`는 저장된 100.x를
     /// 반환하는데, utun 인터페이스가 내려가 있으면 그 주소 바인딩이 `.failed`가 아니라
     /// `.waiting`에 머물러 테스트가 무한 대기한다.
     static func resolveNonLoopbackBindHost() -> String? {
-        if let ts = firstRunningTailscaleIPv4(), ts.hasPrefix("100.") {
-            return ts
-        }
         for iface in ["en0", "en1"] {
             if let ip = ipv4(forInterface: iface), ip != "127.0.0.1" {
                 return ip
             }
+        }
+        if let ts = firstRunningTailscaleIPv4(), ts.hasPrefix("100.") {
+            return ts
         }
         return nil
     }

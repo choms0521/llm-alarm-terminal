@@ -5,7 +5,8 @@ import Foundation
 /// 격리돼 있어 단위 테스트는 fake로 4분기를 결정론적으로 검증한다(이 struct의 파싱 헬퍼는
 /// static이라 Process 없이도 단위 검증 가능).
 ///
-/// 실행 파일 부재(launch throw)는 .notInstalled. BackendState로 로그인/오프라인을 가른다.
+/// 실행 파일 부재·launch 실패는 .notInstalled. 실행은 됐으나 timeout·비정상 종료는
+/// .offline(CLI는 존재하므로 "미설치"가 아니라 "응답 불가"다). BackendState로 로그인/오프라인을 가른다.
 /// 핵심 함정(Day 0 스파이크): Stopped여도 `ip -4`는 저장된 100.x를 반환하므로, BackendState ==
 /// "Running"을 먼저 게이트한 뒤에만 .running으로 환원한다 — 그러지 않으면 utun이 내려간 주소에
 /// 바인딩해 listener가 .waiting에 무한 대기한다.
@@ -30,8 +31,15 @@ public struct ProcessTailscaleProbe: TailscaleProbing {
         guard let executable = resolveCLIPath() else {
             return .notInstalled   // 후보 경로 어디에도 실행 파일이 없다.
         }
-        // 1) status --json으로 BackendState 판정. launch 실패 = 미설치.
-        guard let statusJSON = try? Self.run(executable: executable, args: ["status", "--json"]) else {
+        // 1) status --json으로 BackendState 판정. launch 자체 실패만 미설치 —
+        //    실행 후 timeout/비정상 종료는 "응답 불가"이므로 오프라인으로 환원한다.
+        let statusJSON: String
+        do {
+            guard let output = try Self.run(executable: executable, args: ["status", "--json"]) else {
+                return .offline
+            }
+            statusJSON = output
+        } catch {
             return .notInstalled
         }
         let backend = Self.backendState(statusJSON)   // "Running"/"NeedsLogin"/"Stopped"...
@@ -43,8 +51,8 @@ public struct ProcessTailscaleProbe: TailscaleProbing {
         default:
             return .offline   // Stopped/NoState/파싱 실패 등은 오프라인으로 묶는다.
         }
-        // 2) Running이면 ip -4로 100.x 1줄 획득. 획득 실패 시 offline로 보수적 폴백.
-        guard let ipOut = try? Self.run(executable: executable, args: ["ip", "-4"]),
+        // 2) Running이면 ip -4로 100.x 1줄 획득. 실패·timeout 시 offline로 보수적 폴백.
+        guard let ipOut = (try? Self.run(executable: executable, args: ["ip", "-4"])) ?? nil,
               let ip = Self.firstTailscaleIP(ipOut) else {
             return .offline
         }
@@ -60,19 +68,47 @@ public struct ProcessTailscaleProbe: TailscaleProbing {
         return Self.candidatePaths.first { FileManager.default.isExecutableFile(atPath: $0) }
     }
 
-    /// 외부 CLI를 동기 실행하고 stdout을 문자열로 반환한다. launch 실패(실행 파일 부재 등)는 throw.
-    /// stderr는 무시한다(파싱은 stdout만 본다). 데몬 외부 프로세스라 5초 안에 응답하지 않으면 종료한다.
-    static func run(executable: String, args: [String]) throws -> String {
+    /// 외부 CLI를 동기 실행하고 stdout을 문자열로 반환한다. launch 실패(실행 파일 부재 등)만
+    /// throw하고, timeout(기본 5초)·비정상 종료는 nil로 환원해 호출부가 "실행은 됐으나 응답
+    /// 불가"로 다루게 한다. stderr는 무시한다(파싱은 stdout만 본다).
+    ///
+    /// timeout이 실제로 동작해야 하는 이유: 데몬 부트스트랩 opt-in 경로에서 호출되므로
+    /// tailscaled/CLI가 무응답이면 앱 부팅이 함께 멈춘다 — 무기한 waitUntilExit 금지.
+    static func run(executable: String, args: [String], timeout: TimeInterval = 5) throws -> String? {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = args
         let stdout = Pipe()
         process.standardOutput = stdout
         process.standardError = Pipe()
+
+        let finished = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in finished.signal() }
         try process.run()
-        let data = stdout.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        return String(data: data, encoding: .utf8) ?? ""
+
+        // stdout은 별도 큐에서 끝까지 읽는다 — 파이프 버퍼가 가득 차 자식 프로세스가
+        // 블록되는 교착을 막고, 본 스레드는 종료 신호만 기다린다.
+        let output = OutputBox()
+        let readDone = DispatchSemaphore(value: 0)
+        DispatchQueue.global(qos: .utility).async {
+            output.data = stdout.fileHandleForReading.readDataToEndOfFile()
+            readDone.signal()
+        }
+
+        if finished.wait(timeout: .now() + timeout) == .timedOut {
+            process.terminate()
+            _ = finished.wait(timeout: .now() + 1)
+            return nil
+        }
+        _ = readDone.wait(timeout: .now() + 1)
+        guard process.terminationStatus == 0 else { return nil }
+        return String(data: output.data, encoding: .utf8) ?? ""
+    }
+
+    /// 백그라운드 읽기 큐와 본 스레드가 공유하는 stdout 수집 상자. readDone 신호 후에만
+    /// 본 스레드가 읽으므로 동시 접근이 없다.
+    private final class OutputBox: @unchecked Sendable {
+        var data = Data()
     }
 
     /// `tailscale status --json` 출력에서 BackendState 문자열을 추출한다. 파싱 실패는 빈 문자열

@@ -29,10 +29,11 @@ public final class PairingModel: ObservableObject {
     private let lifecycle: DeviceLifecyclePolicy
     private let wsEndpoint: String
     private let pushChannelHint: String
-    /// revoke 단일 진입점(§5.4). nil이면 데몬 미부트스트랩 상태라 폐기 버튼이 비활성이다.
-    /// AppDelegate가 데몬 핸들(WSServer)을 얻은 뒤 주입한다.
+    /// revoke 단일 진입점(§5.4). nil이면 데몬 미부트스트랩 상태 — revokeDevice가 한국어
+    /// 안내 메시지("데몬이 준비되지 않아...")로 실패한다. AppDelegate가 데몬 핸들을 얻은 뒤 주입한다.
     private let revocationCoordinator: DeviceRevocationCoordinator?
-    /// Tailscale 사전 진단(§5.5, ADR-F). nil이면 진단 카드를 표시하지 않는다.
+    /// Tailscale 사전 진단(§5.5, ADR-F). nil이면 refreshTailscale이 no-op이라
+    /// tailscaleResult가 nil로 남고, 진단 카드는 진단 전 상태에 머문다.
     private let tailscaleDiagnostics: TailscaleDiagnostics?
     /// 만료 카운트다운 기준 시각. 발급 시 갱신.
     private var expiresAt: Date?
@@ -40,7 +41,8 @@ public final class PairingModel: ObservableObject {
 
     /// PairingSession/DeviceStore/엔드포인트를 주입한다. wsEndpoint는 데몬 port로 구성한
     /// ws://127.0.0.1:<port>/ 문자열이다. revocationCoordinator/tailscaleDiagnostics는
-    /// 데몬 부트스트랩 후 AppDelegate가 주입한다(미주입 시 폐기/진단 UI 비활성).
+    /// 데몬 부트스트랩 후 AppDelegate가 주입한다(미주입 시 폐기는 안내 메시지로 실패하고
+    /// 진단 새로고침은 no-op).
     public init(
         session: PairingSession,
         store: any DeviceStore,
