@@ -85,6 +85,10 @@ private struct ReadyContent: View {
     /// 삭제 확인 다이얼로그의 대상 디바이스. nil이면 다이얼로그를 닫는다.
     @State private var deviceToDelete: Device?
 
+    /// 폐기 확인 다이얼로그의 대상 디바이스. nil이면 다이얼로그를 닫는다. 삭제와 별개의
+    /// 파괴적 동작이라 별도 다이얼로그 상태로 관리한다.
+    @State private var deviceToRevoke: Device?
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // 상태 callout — 데몬 실행 중
@@ -106,6 +110,11 @@ private struct ReadyContent: View {
             .background(Color.green.opacity(0.10))
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
+            // Tailscale 진단 상태 카드 (원격 접속 전제 안내)
+            TailscaleStatusCard(result: model.tailscaleResult) {
+                Task { await model.refreshTailscale() }
+            }
+
             // 페어링 코드 카드
             pairingCodeCard
 
@@ -117,6 +126,8 @@ private struct ReadyContent: View {
         }
         .task {
             await model.refreshDevices()
+            // 설정 진입 시 Tailscale 진단 1회. 이후 갱신은 카드의 새로고침 버튼으로만.
+            await model.refreshTailscale()
         }
         .onDisappear {
             model.stop()
@@ -139,7 +150,27 @@ private struct ReadyContent: View {
                 deviceToDelete = nil
             }
         } message: { _ in
-            Text("삭제하면 이 디바이스의 토큰은 즉시 무효화됩니다.")
+            Text("삭제하면 이 디바이스 항목과 토큰이 영구히 제거됩니다.")
+        }
+        .alert(
+            "이 디바이스를 폐기할까요?",
+            isPresented: Binding(
+                get: { deviceToRevoke != nil },
+                set: { presented in if !presented { deviceToRevoke = nil } }
+            ),
+            presenting: deviceToRevoke
+        ) { device in
+            Button("폐기", role: .destructive) {
+                Task {
+                    await model.revokeDevice(id: device.id)
+                    deviceToRevoke = nil
+                }
+            }
+            Button("취소", role: .cancel) {
+                deviceToRevoke = nil
+            }
+        } message: { _ in
+            Text("폐기하면 이 디바이스의 토큰이 즉시 무효화되고 연결이 끊깁니다. 항목은 폐기됨 상태로 남습니다.")
         }
     }
 
@@ -293,16 +324,24 @@ private struct ReadyContent: View {
 
             Spacer()
 
-            if device.revoked {
-                Text("폐기됨")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.red)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Color.red.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            lifecycleBadge(device)
+
+            // 폐기 버튼 — 토큰 무효화 + 연결 끊기(항목은 폐기됨 상태로 존속). revoked 디바이스는
+            // 이미 폐기됐으므로 버튼을 숨긴다.
+            if !device.revoked {
+                Button {
+                    deviceToRevoke = device
+                } label: {
+                    Image(systemName: "nosign")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.borderless)
+                .help("이 디바이스의 토큰을 무효화하고 연결을 끊습니다.")
+                .accessibilityLabel("디바이스 폐기")
             }
 
+            // 삭제 버튼 — 항목과 토큰을 영구히 제거.
             Button {
                 deviceToDelete = device
             } label: {
@@ -311,9 +350,32 @@ private struct ReadyContent: View {
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.borderless)
-            .help("이 디바이스를 삭제합니다.")
+            .help("이 디바이스 항목을 영구히 삭제합니다.")
             .accessibilityLabel("디바이스 삭제")
         }
+    }
+
+    /// 디바이스 상태 뱃지. 폐기됨(빨강) > 만료됨(빨강) > 만료 임박(주황) 순으로 한 가지만 표시한다.
+    /// 폐기/만료는 시간·상태가 독립이라 폐기됨을 최우선으로 보인다(폐기가 더 강한 종료 상태).
+    @ViewBuilder
+    private func lifecycleBadge(_ device: Device) -> some View {
+        if device.revoked {
+            statusBadge(text: "폐기됨", color: .red)
+        } else if model.isExpired(device) {
+            statusBadge(text: "만료됨", color: .red)
+        } else if model.isExpiringSoon(device) {
+            statusBadge(text: "\(model.daysRemaining(device))일 후 만료", color: .orange)
+        }
+    }
+
+    private func statusBadge(text: String, color: Color) -> some View {
+        Text(text)
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(color.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
     }
 
     // MARK: - 안내 callout
@@ -391,5 +453,65 @@ private struct ReadyContent: View {
 
     private func formattedDate(_ date: Date) -> String {
         Self.expiryDateFormatter.string(from: date)
+    }
+}
+
+// MARK: - Tailscale 진단 상태 카드
+
+/// Tailscale 사전 진단 상태를 한국어 4분기로 표시하는 callout 카드(§5.5, ADR-F).
+///
+/// 연결됨(running)은 초록, 미설치/미로그인/오프라인은 주황으로 표시한다. 진단 전(result nil)이면
+/// 회색 "확인 중" 표시다. 새로고침 버튼으로 수동 재진단을 트리거한다(설정 진입 시 1회 자동 진단 후).
+/// 실 IP·secret은 표시하지 않고 koreanReason만 노출한다.
+private struct TailscaleStatusCard: View {
+    let result: TailscaleDiagnostics.Result?
+    let onRefresh: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Circle()
+                .fill(indicatorColor)
+                .frame(width: 8, height: 8)
+                .padding(.top, 5)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("원격 접속 (Tailscale)")
+                    .font(.system(size: 13, weight: .semibold))
+                Text(reasonText)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+            Button(action: onRefresh) {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.borderless)
+            .help("Tailscale 상태를 다시 확인합니다.")
+            .accessibilityLabel("Tailscale 상태 새로고침")
+        }
+        .padding(14)
+        .background(backgroundColor)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    /// 표시할 사유 텍스트. 진단 전이면 안내 문구, 진단 후면 상태별 한국어 사유.
+    private var reasonText: String {
+        result?.reason ?? "Tailscale 상태를 확인하는 중입니다."
+    }
+
+    /// 인디케이터 색. 연결됨만 초록, 나머지 3분기는 주황(점진적 저하 — 로컬 연결은 유지). 진단 전 회색.
+    private var indicatorColor: Color {
+        guard let state = result?.state else { return Color.secondary }
+        if case .running = state { return .green }
+        return .orange
+    }
+
+    /// 카드 배경 색. 인디케이터와 동일 색 계열의 옅은 톤.
+    private var backgroundColor: Color {
+        guard let state = result?.state else { return Color.secondary.opacity(0.08) }
+        if case .running = state { return Color.green.opacity(0.10) }
+        return Color.orange.opacity(0.10)
     }
 }
