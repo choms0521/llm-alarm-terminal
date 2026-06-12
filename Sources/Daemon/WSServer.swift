@@ -1,6 +1,10 @@
 import Foundation
 import Network
 
+/// listener가 `.ready`에 도달했는데도 포트를 얻지 못한 경우의 명시적 실패.
+/// 포트 0을 반환하면 호출자의 후속 접속 실패 원인이 가려지므로 throw로 표면화한다.
+public struct ListenerPortUnavailableError: Error {}
+
 /// In-process WebSocket server bound to loopback only (127.0.0.1, OS-assigned
 /// port). Accepts WS clients, binds them to sessions on `session.start`, and
 /// rejects out-of-order inbound `seq` with a NON_MONOTONIC_SEQ error envelope.
@@ -23,8 +27,40 @@ public actor WSServer {
     private var inputHandler: (@Sendable (UUID, InputItem) async -> Void)?
     private var sessionStartHandler: (@Sendable (UUID, UUID) async -> Void)?
 
-    public init(registry: SessionBindRegistry) {
+    // P6a 인증 게이트. 게이트 ①(핸드셰이크)이 carry한 nonce 항목을 게이트 ②(첫 envelope)가
+    // 소비해 constant-time secret 대조로 승격한다. 승격 전 connection은 운영 envelope을
+    // 처리하지 못한다(ingestInbound/bind 미진입).
+    private let authGate: WSAuthGate
+    private let verifier: DeviceTokenVerifier
+    private let pendingWindow: TimeInterval
+    /// 승격된 connection 식별자 집합. nil이면 미인증(게이트 ② 트리거 대상).
+    private var authState: [UUID: DeviceTokenVerifier.VerifiedDevice] = [:]
+
+    /// 6자리 코드 페어링 세션(§5.5). pre-auth pairing.claim 경로가 코드를 제출해 secret을
+    /// 교환한다. nil이면 claim을 처리할 수 없어 pairing.claim은 PAIRING_CODE_INVALID로 거부된다
+    /// (페어링이 활성화되지 않은 서버 구성).
+    private let pairingSession: PairingSession?
+
+    public init(
+        registry: SessionBindRegistry,
+        authGate: WSAuthGate,
+        verifier: DeviceTokenVerifier,
+        pairingSession: PairingSession? = nil,
+        pendingWindow: TimeInterval = WSServer.defaultPendingWindow()
+    ) {
         self.registry = registry
+        self.authGate = authGate
+        self.verifier = verifier
+        self.pairingSession = pairingSession
+        self.pendingWindow = pendingWindow
+    }
+
+    /// carry-over 시간창 기본값. env `CLAUDE_ALARM_PAIRING_PENDING_WINDOW_SECONDS`로
+    /// 재정의하며(부록 A), 미설정/파싱 실패 시 10초다.
+    public static func defaultPendingWindow() -> TimeInterval {
+        let raw = ProcessInfo.processInfo.environment["CLAUDE_ALARM_PAIRING_PENDING_WINDOW_SECONDS"]
+        if let raw, let value = TimeInterval(raw), value > 0 { return value }
+        return 10
     }
 
     /// The OS-assigned loopback port once the server is listening.
@@ -51,10 +87,37 @@ public actor WSServer {
     }
 
     /// Builds loopback-only WS parameters (127.0.0.1, OS-assigned port).
-    private static func makeListenerParameters() -> NWParameters {
+    ///
+    /// 게이트 ①(P6a): 핸드셰이크 클로저를 `authGate.queue`에 부착해 헤더 Bearer + nonce를
+    /// 구조 검증하고 carry한다. 클로저는 actor 외부 @Sendable이라 `authGate`만 캡처한다.
+    /// Keychain 조회·secret 대조는 여기서 하지 않는다(핸드셰이크 큐 블록 방지 — 게이트 ②로 지연).
+    private static func makeListenerParameters(authGate: WSAuthGate) -> NWParameters {
         let params = NWParameters.tcp
         let ws = NWProtocolWebSocket.Options()
         ws.autoReplyPing = true
+        ws.setClientRequestHandler(authGate.queue) { _, headers in
+            // claim 전용 pre-auth 경로(§5.5): 토큰 없는 디바이스가 6자리 코드를 제출하기 위해
+            // 여는 연결이다. Bearer/nonce가 없고 X-Pair-Claim 식별 헤더만 있으면 accept하되
+            // carry하지 않는다. 게이트 ②가 이 연결의 첫 envelope을 pairing.claim으로만 허용하고
+            // 그 외 운영 envelope은 UNAUTHORIZED로 막는다(연결 미승격). claim 식별 헤더로
+            // "claim 의도 연결"과 "잘못 구성된 무토큰 연결"을 구분해 후자는 여전히 reject한다.
+            if Self.isClaimHandshake(headers) {
+                return NWProtocolWebSocket.Response(status: .accept, subprotocol: nil)
+            }
+            // 헤더에서 Bearer(tokenId.secret) + X-Pair-Nonce(연결마다 신규 무작위 nonce) 추출.
+            // 구조 검증만(tokenId/secret base64url 형식 + nonce 형식). 중복 nonce는 reject.
+            guard let split = authGate.structurallySplit(Self.bearer(from: headers)),
+                  let nonce = Self.nonce(from: headers),
+                  WSAuthGate.isValidNonce(nonce) else {
+                return NWProtocolWebSocket.Response(status: .reject, subprotocol: nil)
+            }
+            // nonce 중복·등록·carry를 핸드셰이크 큐(actor 외부)에서 동기적으로 처리한다.
+            // authGate는 actor지만 이 경로는 큐 직렬 격리에 의존하므로 동기 헬퍼로 위임한다.
+            guard authGate.handshakeRegister(nonce: nonce, tokenId: split.tokenId, secret: split.secret) else {
+                return NWProtocolWebSocket.Response(status: .reject, subprotocol: nil)   // 중복 nonce
+            }
+            return NWProtocolWebSocket.Response(status: .accept, subprotocol: nil)
+        }
         params.defaultProtocolStack.applicationProtocols.insert(ws, at: 0)
         params.requiredLocalEndpoint = NWEndpoint.hostPort(host: "127.0.0.1", port: .any)
         return params
@@ -63,7 +126,7 @@ public actor WSServer {
     /// Starts listening on a loopback OS-assigned port and returns it once ready.
     @discardableResult
     public func start() async throws -> UInt16 {
-        let listener = try NWListener(using: Self.makeListenerParameters())
+        let listener = try NWListener(using: Self.makeListenerParameters(authGate: authGate))
         self.listener = listener
 
         let assignedPort: UInt16 = try await withCheckedThrowingContinuation { continuation in
@@ -71,8 +134,15 @@ public actor WSServer {
             listener.stateUpdateHandler = { state in
                 switch state {
                 case .ready:
-                    let value = listener.port?.rawValue ?? 0
-                    if resumed.fire() { continuation.resume(returning: value) }
+                    if resumed.fire() {
+                        if let value = listener.port?.rawValue {
+                            continuation.resume(returning: value)
+                        } else {
+                            // 포트 0을 돌려주면 호출자가 0번 포트로 접속을 시도해
+                            // 원인 파악이 어려우므로 명시적으로 실패시킨다.
+                            continuation.resume(throwing: ListenerPortUnavailableError())
+                        }
+                    }
                 case .failed(let error):
                     if resumed.fire() { continuation.resume(throwing: error) }
                 default:
@@ -99,6 +169,7 @@ public actor WSServer {
         for (_, connection) in connections { connection.cancel() }
         connections.removeAll()
         outboundSeq.removeAll()
+        authState.removeAll()
         for clientId in clientIds { await registry.cleanup(clientId: clientId) }
 
         guard let listener = self.listener else { return }
@@ -171,6 +242,7 @@ public actor WSServer {
     private func handleDisconnect(_ clientId: UUID) async {
         connections[clientId] = nil
         outboundSeq[clientId] = nil
+        authState[clientId] = nil
         await registry.cleanup(clientId: clientId)
     }
 
@@ -196,6 +268,37 @@ public actor WSServer {
             send(makeError(code: code.rawValue, message: message),
                  to: connection, clientId: clientId)
             return
+        }
+
+        // pairing.claim pre-auth 분기(§5.5) — 게이트 ② '이전'에 처리한다. 미승격 연결의
+        // 첫 envelope이 pairing.claim이면 6자리 코드를 PairingSession에 제출해 secret을
+        // 교환하고 return한다. claim은 연결을 승격하지 않으므로 authState는 nil로 남고
+        // ingestInbound/게이트 ②/bind에 진입하지 않는다(claim 채널과 운영 채널 분리).
+        // claim payload에는 nonce echo가 없어 게이트 ②를 트리거하지 못하므로, 이 분기가
+        // 없으면 claim은 UNAUTHORIZED로 막혀 영원히 처리 불가다.
+        if authState[clientId] == nil, env.kind == .pairingClaim {
+            await handlePairingClaim(env, clientId: clientId, connection: connection)
+            return
+        }
+
+        // 게이트 ② (P6a) — ingestInbound(seq 전진) 이전에 인증한다. 미인증 clientId의 첫
+        // envelope이 echo한 nonce가 트리거다. 토큰·secret은 envelope에 없고(헤더로만 운반)
+        // env.actor.deviceId도 신뢰 입력이 아니다. 미통과 시 UNAUTHORIZED + cancel하고
+        // ingestInbound/bind에 진입하지 않는다 — 미인증 연결이 registry seq나 세션 바인딩을
+        // 오염시키지 못하게 한다(C2 순서 보증).
+        if authState[clientId] == nil {
+            guard let echoedNonce = Self.echoedNonce(env.payload),
+                  let claimed = await authGate.consumePending(nonce: echoedNonce, within: pendingWindow),
+                  let verified = await verifier.verify(tokenId: claimed.tokenId,
+                                                       presentedSecret: claimed.secret) else {
+                // 에러 프레임 전송 완료 후 cancel — 클라이언트가 UNAUTHORIZED를 받을 기회를 준다.
+                sendThenCancel(makeError(code: DaemonErrorCode.unauthorized.rawValue,
+                                         message: "unauthenticated connection"),
+                               to: connection, clientId: clientId)
+                return
+            }
+            // 승격: 이후 같은 clientId의 envelope은 재검증 없이 통과한다(carry-over 1회로 충분).
+            authState[clientId] = verified
         }
 
         do {
@@ -254,6 +357,33 @@ public actor WSServer {
                         completion: .contentProcessed { _ in })
     }
 
+    /// 게이트 ②: 에러 프레임을 보낸 뒤 그 프레임이 실제로 전송된 다음에 연결을 닫는다.
+    /// 즉시 `connection.cancel()`을 호출하면 미완료 send 프레임이 폐기되어 클라이언트가
+    /// UNAUTHORIZED를 받기 전에 close될 수 있다 — completion 콜백에서 cancel을 트리거한다.
+    private func sendThenCancel(_ envelope: WSEnvelope, to connection: NWConnection, clientId: UUID) {
+        let next = (outboundSeq[clientId] ?? 0) + 1
+        outboundSeq[clientId] = next
+        let stamped = WSEnvelope(
+            seq: next,
+            ackSeq: envelope.ackSeq,
+            actor: envelope.actor,
+            kind: envelope.kind,
+            code: envelope.code,
+            payload: envelope.payload
+        )
+        guard let data = try? EnvelopeCodec.encode(stamped) else {
+            connection.cancel()
+            return
+        }
+        let meta = NWProtocolWebSocket.Metadata(opcode: .text)
+        let context = NWConnection.ContentContext(identifier: "send", metadata: [meta])
+        connection.send(content: data, contentContext: context, isComplete: true,
+                        completion: .contentProcessed { _ in
+                            // 전송 완료(또는 실패) 후 닫는다 — 에러 프레임이 클라이언트에 도달할 기회를 준다.
+                            connection.cancel()
+                        })
+    }
+
     private func makeAck(ackSeq: UInt64, text: String) -> WSEnvelope {
         WSEnvelope(seq: 0, ackSeq: ackSeq, actor: EnvelopeActor(deviceId: "daemon-local"),
                    kind: .ack, text: text)
@@ -269,6 +399,99 @@ public actor WSServer {
         guard let object = try? JSONSerialization.jsonObject(with: payload) as? [String: Any],
               let raw = object["sessionId"] as? String else { return nil }
         return UUID(uuidString: raw)
+    }
+
+    // MARK: - P6a pairing.claim (pre-auth)
+
+    /// pairing.claim 처리(§5.5). payload `{"code":"123456"}`의 6자리 코드를 PairingSession에
+    /// 제출한다. 성공 시 pairing.response(PairingPayload JSON, secret 포함 — loopback 한정·
+    /// 일회성 예외) / 실패 시 PAIRING_CODE_* 에러를 보낸다. 연결을 승격하지 않으며
+    /// (authState 미변경) registry/bind에 진입하지 않는다. secret은 응답 본문에만 담기고
+    /// 로그·다른 envelope에는 남기지 않는다.
+    private func handlePairingClaim(_ env: WSEnvelope, clientId: UUID, connection: NWConnection) async {
+        guard let pairingSession else {
+            send(makeError(code: DaemonErrorCode.pairingCodeInvalid.rawValue,
+                           message: "pairing not available"),
+                 to: connection, clientId: clientId)
+            return
+        }
+        guard let code = Self.claimCode(env.payload) else {
+            send(makeError(code: DaemonErrorCode.pairingCodeInvalid.rawValue,
+                           message: "pairing claim payload missing a valid code"),
+                 to: connection, clientId: clientId)
+            return
+        }
+        guard let payload = await pairingSession.claim(code: code) else {
+            // PairingSession.claim 실패. lastRejectCode가 사유(INVALID/EXPIRED/RATE_LIMITED).
+            let rejectCode = await pairingSession.lastRejectCode
+                ?? DaemonErrorCode.pairingCodeInvalid.rawValue
+            send(makeError(code: rejectCode, message: "pairing claim rejected"),
+                 to: connection, clientId: clientId)
+            return
+        }
+        guard let json = try? PairingCodec.encodeJSON(payload),
+              let text = String(data: json, encoding: .utf8) else {
+            send(makeError(code: DaemonErrorCode.malformedPayload.rawValue,
+                           message: "pairing response could not be encoded"),
+                 to: connection, clientId: clientId)
+            return
+        }
+        send(WSEnvelope(seq: 0, actor: EnvelopeActor(deviceId: "daemon-local"),
+                        kind: .pairingResponse, text: text),
+             to: connection, clientId: clientId)
+    }
+
+    /// pairing.claim payload `{"code":"123456"}`에서 6자리 코드를 추출한다. 형식 위반은 nil.
+    /// 정확히 6자리 ASCII 숫자만 통과시켜 비정상 payload(긴 문자열 등)를 조기 차단한다.
+    private static func claimCode(_ payload: Data) -> String? {
+        guard let object = try? JSONSerialization.jsonObject(with: payload) as? [String: Any],
+              let code = object["code"] as? String,
+              code.count == 6,
+              code.allSatisfy({ $0.isASCII && $0.isNumber }) else { return nil }
+        return code
+    }
+
+    // MARK: - P6a 인증 게이트 헬퍼
+
+    /// 게이트 ①: claim 전용 pre-auth 핸드셰이크인지 판정한다(§5.5). Bearer/nonce가 없고
+    /// `X-Pair-Claim` 식별 헤더만 있는 연결을 claim 의도로 본다. Bearer나 nonce가 하나라도
+    /// 있으면 claim 경로가 아니다(인증 경로로 처리). 식별 헤더로 "잘못 구성된 무토큰 연결"과
+    /// 구분해 후자는 reject를 유지한다.
+    private static func isClaimHandshake(_ headers: [(name: String, value: String)]) -> Bool {
+        guard bearer(from: headers) == nil, nonce(from: headers) == nil else { return false }
+        guard let value = headers.first(where: {
+            $0.name.caseInsensitiveCompare("X-Pair-Claim") == .orderedSame
+        })?.value else { return false }
+        return value == "1"
+    }
+
+    /// 게이트 ② 트리거: 첫 envelope payload JSON의 `"nonce"` 필드를 추출한다. session.start
+    /// payload `{"sessionId":"...","nonce":"..."}`에 합류되며, parseSessionId는 여분 키에
+    /// 관대하다(sessionId만 읽음). nonce가 없으면(다른 kind가 먼저 도착 등) nil → UNAUTHORIZED.
+    private static func echoedNonce(_ payload: Data) -> String? {
+        guard let object = try? JSONSerialization.jsonObject(with: payload) as? [String: Any],
+              let nonce = object["nonce"] as? String, !nonce.isEmpty else { return nil }
+        return nonce
+    }
+
+    /// 게이트 ① 헤더 추출: `Authorization: Bearer <tokenId>.<secret>`에서 토큰 문자열만 떼낸다.
+    /// 대소문자 무시 헤더 매칭 + `Bearer ` 접두사 제거. 부재·접두사 누락 시 nil.
+    private static func bearer(from headers: [(name: String, value: String)]) -> String? {
+        guard let value = headers.first(where: {
+            $0.name.caseInsensitiveCompare("Authorization") == .orderedSame
+        })?.value else { return nil }
+        let prefix = "Bearer "
+        guard value.hasPrefix(prefix) else { return nil }
+        let token = String(value.dropFirst(prefix.count))
+        return token.isEmpty ? nil : token
+    }
+
+    /// 게이트 ① 헤더 추출: `X-Pair-Nonce` 헤더값(클라이언트가 연결마다 생성한 일회성 nonce).
+    private static func nonce(from headers: [(name: String, value: String)]) -> String? {
+        guard let value = headers.first(where: {
+            $0.name.caseInsensitiveCompare("X-Pair-Nonce") == .orderedSame
+        })?.value, !value.isEmpty else { return nil }
+        return value
     }
 }
 

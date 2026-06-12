@@ -41,6 +41,7 @@ targets:
       - path: Sources/UI
       - path: Sources/Daemon
       - path: Sources/Push
+      - path: Sources/Pairing
     resources:
       - path: Resources
         excludes:
@@ -139,6 +140,13 @@ targets:
           - "**/AgentTerminalHostView.swift"
           - "**/AgentSplitView.swift"
           - "**/PushSettingsView.swift"
+          - "**/PairingView.swift"
+          - "**/QRImageView.swift"
+          - "**/PairingModel.swift"
+          - "**/AppSettingsState.swift"
+          - "**/SettingsPageView.swift"
+          - "**/PairingSettingsContent.swift"
+          - "**/PushSettingsContent.swift"
       - path: Sources/SessionVerifier
     dependencies:
       - package: AnyCodable
@@ -204,6 +212,13 @@ targets:
           - "**/PushSettingsView.swift"
           - "**/AgentTerminalHostView.swift"
           - "**/AgentSplitView.swift"
+          - "**/PairingView.swift"
+          - "**/QRImageView.swift"
+          - "**/PairingModel.swift"
+          - "**/AppSettingsState.swift"
+          - "**/SettingsPageView.swift"
+          - "**/PairingSettingsContent.swift"
+          - "**/PushSettingsContent.swift"
       - path: Tests/WorkspaceTests
     dependencies:
       - package: AnyCodable
@@ -238,6 +253,13 @@ targets:
           - "**/PushSettingsView.swift"
           - "**/AgentTerminalHostView.swift"
           - "**/AgentSplitView.swift"
+          - "**/PairingView.swift"
+          - "**/QRImageView.swift"
+          - "**/PairingModel.swift"
+          - "**/AppSettingsState.swift"
+          - "**/SettingsPageView.swift"
+          - "**/PairingSettingsContent.swift"
+          - "**/PushSettingsContent.swift"
       - path: Tests/SessionTests
     dependencies:
       - package: AnyCodable
@@ -272,7 +294,15 @@ targets:
           - "**/AgentTerminalHostView.swift"
           - "**/AgentSplitView.swift"
           - "**/PushSettingsView.swift"
+          - "**/PairingView.swift"
+          - "**/QRImageView.swift"
+          - "**/PairingModel.swift"
+          - "**/AppSettingsState.swift"
+          - "**/SettingsPageView.swift"
+          - "**/PairingSettingsContent.swift"
+          - "**/PushSettingsContent.swift"
       - path: Sources/Daemon
+      - path: Sources/Pairing
       - path: Sources/DaemonDevCLI
     dependencies:
       - package: AnyCodable
@@ -305,8 +335,16 @@ targets:
           - "**/GhosttyViewportProvider.swift"
           - "**/AgentTerminalHostView.swift"
           - "**/AgentSplitView.swift"
+          - "**/PairingView.swift"
+          - "**/QRImageView.swift"
+          - "**/PairingModel.swift"
+          - "**/AppSettingsState.swift"
+          - "**/SettingsPageView.swift"
+          - "**/PairingSettingsContent.swift"
+          - "**/PushSettingsContent.swift"
       - path: Sources/Daemon
       - path: Sources/Push
+      - path: Sources/Pairing
       - path: Tests/DaemonTests
     dependencies:
       - package: AnyCodable

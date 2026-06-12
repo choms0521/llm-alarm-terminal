@@ -80,9 +80,10 @@ final class EnvelopeCodecTests: XCTestCase {
         }
     }
 
-    // A6: all 9 kinds (including reserved pause/resume) round-trip equal.
+    // A6: all 11 kinds (including reserved pause/resume and P6a pairing.claim/
+    // pairing.response) round-trip equal.
     func testAllKinds() throws {
-        XCTAssertEqual(EnvelopeKind.allCases.count, 9)
+        XCTAssertEqual(EnvelopeKind.allCases.count, 11)
         for kind in EnvelopeKind.allCases {
             let env = WSEnvelope(
                 seq: 100,

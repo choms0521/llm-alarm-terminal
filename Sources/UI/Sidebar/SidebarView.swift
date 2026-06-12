@@ -11,16 +11,20 @@ public struct SidebarView: View {
     /// closeWorkspace 트리거. Day 3 단독 빌드에서는 nil 허용; Day 5 coordinator 가 wiring.
     public var onCloseWorkspace: ((UUID) -> Void)?
     public var onAddWorkspace: ((String, String) -> Void)?
+    /// 설정 창 열기 트리거. nil이면 설정 버튼을 숨긴다(테스트 단독 빌드 호환).
+    public var onOpenSettings: (() -> Void)?
     @State private var pickerPresented = false
 
     public init(
         manager: WorkspaceManager,
         onCloseWorkspace: ((UUID) -> Void)? = nil,
-        onAddWorkspace: ((String, String) -> Void)? = nil
+        onAddWorkspace: ((String, String) -> Void)? = nil,
+        onOpenSettings: (() -> Void)? = nil
     ) {
         self.manager = manager
         self.onCloseWorkspace = onCloseWorkspace
         self.onAddWorkspace = onAddWorkspace
+        self.onOpenSettings = onOpenSettings
     }
 
     public var body: some View {
@@ -58,6 +62,19 @@ public struct SidebarView: View {
             .buttonStyle(.borderless)
             .padding(8)
             .accessibilityIdentifier("new-workspace-button")
+
+            if let openSettings = onOpenSettings {
+                Divider()
+
+                Button(action: openSettings) {
+                    Label("설정", systemImage: "gearshape")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .padding(8)
+                .accessibilityIdentifier("open-settings-button")
+            }
         }
         .frame(minWidth: 200, idealWidth: 240)
         .fileImporter(

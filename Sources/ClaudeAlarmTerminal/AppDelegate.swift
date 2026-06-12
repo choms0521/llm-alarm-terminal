@@ -38,6 +38,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     /// P5 Day 4 (h): drives live internal-input attachment once the daemon is up.
     private var internalInputCoordinator: InternalInputCoordinator?
 
+    /// P6a Day 3: 신뢰 디바이스를 실 Keychain에 보관하는 store. DaemonBootstrap에 주입해
+    /// 데몬 토큰 인증이 실 Keychain을 보게 하고, 페어링 UI도 같은 store를 공유한다.
+    private let deviceStore: any DeviceStore = KeychainDeviceStore()
+
+    /// P6a Day 3: 6자리 코드 발급 세션. 페어링 UI가 코드/QR을 발급하는 데 쓴다.
+    private let pairingSession = PairingSession()
+
+    /// P6a Day 3: 페어링 화면 모델. 데몬 port를 알아야 wsEndpoint를 구성할 수 있어
+    /// DaemonBootstrap 완료 후 생성한다.
+    private var pairingModel: PairingModel?
+
+    /// 푸시 알림 설정 모델. 설정 창의 "푸시 알림" 탭에 임베드한다.
+    private let pushSettingsModel = PushSettingsModel()
+
+    /// 설정 페이지 전환 상태. RootView 가 ObservedObject 로 관찰하며, isShowingSettings 가
+    /// true 이면 본 창 내에서 SettingsPageView 로 전환된다. NSWindow 팝업 방식을 대체한다.
+    private let appSettingsState = AppSettingsState()
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // P2 Day 3: replace P1 single-surface window with a SwiftUI sidebar +
         // workspace content split. libghostty is instantiated up-front because
@@ -168,7 +186,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // P5.5: 트리 선택/펼침 상태를 뷰 밖에서 단일 소유 — agent-view 를
         // 떠났다 돌아와도(뷰 재생성) 선택과 펼침이 보존된다.
         let agentTreeSelection = AgentTreeSelection()
-        let rootView = RootView(
+        let settingsState = appSettingsState
+        let rootView = SettingsObservingHost(settingsState: settingsState) {
+            RootView(
             manager: manager,
             coordinator: statusCoordinator,
             onCloseWorkspace: { id in
@@ -180,6 +200,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 Task { @MainActor in
                     await coordinator.addWorkspace(cwd: cwd, name: name)
                 }
+            },
+            isShowingSettings: Binding(
+                get: { settingsState.isShowingSettings },
+                set: { settingsState.isShowingSettings = $0 }
+            ),
+            onOpenSettings: { settingsState.open() },
+            settingsContent: {
+                SettingsPageView(
+                    settingsState: settingsState,
+                    pushSettingsModel: self.pushSettingsModel
+                )
             },
             normalContent: { workspace in
                 if let app = app {
@@ -207,7 +238,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                     Text("libghostty 가 초기화되지 않았습니다.")
                 }
             }
-        )
+            )
+        }
         let hosting = NSHostingView(rootView: rootView)
         window.contentView = hosting
 
@@ -221,8 +253,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // WSServer.start() is async, so hop onto a main-actor Task.
         Task { @MainActor in
             do {
-                let handle = try await DaemonBootstrap().start()
+                // P6a Day 3: 실 Keychain store를 주입해 데몬 토큰 인증이 디스크의 신뢰 목록을
+                // 보게 한다. 페어링 UI도 같은 store를 공유한다.
+                let handle = try await DaemonBootstrap(store: self.deviceStore).start()
                 self.daemonHandle = handle
+
+                // P6a Day 3: 데몬 port가 정해졌으니 페어링 화면 모델을 구성한다. wsEndpoint는
+                // loopback ws://127.0.0.1:<port>/ (D-5).
+                let model = PairingModel(
+                    session: self.pairingSession,
+                    store: self.deviceStore,
+                    wsEndpoint: "ws://127.0.0.1:\(handle.port)/"
+                )
+                self.pairingModel = model
+                // AppSettingsState도 동기화해 SettingsPageView가 자동 갱신되도록 한다.
+                self.appSettingsState.pairingModel = model
                 // P5 Day 5: lid-close → invalidate all WS attachments so push
                 // fallback fires during sleep. Reconstruct powerObserver (let→var)
                 // with the willSleep handler now that the registry exists.
@@ -295,6 +340,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             keyEquivalent: ""
         )
         appMenu.addItem(NSMenuItem.separator())
+
+        // 설정 창 진입점. 표준 macOS 설정 단축키 Cmd+,. 주 진입점은 사이드바 톱니바퀴이며
+        // 메뉴 항목은 보조 경로다.
+        let settingsItem = NSMenuItem(
+            title: "설정…",
+            action: #selector(openSettingsWindow(_:)),
+            keyEquivalent: ","
+        )
+        settingsItem.keyEquivalentModifierMask = [.command]
+        settingsItem.target = self
+        appMenu.addItem(settingsItem)
+        appMenu.addItem(NSMenuItem.separator())
+
         appMenu.addItem(
             withTitle: "Hide \(appName)",
             action: #selector(NSApplication.hide(_:)),
@@ -481,6 +539,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         MainActor.assumeIsolated {
+            // 설정 항목은 workspace와 무관하며 데몬 준비 전에도 연다(창에 "데몬 준비 중"
+            // 안내가 있으므로 항상 활성).
+            if menuItem.action == #selector(openSettingsWindow(_:)) {
+                return true
+            }
             guard let manager = workspaceManager else { return false }
             switch menuItem.action {
             case #selector(closeCurrentWorkspaceFromMenu(_:)):
@@ -509,6 +572,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 return true
             }
         }
+    }
+
+    // MARK: - Settings page
+
+    /// 설정 페이지를 본 창 내에서 연다. 사이드바 설정 버튼과 메뉴 항목(Cmd+,)의 공통 진입점이다.
+    /// NSWindow 팝업 방식 대신 appSettingsState.isShowingSettings 를 true 로 설정해
+    /// RootView 가 SettingsPageView 로 전환하도록 한다.
+    ///
+    /// pairingModel 은 데몬 부트스트랩 후 채워지며, nil 이어도 설정 페이지는 열리고
+    /// PairingSettingsContent 가 "데몬 준비 중" 안내를 표시한다. RootView 가 pairingModel
+    /// @Published 변화를 관찰하므로 부트스트랩 완료 후 자동으로 갱신된다.
+    @objc private func openSettingsWindow(_ sender: Any?) {
+        appSettingsState.open(section: .pairing)
+        mainWindow?.makeKeyAndOrderFront(nil)
     }
 
     // MARK: - Workspace shortcut handlers
@@ -649,5 +726,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let count = pane.tabs.count
         let next = (idx + delta + count) % count
         manager.selectTab(workspaceId: id, paneId: pane.id, tabId: pane.tabs[next].id)
+    }
+}
+
+/// AppSettingsState를 관찰해 isShowingSettings 변경 시 루트 뷰 전체를 다시 그리는 호스트.
+///
+/// RootView 자체는 비앱 타겟 컴파일 호환을 위해 Binding만 받는다. 그러나 NSHostingView에
+/// Binding만 넘기면 관찰 주체가 없어 값이 바뀌어도 재렌더가 일어나지 않는다(설정 화면이
+/// 열리지 않고, 돌아가기도 동작하지 않는 원인). 관찰 책임을 이 래퍼가 진다.
+private struct SettingsObservingHost<Content: View>: View {
+    @ObservedObject var settingsState: AppSettingsState
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        content()
     }
 }
